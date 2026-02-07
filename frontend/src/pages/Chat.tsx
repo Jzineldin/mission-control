@@ -67,6 +67,9 @@ export default function Chat() {
   const m = useIsMobile()
   const { data: sessionsData } = useApi<any>('/api/sessions', 15000)
   const [activeSession, setActiveSession] = useState<string | null>(null)
+  const [activeSessionName, setActiveSessionName] = useState('')
+  const [historyMessages, setHistoryMessages] = useState<any[]>([])
+  const [historyLoading, setHistoryLoading] = useState(false)
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [isStreaming, setIsStreaming] = useState(false)
@@ -160,7 +163,27 @@ export default function Chat() {
 
   const openMainChat = () => {
     setActiveSession('main-chat')
+    setActiveSessionName('Zinbot')
     setMessages([])
+    setHistoryMessages([])
+  }
+
+  const openSession = async (s: any) => {
+    const name = sessionName(s)
+    setActiveSession(s.key)
+    setActiveSessionName(name)
+    setHistoryLoading(true)
+    setHistoryMessages([])
+    setMessages([])
+    try {
+      const res = await fetch(`/api/sessions/${encodeURIComponent(s.key)}/history`)
+      const data = await res.json()
+      setHistoryMessages(data.messages || [])
+    } catch {
+      setHistoryMessages([])
+    } finally {
+      setHistoryLoading(false)
+    }
   }
 
   const renderContent = (text: string) => {
@@ -170,7 +193,65 @@ export default function Chat() {
       .replace(/\n/g, '<br/>')
   }
 
-  // Active chat view
+  // Session history view (read-only)
+  if (activeSession && activeSession !== 'main-chat') {
+    return (
+      <PageTransition>
+        <div style={{ maxWidth: m ? '100%' : 900, margin: '0 auto', display: 'flex', flexDirection: 'column', height: m ? 'calc(100vh - 100px)' : 'calc(100vh - 96px)' }}>
+          {/* Header */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: m ? 12 : 16 }}>
+            <button
+              onClick={() => setActiveSession(null)}
+              style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: 8, cursor: 'pointer', display: 'flex', color: 'rgba(255,255,255,0.7)' }}
+            >
+              <ArrowLeft size={18} />
+            </button>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <h2 style={{ fontSize: 15, fontWeight: 600, color: 'rgba(255,255,255,0.92)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{activeSessionName}</h2>
+              <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)' }}>Session history (read-only)</p>
+            </div>
+          </div>
+
+          {/* Messages */}
+          <div className="macos-panel" style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', padding: 0 }}>
+            <div style={{ flex: 1, overflowY: 'auto', padding: m ? '14px' : '20px 24px' }}>
+              {historyLoading ? (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+                  <div style={{ width: 24, height: 24, border: '2px solid #007AFF', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+                </div>
+              ) : historyMessages.length === 0 ? (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 12, opacity: 0.4 }}>
+                  <Clock size={32} />
+                  <p style={{ fontSize: 13 }}>No messages found for this session</p>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                  {historyMessages.map((msg: any, i: number) => (
+                    <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                      <div style={{ width: 30, height: 30, borderRadius: 8, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: msg.role === 'assistant' ? 'rgba(0,122,255,0.15)' : msg.role === 'system' ? 'rgba(255,149,0,0.15)' : 'rgba(255,255,255,0.08)' }}>
+                        {msg.role === 'assistant' ? <Bot size={15} style={{ color: '#007AFF' }} />
+                          : msg.role === 'system' ? <Zap size={15} style={{ color: '#FF9500' }} />
+                          : <User size={15} style={{ color: 'rgba(255,255,255,0.6)' }} />}
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <span style={{ fontSize: 10, fontWeight: 600, color: msg.role === 'assistant' ? '#007AFF' : msg.role === 'system' ? '#FF9500' : 'rgba(255,255,255,0.65)', textTransform: 'capitalize', marginBottom: 4, display: 'block' }}>{msg.role}</span>
+                        <div style={{ fontSize: 13, lineHeight: 1.6, color: 'rgba(255,255,255,0.78)', wordBreak: 'break-word', whiteSpace: 'pre-wrap' }}>
+                          {typeof msg.content === 'string' ? msg.content.substring(0, 2000) : JSON.stringify(msg.content).substring(0, 2000)}
+                          {(msg.content?.length || 0) > 2000 && <span style={{ color: 'rgba(255,255,255,0.3)' }}>... (truncated)</span>}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </PageTransition>
+    )
+  }
+
+  // Active chat view (main chat)
   if (activeSession === 'main-chat') {
     return (
       <PageTransition>
@@ -326,7 +407,7 @@ export default function Chat() {
                 transition={{ delay: 0.03 * i }}
                 className="macos-panel"
                 style={{ padding: m ? 14 : '16px 20px', cursor: 'pointer' }}
-                onClick={() => { /* TODO: open session history */ }}
+                onClick={() => openSession(s)}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                   <div style={{ width: m ? 36 : 40, height: m ? 36 : 40, borderRadius: 10, background: cat === 'Sub-Agent' ? 'rgba(255,149,0,0.12)' : cat === 'Discord' ? 'rgba(114,137,218,0.15)' : 'rgba(0,122,255,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>

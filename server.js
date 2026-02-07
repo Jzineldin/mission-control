@@ -1329,6 +1329,72 @@ app.get('/api/aws/costs', async (req, res) => {
   }
 });
 
+// === Session History ===
+app.get('/api/sessions/:sessionKey/history', async (req, res) => {
+  try {
+    const sessionKey = decodeURIComponent(req.params.sessionKey);
+    const configPath = path.join(require('os').homedir(), '.openclaw/openclaw.json');
+    const cfg = fs.existsSync(configPath) ? JSON.parse(fs.readFileSync(configPath, 'utf8')) : {};
+    const gwToken = cfg.gateway?.auth?.token || 'mc-zinbot-2026';
+    const gwPort = cfg.gateway?.port || 18789;
+    
+    // First get session info to find transcriptPath
+    const listRes = await fetch(`http://127.0.0.1:${gwPort}/tools/invoke`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${gwToken}` },
+      body: JSON.stringify({ tool: 'sessions_list', input: { limit: 100, messageLimit: 0 } })
+    });
+    
+    if (!listRes.ok) return res.json({ messages: [] });
+    
+    const listData = await listRes.json();
+    const listText = listData?.result?.content?.[0]?.text || '{}';
+    const parsed = JSON.parse(listText);
+    const session = (parsed.sessions || []).find((s) => s.key === sessionKey);
+    
+    if (!session?.transcriptPath) return res.json({ messages: [], info: 'No transcript found' });
+    
+    // Read JSONL transcript
+    const transcriptDir = path.join(require('os').homedir(), '.openclaw/agents/main/sessions');
+    const transcriptFile = path.join(transcriptDir, session.transcriptPath);
+    
+    if (!fs.existsSync(transcriptFile)) return res.json({ messages: [], info: 'Transcript file missing' });
+    
+    const lines = fs.readFileSync(transcriptFile, 'utf8').split('\n').filter(Boolean);
+    const messages = [];
+    
+    for (const line of lines) {
+      try {
+        const entry = JSON.parse(line);
+        if (entry.type !== 'message' || !entry.message) continue;
+        const msg = entry.message;
+        const role = msg.role;
+        if (!role || role === 'toolResult' || role === 'toolUse') continue;
+        
+        // Extract text from content array or string
+        let text = '';
+        if (typeof msg.content === 'string') {
+          text = msg.content;
+        } else if (Array.isArray(msg.content)) {
+          text = msg.content
+            .filter(c => c.type === 'text')
+            .map(c => c.text || '')
+            .join('\n');
+        }
+        
+        if (text.trim()) {
+          messages.push({ role, content: text.substring(0, 3000), ts: entry.timestamp });
+        }
+      } catch {}
+    }
+    
+    // Return last 50 messages
+    res.json({ messages: messages.slice(-50), total: messages.length, sessionKey });
+  } catch (err) {
+    res.json({ messages: [], error: err.message });
+  }
+});
+
 // === Document Management ===
 const docsDir = path.join(__dirname, 'documents');
 if (!fs.existsSync(docsDir)) fs.mkdirSync(docsDir, { recursive: true });
