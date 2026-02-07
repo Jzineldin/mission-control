@@ -446,6 +446,111 @@ app.post('/api/tasks', (req, res) => {
   }
 });
 
+// POST: Add a single task to queue
+app.post('/api/tasks/add', (req, res) => {
+  try {
+    const { title, description, priority, tags } = req.body;
+    if (!title) return res.status(400).json({ error: 'title required' });
+    
+    const tasks = JSON.parse(fs.readFileSync(TASKS_FILE, 'utf8'));
+    const task = {
+      id: `task-${Date.now()}`,
+      title,
+      description: description || '',
+      priority: priority || 'medium',
+      created: new Date().toISOString(),
+      tags: tags || [],
+      source: 'manual',
+    };
+    tasks.columns.queue.unshift(task);
+    fs.writeFileSync(TASKS_FILE, JSON.stringify(tasks, null, 2));
+    res.json({ ok: true, task });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// POST: Execute a task — spawns sub-agent
+app.post('/api/tasks/:taskId/execute', async (req, res) => {
+  try {
+    const { taskId } = req.params;
+    const tasks = JSON.parse(fs.readFileSync(TASKS_FILE, 'utf8'));
+    
+    // Find task in any column
+    let task = null;
+    let fromCol = null;
+    for (const [col, items] of Object.entries(tasks.columns)) {
+      const idx = items.findIndex(t => t.id === taskId);
+      if (idx >= 0) {
+        task = items[idx];
+        fromCol = col;
+        items.splice(idx, 1);
+        break;
+      }
+    }
+    
+    if (!task) return res.status(404).json({ error: 'Task not found' });
+    
+    // Move to inProgress
+    task.startedAt = new Date().toISOString();
+    task.status = 'executing';
+    tasks.columns.inProgress.unshift(task);
+    fs.writeFileSync(TASKS_FILE, JSON.stringify(tasks, null, 2));
+    
+    // Spawn sub-agent via gateway
+    const configPath = path.join(require('os').homedir(), '.openclaw/openclaw.json');
+    const cfg = fs.existsSync(configPath) ? JSON.parse(fs.readFileSync(configPath, 'utf8')) : {};
+    const gwToken = cfg.gateway?.auth?.token || 'mc-zinbot-2026';
+    const gwPort = cfg.gateway?.port || 18789;
+    
+    // Fire and forget — sub-agent runs in background
+    fetch(`http://127.0.0.1:${gwPort}/tools/invoke`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${gwToken}` },
+      body: JSON.stringify({
+        tool: 'sessions_spawn',
+        input: {
+          task: `Execute this task:\n\nTitle: ${task.title}\nDescription: ${task.description}\n\nDo the work described. When done, summarize what you accomplished.`,
+          model: 'sonnet',
+          runTimeoutSeconds: 300,
+          label: `workshop-${taskId}`
+        }
+      })
+    }).then(async (spawnRes) => {
+      const spawnData = await spawnRes.json();
+      const resultText = spawnData?.result?.content?.[0]?.text || '';
+      
+      // Move task to done
+      const tasksNow = JSON.parse(fs.readFileSync(TASKS_FILE, 'utf8'));
+      const idx = tasksNow.columns.inProgress.findIndex(t => t.id === taskId);
+      if (idx >= 0) {
+        const doneTask = tasksNow.columns.inProgress.splice(idx, 1)[0];
+        doneTask.status = 'done';
+        doneTask.completed = new Date().toISOString();
+        doneTask.result = resultText.substring(0, 2000) || 'Completed';
+        tasksNow.columns.done.unshift(doneTask);
+        fs.writeFileSync(TASKS_FILE, JSON.stringify(tasksNow, null, 2));
+      }
+    }).catch(err => {
+      console.error('[Task Execute] Sub-agent error:', err.message);
+      // Move task back to queue on error
+      const tasksNow = JSON.parse(fs.readFileSync(TASKS_FILE, 'utf8'));
+      const idx = tasksNow.columns.inProgress.findIndex(t => t.id === taskId);
+      if (idx >= 0) {
+        const failedTask = tasksNow.columns.inProgress.splice(idx, 1)[0];
+        failedTask.status = 'failed';
+        failedTask.error = err.message;
+        tasksNow.columns.queue.unshift(failedTask);
+        fs.writeFileSync(TASKS_FILE, JSON.stringify(tasksNow, null, 2));
+      }
+    });
+    
+    res.json({ ok: true, message: 'Task execution started', taskId });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ========== API: Costs — Real token usage from sessions ==========
 app.get('/api/costs', async (req, res) => {
   try {
