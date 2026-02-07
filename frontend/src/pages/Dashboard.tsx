@@ -27,6 +27,133 @@ const feedColors: Record<string, string> = {
   cron_run: '#8E8E93',
 }
 
+function QuickActionsBar() {
+  const m = useIsMobile()
+  const [loading, setLoading] = useState<string | null>(null)
+  const [result, setResult] = useState<string | null>(null)
+
+  const handleQuickAction = async (endpoint: string, label: string) => {
+    if (loading) return
+    
+    setLoading(endpoint)
+    setResult(null)
+    
+    try {
+      const res = await fetch(`/api${endpoint}`, { 
+        method: 'POST', 
+        headers: { 'Content-Type': 'application/json' }
+      })
+      const data = await res.json()
+      
+      if (data.status === 'triggered') {
+        setResult('✅ Heartbeat triggered')
+      } else if (data.status === 'sent') {
+        setResult(data.reply || 'Request sent')
+      } else if (data.status === 'error') {
+        setResult(`❌ ${data.error}`)
+      } else {
+        setResult('✅ Action completed')
+      }
+      
+      // Clear result after 5 seconds
+      setTimeout(() => setResult(null), 5000)
+    } catch (e: any) {
+      setResult(`❌ ${e.message}`)
+      setTimeout(() => setResult(null), 5000)
+    } finally {
+      setLoading(null)
+    }
+  }
+
+  const actions = [
+    { endpoint: '/heartbeat/run', label: '▶ Run Heartbeat', icon: Heart },
+    { endpoint: '/quick/emails', label: '📧 Check Emails', icon: Mail },
+    { endpoint: '/quick/schedule', label: '📅 Today\'s Schedule', icon: Calendar },
+  ]
+
+  return (
+    <GlassCard delay={0.08} noPad>
+      <div style={{ padding: m ? 14 : 20 }}>
+        <h3 style={{ fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.92)', marginBottom: 12 }}>
+          Quick Actions
+        </h3>
+        
+        <div style={{ 
+          display: 'flex', 
+          flexDirection: m ? 'column' : 'row', 
+          gap: m ? 10 : 12 
+        }}>
+          {actions.map(action => (
+            <button
+              key={action.endpoint}
+              onClick={() => handleQuickAction(action.endpoint, action.label)}
+              disabled={loading === action.endpoint}
+              style={{
+                flex: m ? undefined : 1,
+                padding: '10px 16px',
+                borderRadius: 8,
+                border: '1px solid rgba(0,122,255,0.3)',
+                background: loading === action.endpoint 
+                  ? 'rgba(0,122,255,0.2)' 
+                  : 'rgba(0,122,255,0.1)',
+                color: 'rgba(255,255,255,0.9)',
+                fontSize: 12,
+                fontWeight: 500,
+                cursor: loading === action.endpoint ? 'not-allowed' : 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 8,
+                transition: 'all 0.15s',
+                opacity: loading === action.endpoint ? 0.7 : 1,
+              }}
+              onMouseEnter={(e) => {
+                if (loading !== action.endpoint) {
+                  e.currentTarget.style.background = 'rgba(0,122,255,0.2)'
+                  e.currentTarget.style.borderColor = 'rgba(0,122,255,0.5)'
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (loading !== action.endpoint) {
+                  e.currentTarget.style.background = 'rgba(0,122,255,0.1)'
+                  e.currentTarget.style.borderColor = 'rgba(0,122,255,0.3)'
+                }
+              }}
+            >
+              {loading === action.endpoint ? (
+                <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} />
+              ) : (
+                <action.icon size={14} />
+              )}
+              {action.label}
+            </button>
+          ))}
+        </div>
+        
+        {result && (
+          <div style={{ 
+            marginTop: 12, 
+            padding: '8px 12px', 
+            borderRadius: 6, 
+            background: result.startsWith('❌') 
+              ? 'rgba(255,69,58,0.1)' 
+              : 'rgba(50,215,75,0.1)',
+            border: `1px solid ${result.startsWith('❌') 
+              ? 'rgba(255,69,58,0.3)' 
+              : 'rgba(50,215,75,0.3)'}`,
+            fontSize: 11,
+            color: result.startsWith('❌') 
+              ? '#FF453A' 
+              : '#32D74B',
+          }}>
+            {result}
+          </div>
+        )}
+      </div>
+    </GlassCard>
+  )
+}
+
 export default function Dashboard() {
   const m = useIsMobile()
   const navigate = useNavigate()
@@ -91,6 +218,12 @@ export default function Dashboard() {
                 <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {m ? agent.heartbeatInterval : `${agent.model} · ${agent.heartbeatInterval} · ${agent.totalAgents} agents`}
                 </p>
+                {/* Last Active timestamp */}
+                {sessions.length > 0 && (
+                  <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', marginTop: 4 }}>
+                    Last active: {timeAgo(sessions.sort((a, b) => new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime())[0]?.updatedAt || '')}
+                  </p>
+                )}
               </div>
             </div>
             <div style={{ display: 'flex', gap: 16, justifyContent: m ? 'space-around' : 'flex-end', paddingTop: m ? 12 : 0, borderTop: m ? '1px solid rgba(255,255,255,0.06)' : 'none' }}>
@@ -129,6 +262,9 @@ export default function Dashboard() {
             </div>
           </div>
         </GlassCard>
+
+        {/* Quick Actions Bar */}
+        <QuickActionsBar />
 
         {/* Stats Grid */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: m ? 10 : 20 }}>

@@ -13,6 +13,39 @@ const scoreColor = (score: number) => {
   return '#8E8E93'
 }
 
+const getFreshnessInfo = (foundDate: string) => {
+  const now = new Date()
+  const found = new Date(foundDate)
+  const hours = (now.getTime() - found.getTime()) / (1000 * 60 * 60)
+  
+  if (hours < 4) {
+    return { badge: '🟢 Fresh', color: '#32D74B' }
+  } else if (hours > 24) {
+    const days = Math.floor(hours / 24)
+    return { badge: `🕐 ${days}d old`, color: 'rgba(255,255,255,0.3)' }
+  }
+  return null
+}
+
+const getNextScanTime = (cronJobs: any[]) => {
+  const scoutJob = cronJobs?.find(job => 
+    job.name?.toLowerCase().includes('scout') || 
+    job.description?.toLowerCase().includes('scout')
+  )
+  
+  if (scoutJob?.nextRun) {
+    const nextRun = new Date(scoutJob.nextRun)
+    const now = new Date()
+    const hours = Math.ceil((nextRun.getTime() - now.getTime()) / (1000 * 60 * 60))
+    
+    if (hours < 1) return 'Next scan: soon'
+    if (hours < 24) return `Next scan: in ${hours}h`
+    if (scoutJob.schedule?.includes('daily')) return 'Next scan: daily at 12:00 UTC'
+    return 'Next scan: scheduled'
+  }
+  return null
+}
+
 const FILTERS = [
   { id: 'all', label: 'All', icon: Radar },
   { id: 'openclaw', label: 'OpenClaw', icon: Code, match: (o: any) => o.category?.startsWith('openclaw') },
@@ -25,6 +58,7 @@ const FILTERS = [
 export default function Scout() {
   const m = useIsMobile()
   const { data, loading } = useApi<any>('/api/scout', 60000)
+  const { data: cronData } = useApi<any>('/api/cron', 30000) // Add cron data for next scan time
   const [sortBy, setSortBy] = useState<'score' | 'date'>('score')
   const [filter, setFilter] = useState('all')
   const [scanning, setScanning] = useState(false)
@@ -109,9 +143,15 @@ export default function Scout() {
             <p className="text-body" style={{ marginTop: 4, fontSize: m ? 11 : 13 }}>
               Find opportunities across the web — skills, jobs, grants & more
             </p>
-            <p className="text-body" style={{ marginTop: 2, fontSize: m ? 10 : 12, opacity: 0.6 }}>
-              Last scan: {data?.lastScan ? timeAgo(data.lastScan) : 'never'}
-            </p>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginTop: 2, fontSize: m ? 10 : 12, opacity: 0.6 }}>
+              <span>Last scan: {data?.lastScan ? timeAgo(data.lastScan) : 'never'}</span>
+              {cronData?.jobs && getNextScanTime(cronData.jobs) && (
+                <>
+                  <span style={{ color: 'rgba(255,255,255,0.25)' }}>•</span>
+                  <span>{getNextScanTime(cronData.jobs)}</span>
+                </>
+              )}
+            </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <button
@@ -229,6 +269,18 @@ export default function Scout() {
                         <div style={{ display: 'flex', gap: 6, marginTop: 4, flexWrap: 'wrap' }}>
                           <span className="macos-badge" style={{ fontSize: 10 }}>{opp.source}</span>
                           <span className="macos-badge" style={{ fontSize: 10 }}>{opp.category}</span>
+                          {getFreshnessInfo(opp.found) && (
+                            <span style={{
+                              fontSize: 9,
+                              padding: '2px 6px',
+                              borderRadius: 4,
+                              background: 'rgba(255,255,255,0.06)',
+                              color: getFreshnessInfo(opp.found)?.color,
+                              fontWeight: 500
+                            }}>
+                              {getFreshnessInfo(opp.found)?.badge}
+                            </span>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -279,6 +331,18 @@ export default function Scout() {
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                         <span className="macos-badge" style={{ fontSize: 10 }}>{opp.source}</span>
                         <span className="macos-badge" style={{ fontSize: 10 }}>{opp.category}</span>
+                        {getFreshnessInfo(opp.found) && (
+                          <span style={{
+                            fontSize: 9,
+                            padding: '2px 6px',
+                            borderRadius: 4,
+                            background: 'rgba(255,255,255,0.06)',
+                            color: getFreshnessInfo(opp.found)?.color,
+                            fontWeight: 500
+                          }}>
+                            {getFreshnessInfo(opp.found)?.badge}
+                          </span>
+                        )}
                         <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)' }}>{timeAgo(opp.found)}</span>
                       </div>
                     </div>

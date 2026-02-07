@@ -288,10 +288,28 @@ export default function Workshop() {
                     >
                       {/* Priority dot + title */}
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-                        <span style={{ width: 8, height: 8, borderRadius: '50%', background: priorityConfig[task.priority]?.color || '#8E8E93', flexShrink: 0 }} />
+                        <span style={{ 
+                          display: 'inline-block', 
+                          width: 8, 
+                          height: 8, 
+                          borderRadius: '50%', 
+                          background: task.priority === 'high' ? '#FF453A' : task.priority === 'medium' ? '#FF9500' : '#8E8E93',
+                          marginRight: 8 
+                        }} />
                         <h4 style={{ fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.92)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
                           {task.title}
                         </h4>
+                        <span style={{ 
+                          fontSize: 10, 
+                          padding: '2px 6px', 
+                          borderRadius: 4, 
+                          background: `rgba(${task.priority === 'high' ? '255,69,58' : task.priority === 'medium' ? '255,149,0' : '142,142,147'}, 0.15)`,
+                          color: task.priority === 'high' ? '#FF453A' : task.priority === 'medium' ? '#FF9500' : '#8E8E93',
+                          textTransform: 'capitalize',
+                          fontWeight: 500
+                        }}>
+                          {task.priority}
+                        </span>
                       </div>
 
                       {/* Description */}
@@ -321,9 +339,21 @@ export default function Workshop() {
                       {/* Footer: tags + actions */}
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
                         <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', flex: 1, overflow: 'hidden' }}>
-                          {task.tags?.map(tag => (
-                            <span key={tag} style={{ fontSize: 10, padding: '2px 7px', borderRadius: 5, background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.4)' }}>{tag}</span>
-                          ))}
+                          {task.tags?.map(tag => {
+                            const tagColors = ['#007AFF', '#32D74B', '#FF9500', '#FF453A', '#BF5AF2', '#64D2FF'];
+                            const colorIndex = tag.split('').reduce((a, c) => a + c.charCodeAt(0), 0) % tagColors.length;
+                            const tagColor = tagColors[colorIndex];
+                            return (
+                              <span key={tag} style={{ 
+                                fontSize: 10, 
+                                padding: '2px 7px', 
+                                borderRadius: 5, 
+                                background: `rgba(${parseInt(tagColor.slice(1,3), 16)}, ${parseInt(tagColor.slice(3,5), 16)}, ${parseInt(tagColor.slice(5,7), 16)}, 0.15)`, 
+                                color: tagColor,
+                                border: `1px solid rgba(${parseInt(tagColor.slice(1,3), 16)}, ${parseInt(tagColor.slice(3,5), 16)}, ${parseInt(tagColor.slice(5,7), 16)}, 0.3)`
+                              }}>{tag}</span>
+                            );
+                          })}
                           {task.source && (
                             <span style={{ fontSize: 10, padding: '2px 7px', borderRadius: 5, background: task.source === 'scout' ? 'rgba(191,90,242,0.12)' : 'rgba(255,255,255,0.06)', color: task.source === 'scout' ? '#BF5AF2' : 'rgba(255,255,255,0.4)' }}>
                               {task.source}

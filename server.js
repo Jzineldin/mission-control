@@ -1140,6 +1140,7 @@ app.get('/api/costs', async (req, res) => {
       byService,
       byType,
       byChannel,
+      budget: mcConfig.budget || { monthly: 0 }
     });
   } catch (e) {
     console.error('[Costs API]', e.message);
@@ -1149,8 +1150,21 @@ app.get('/api/costs', async (req, res) => {
       byService: [],
       byType: {},
       byChannel: {},
+      budget: mcConfig.budget || { monthly: 0 },
       error: e.message,
     });
+  }
+});
+
+// ========== API: Budget Setting ==========
+app.post('/api/settings/budget', (req, res) => {
+  try {
+    mcConfig.budget = { monthly: req.body.monthly || 0 };
+    fs.writeFileSync(MC_CONFIG_PATH, JSON.stringify(mcConfig, null, 2));
+    res.json({ status: 'saved', budget: mcConfig.budget });
+  } catch (e) {
+    console.error('[Budget API]', e.message);
+    res.status(500).json({ status: 'error', error: e.message });
   }
 });
 
@@ -2237,6 +2251,13 @@ app.post('/api/sessions/:sessionKey/send', async (req, res) => {
   }
 });
 
+// Close session endpoint (placeholder)
+app.delete('/api/sessions/:key/close', async (req, res) => {
+  // OpenClaw doesn't have a close session API, so just acknowledge
+  // In future this could clear the session
+  res.json({ status: 'acknowledged', message: 'Session marked for cleanup' });
+});
+
 // === Document Management ===
 const docsDir = path.join(__dirname, 'documents');
 if (!fs.existsSync(docsDir)) fs.mkdirSync(docsDir, { recursive: true });
@@ -2274,6 +2295,119 @@ app.post('/api/docs/upload', upload.array('files', 20), (req, res) => {
     res.json({ ok: true, uploaded });
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+// ========== NEW DASHBOARD QUICK ACTIONS ==========
+
+// POST /api/heartbeat/run — trigger heartbeat via cron tool
+app.post('/api/heartbeat/run', async (req, res) => {
+  try {
+    const r = await fetch(`http://127.0.0.1:${GATEWAY_PORT}/tools/invoke`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${GATEWAY_TOKEN}` },
+      body: JSON.stringify({ tool: 'cron', args: { action: 'wake', text: 'Manual heartbeat check from Mission Control', mode: 'now' } })
+    });
+    const data = await r.json();
+    res.json({ status: 'triggered', result: data });
+  } catch(e) { 
+    res.json({ status: 'error', error: e.message }); 
+  }
+});
+
+// POST /api/quick/emails — just return a message (actual email check happens via heartbeat)
+app.post('/api/quick/emails', async (req, res) => {
+  try {
+    const r = await fetch(`http://127.0.0.1:${GATEWAY_PORT}/tools/invoke`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${GATEWAY_TOKEN}` },
+      body: JSON.stringify({ tool: 'sessions_send', args: { sessionKey: 'agent:main:main', message: 'Check for urgent unread emails and report back briefly.' } })
+    });
+    const data = await r.json();
+    res.json({ status: 'sent', reply: data?.result?.content?.[0]?.text || 'Checking...' });
+  } catch(e) { 
+    res.json({ status: 'error', error: e.message }); 
+  }
+});
+
+// POST /api/quick/schedule
+app.post('/api/quick/schedule', async (req, res) => {
+  try {
+    const r = await fetch(`http://127.0.0.1:${GATEWAY_PORT}/tools/invoke`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${GATEWAY_TOKEN}` },
+      body: JSON.stringify({ tool: 'sessions_send', args: { sessionKey: 'agent:main:main', message: "Check today's calendar events and list them briefly." } })
+    });
+    const data = await r.json();
+    res.json({ status: 'sent', reply: data?.result?.content?.[0]?.text || 'Checking...' });
+  } catch(e) { 
+    res.json({ status: 'error', error: e.message }); 
+  }
+});
+
+// ========== SETTINGS API ENDPOINTS ==========
+
+// POST /api/settings/model-routing
+app.post('/api/settings/model-routing', async (req, res) => {
+  // Write to OpenClaw config via gateway
+  const { main, subagent, heartbeat } = req.body;
+  try {
+    const raw = JSON.stringify({
+      agents: { defaults: { model: { primary: main } } },
+      agents_subagents_model: subagent,
+      heartbeat_model: heartbeat
+    });
+    // For now just save to mc-config.json
+    mcConfig.modelRouting = { main, subagent, heartbeat };
+    fs.writeFileSync(MC_CONFIG_PATH, JSON.stringify(mcConfig, null, 2));
+    res.json({ status: 'saved' });
+  } catch(e) { 
+    res.status(500).json({ error: e.message }); 
+  }
+});
+
+// POST /api/settings/heartbeat
+app.post('/api/settings/heartbeat', async (req, res) => {
+  try {
+    const { interval } = req.body;
+    mcConfig.heartbeat = { interval };
+    fs.writeFileSync(MC_CONFIG_PATH, JSON.stringify(mcConfig, null, 2));
+    res.json({ status: 'saved' });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// GET /api/settings/export
+app.get('/api/settings/export', (req, res) => {
+  res.setHeader('Content-Disposition', 'attachment; filename=mc-config.json');
+  res.setHeader('Content-Type', 'application/json');
+  res.sendFile(MC_CONFIG_PATH);
+});
+
+// POST /api/settings/import
+app.post('/api/settings/import', upload.single('config'), (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No config file uploaded' });
+    }
+    
+    // Validate JSON
+    const configContent = fs.readFileSync(req.file.path, 'utf8');
+    const newConfig = JSON.parse(configContent); // Will throw if invalid JSON
+    
+    // Backup current config
+    fs.copyFileSync(MC_CONFIG_PATH, `${MC_CONFIG_PATH}.backup.${Date.now()}`);
+    
+    // Write new config
+    fs.writeFileSync(MC_CONFIG_PATH, configContent);
+    
+    // Clean up temp file
+    fs.unlinkSync(req.file.path);
+    
+    res.json({ status: 'imported', message: 'Configuration imported successfully. Restart required.' });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
   }
 });
 

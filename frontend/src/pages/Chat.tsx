@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   MessageCircle, Send, Bot, User, Loader2, Trash2, Sparkles,
-  ArrowLeft, Hash, MessageSquare, Zap, Clock
+  ArrowLeft, Hash, MessageSquare, Zap, Clock, Search
 } from 'lucide-react'
 import PageTransition from '../components/PageTransition'
 import GlassCard from '../components/GlassCard'
@@ -84,6 +84,7 @@ export default function Chat() {
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const abortRef = useRef<AbortController | null>(null)
   const [filter, setFilter] = useState<'active' | 'all'>('active')
+  const [searchQuery, setSearchQuery] = useState('')
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -95,6 +96,13 @@ export default function Chat() {
     .filter((s: any) => {
       if (filter === 'active') return s.isActive
       return true // 'all'
+    })
+    .filter((s: any) => {
+      if (!searchQuery) return true
+      const searchTerm = searchQuery.toLowerCase()
+      const name = sessionName(s).toLowerCase()
+      const key = (s.key || '').toLowerCase()
+      return name.includes(searchTerm) || key.includes(searchTerm)
     })
     .sort((a: any, b: any) => new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime())
 
@@ -166,6 +174,23 @@ export default function Chat() {
 
   const [sessionInput, setSessionInput] = useState('')
   const [sessionSending, setSessionSending] = useState(false)
+  const [closingSession, setClosingSession] = useState<string | null>(null)
+
+  const closeSession = async (sessionKey: string) => {
+    if (!confirm('Close this session?')) return
+    setClosingSession(sessionKey)
+    try {
+      await fetch(`/api/sessions/${encodeURIComponent(sessionKey)}/close`, {
+        method: 'DELETE'
+      })
+      // Refresh sessions data
+      window.location.reload()
+    } catch (err) {
+      console.error('Failed to close session:', err)
+    } finally {
+      setClosingSession(null)
+    }
+  }
 
   const sendToSession = async () => {
     const text = sessionInput.trim()
@@ -420,28 +445,59 @@ export default function Chat() {
         </div>
 
         {/* Filter tabs */}
-        <div style={{ display: 'flex', gap: 6, overflowX: 'auto', WebkitOverflowScrolling: 'touch', paddingBottom: 4 }}>
-          {filters.map(f => (
-            <button
-              key={f.id}
-              onClick={() => setFilter(f.id as any)}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {/* Search input */}
+          <div style={{ position: 'relative' }}>
+            <input
+              type="text"
+              placeholder="Search sessions..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
               style={{
-                display: 'flex', alignItems: 'center', gap: 6,
-                padding: m ? '7px 12px' : '8px 14px',
-                borderRadius: 8, flexShrink: 0,
-                border: filter === f.id ? '1px solid rgba(0,122,255,0.4)' : '1px solid rgba(255,255,255,0.08)',
-                background: filter === f.id ? 'rgba(0,122,255,0.12)' : 'rgba(255,255,255,0.04)',
-                color: filter === f.id ? '#fff' : 'rgba(255,255,255,0.5)',
-                fontSize: 12, fontWeight: 500, cursor: 'pointer',
-                WebkitTapHighlightColor: 'transparent',
+                width: '100%',
+                background: 'rgba(255,255,255,0.06)',
+                border: '1px solid rgba(255,255,255,0.1)',
+                padding: '10px 16px 10px 40px',
+                borderRadius: 10,
+                color: 'rgba(255,255,255,0.9)',
+                fontSize: 13,
+                outline: 'none',
+                fontFamily: 'inherit'
               }}
-            >
-              {f.label}
-              <span style={{ fontSize: 10, padding: '1px 5px', borderRadius: 5, background: filter === f.id ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.06)', color: filter === f.id ? '#fff' : 'rgba(255,255,255,0.35)' }}>
-                {f.count}
-              </span>
-            </button>
-          ))}
+            />
+            <Search size={16} style={{ 
+              position: 'absolute', 
+              left: 14, 
+              top: '50%', 
+              transform: 'translateY(-50%)', 
+              color: 'rgba(255,255,255,0.3)' 
+            }} />
+          </div>
+          
+          {/* Filter buttons */}
+          <div style={{ display: 'flex', gap: 6, overflowX: 'auto', WebkitOverflowScrolling: 'touch', paddingBottom: 4 }}>
+            {filters.map(f => (
+              <button
+                key={f.id}
+                onClick={() => setFilter(f.id as any)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  padding: m ? '7px 12px' : '8px 14px',
+                  borderRadius: 8, flexShrink: 0,
+                  border: filter === f.id ? '1px solid rgba(0,122,255,0.4)' : '1px solid rgba(255,255,255,0.08)',
+                  background: filter === f.id ? 'rgba(0,122,255,0.12)' : 'rgba(255,255,255,0.04)',
+                  color: filter === f.id ? '#fff' : 'rgba(255,255,255,0.5)',
+                  fontSize: 12, fontWeight: 500, cursor: 'pointer',
+                  WebkitTapHighlightColor: 'transparent',
+                }}
+              >
+                {f.label}
+                <span style={{ fontSize: 10, padding: '1px 5px', borderRadius: 5, background: filter === f.id ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.06)', color: filter === f.id ? '#fff' : 'rgba(255,255,255,0.35)' }}>
+                  {f.count}
+                </span>
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Session list */}
@@ -457,9 +513,39 @@ export default function Chat() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.03 * i }}
                 className="macos-panel"
-                style={{ padding: m ? 14 : '16px 20px', cursor: 'pointer' }}
+                style={{ padding: m ? 14 : '16px 20px', cursor: 'pointer', position: 'relative' }}
                 onClick={() => openSession(s)}
               >
+                {/* Close button */}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    closeSession(s.key)
+                  }}
+                  disabled={closingSession === s.key}
+                  style={{
+                    position: 'absolute',
+                    top: m ? 8 : 12,
+                    right: m ? 8 : 12,
+                    width: 24,
+                    height: 24,
+                    borderRadius: 6,
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    background: 'rgba(255,255,255,0.06)',
+                    color: 'rgba(255,255,255,0.4)',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: 12,
+                    opacity: closingSession === s.key ? 0.5 : 0.8,
+                    transition: 'opacity 0.2s'
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,69,58,0.15)' }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)' }}
+                >
+                  {closingSession === s.key ? '...' : '✕'}
+                </button>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                   <div style={{ 
                     width: m ? 40 : 44, 

@@ -11,6 +11,7 @@ import { useApi, timeAgo } from '../lib/hooks'
 export default function Agents() {
   const m = useIsMobile()
   const { data, loading } = useApi<any>('/api/agents', 30000)
+  const { data: sessionsData } = useApi<any>('/api/sessions', 15000) // Add real sessions data
   const { data: modelsData } = useApi<any>('/api/models', 0)
   const { data: skillsData } = useApi<any>('/api/skills', 0)
   const [selectedAgent, setSelectedAgent] = useState<string | null>(null)
@@ -91,6 +92,38 @@ export default function Agents() {
     }))
   }
 
+  // Group sessions by agent type and calculate tokens
+  const getSessionGroups = () => {
+    const sessions = sessionsData?.sessions || []
+    const groups = {
+      main: { sessions: [], totalTokens: 0, name: 'Main Agent', icon: '👤' },
+      discord: { sessions: [], totalTokens: 0, name: 'Discord Channels', icon: '💬' },
+      subagents: { sessions: [], totalTokens: 0, name: 'Sub-agents', icon: '🤖' },
+      web: { sessions: [], totalTokens: 0, name: 'Web Interfaces', icon: '🌐' }
+    }
+    
+    sessions.forEach((s: any) => {
+      const key = s.key || ''
+      const tokens = s.totalTokens || 0
+      
+      if (key.includes(':main:main')) {
+        groups.main.sessions.push(s)
+        groups.main.totalTokens += tokens
+      } else if (key.includes(':discord:channel:')) {
+        groups.discord.sessions.push(s)
+        groups.discord.totalTokens += tokens
+      } else if (key.includes(':subagent:')) {
+        groups.subagents.sessions.push(s)
+        groups.subagents.totalTokens += tokens
+      } else if (key.includes(':openai')) {
+        groups.web.sessions.push(s)
+        groups.web.totalTokens += tokens
+      }
+    })
+    
+    return groups
+  }
+
   if (loading || !data) {
     return (
       <PageTransition>
@@ -102,6 +135,7 @@ export default function Agents() {
   }
 
   const { agents, conversations } = data
+  const sessionGroups = getSessionGroups()
   const selected = agents.find((a: any) => a.id === selectedAgent)
 
   return (

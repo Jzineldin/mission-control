@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { Settings2, ChevronDown, Save, RefreshCw, Shield, Database, Cpu, Globe } from 'lucide-react'
+import { Settings2, ChevronDown, Save, RefreshCw, Shield, Database, Cpu, Globe, Download, Upload, Clock, Zap } from 'lucide-react'
 import PageTransition from '../components/PageTransition'
 import { useIsMobile } from '../lib/useIsMobile'
 import GlassCard from '../components/GlassCard'
@@ -191,6 +191,9 @@ export default function Settings() {
             </div>
           </GlassCard>
 
+          {/* Model Routing Card */}
+          <ModelRoutingCard isMobile={isMobile} />
+
           {/* OpenClaw Configuration Card */}
           <GlassCard noPad>
             <div style={{ padding: isMobile ? 16 : 24 }}>
@@ -221,6 +224,9 @@ export default function Settings() {
             </div>
           </GlassCard>
 
+          {/* Heartbeat Configuration Card */}
+          <HeartbeatConfigCard isMobile={isMobile} />
+
           {/* System Information Card */}
           <GlassCard noPad>
             <div style={{ padding: isMobile ? 16 : 24 }}>
@@ -247,35 +253,8 @@ export default function Settings() {
             </div>
           </GlassCard>
 
-          {/* Quick Actions Card */}
-          <GlassCard noPad>
-            <div style={{ padding: isMobile ? 16 : 24 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
-                <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(50,215,75,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <Globe size={18} style={{ color: '#32D74B' }} />
-                </div>
-                <h2 style={{ fontSize: 15, fontWeight: 600, color: 'rgba(255,255,255,0.92)' }}>Quick Actions</h2>
-              </div>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {['Restart OpenClaw Gateway', 'Clear Memory Cache', 'Export Configuration', 'View Logs'].map((label) => (
-                  <button
-                    key={label}
-                    style={{
-                      width: '100%', padding: '12px 16px', textAlign: 'left', borderRadius: 10,
-                      border: '1px solid rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.03)',
-                      color: 'rgba(255,255,255,0.65)', fontSize: 13, cursor: 'pointer',
-                      transition: 'all 0.15s',
-                    }}
-                    onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.08)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.12)' }}
-                    onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.03)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.06)' }}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </GlassCard>
+          {/* Export/Import Configuration Card */}
+          <ExportImportCard isMobile={isMobile} />
         </div>
       </div>
     </PageTransition>

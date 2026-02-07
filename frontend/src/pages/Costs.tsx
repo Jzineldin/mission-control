@@ -19,6 +19,7 @@ interface TokenData {
   summary: any
   byService: Array<{ name: string; cost: number }>
   sessions: Array<{ sessionId: string; cost: number; model: string; tokens: number; timestamp: number }>
+  budget?: { monthly: number }
 }
 
 export default function Costs() {
@@ -35,6 +36,9 @@ export default function Costs() {
   const [tokenData, setTokenData] = useState<TokenData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [budget, setBudget] = useState<number>(0)
+  const [budgetInput, setBudgetInput] = useState<string>('')
+  const [savingBudget, setSavingBudget] = useState(false)
 
   useEffect(() => {
     Promise.all([
@@ -44,6 +48,8 @@ export default function Costs() {
     .then(([aws, tokens]) => {
       setAwsCosts(aws)
       setTokenData(tokens)
+      setBudget(tokens.budget?.monthly || 0)
+      setBudgetInput((tokens.budget?.monthly || 0).toString())
       setLoading(false)
     })
     .catch(err => {
@@ -51,6 +57,24 @@ export default function Costs() {
       setLoading(false)
     })
   }, [])
+
+  const saveBudget = async () => {
+    if (!budgetInput.trim()) return
+    setSavingBudget(true)
+    try {
+      const response = await fetch('/api/settings/budget', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ monthly: parseFloat(budgetInput) || 0 })
+      })
+      if (response.ok) {
+        setBudget(parseFloat(budgetInput) || 0)
+      }
+    } catch (err) {
+      console.error('Failed to save budget:', err)
+    }
+    setSavingBudget(false)
+  }
 
   if (loading) {
     return (
@@ -134,6 +158,28 @@ export default function Costs() {
             Track AI spending, token usage & optimize costs
           </p>
         </div>
+
+        {/* Cost Alert Banner */}
+        {budget > 0 && awsCosts && (awsCosts.total / budget) > 0.8 && (
+          <div style={{
+            padding: m ? '12px 16px' : '16px 20px',
+            background: 'rgba(255, 149, 0, 0.15)',
+            border: '1px solid rgba(255, 149, 0, 0.3)',
+            borderRadius: '12px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px'
+          }}>
+            <AlertCircle size={20} style={{ color: '#FF9500' }} />
+            <span style={{ 
+              fontSize: m ? '13px' : '14px', 
+              color: 'rgba(255,255,255,0.92)', 
+              fontWeight: '500' 
+            }}>
+              ⚠️ You've used {Math.round((awsCosts.total / budget) * 100)}% of your ${budget} monthly budget
+            </span>
+          </div>
+        )}
 
         {/* Row 1: Key Metrics */}
         <div style={{ 
@@ -293,6 +339,110 @@ export default function Costs() {
             </div>
           </GlassCard>
         </div>
+
+        {/* Budget Setting Card */}
+        <GlassCard delay={0.18} noPad>
+          <div style={{ padding: m ? '16px' : '24px' }}>
+            <h3 style={{ 
+              fontSize: m ? '14px' : '16px', 
+              fontWeight: '600', 
+              color: 'rgba(255,255,255,0.65)', 
+              marginBottom: m ? '16px' : '20px', 
+              margin: `0 0 ${m ? '16px' : '20px'} 0` 
+            }}>
+              Monthly Budget
+            </h3>
+            
+            <div style={{ display: 'flex', flexDirection: m ? 'column' : 'row', gap: '12px', alignItems: m ? 'stretch' : 'flex-end' }}>
+              <div style={{ flex: 1 }}>
+                <label style={{ 
+                  display: 'block', 
+                  fontSize: '12px', 
+                  fontWeight: '600', 
+                  color: 'rgba(255,255,255,0.65)', 
+                  marginBottom: '8px' 
+                }}>
+                  Monthly budget ($)
+                </label>
+                <input
+                  type="number"
+                  value={budgetInput}
+                  onChange={(e) => setBudgetInput(e.target.value)}
+                  placeholder="Enter budget amount"
+                  style={{
+                    width: '100%',
+                    padding: '10px 14px',
+                    background: 'rgba(255,255,255,0.04)',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    borderRadius: '8px',
+                    fontSize: '14px',
+                    color: 'rgba(255,255,255,0.92)',
+                    outline: 'none',
+                    boxSizing: 'border-box'
+                  }}
+                />
+              </div>
+              
+              <button
+                onClick={saveBudget}
+                disabled={savingBudget || !budgetInput.trim()}
+                style={{
+                  padding: '10px 20px',
+                  borderRadius: '8px',
+                  border: 'none',
+                  cursor: (savingBudget || !budgetInput.trim()) ? 'not-allowed' : 'pointer',
+                  background: (savingBudget || !budgetInput.trim()) ? 'rgba(255,255,255,0.08)' : '#007AFF',
+                  color: '#fff',
+                  fontSize: '13px',
+                  fontWeight: '600',
+                  opacity: (savingBudget || !budgetInput.trim()) ? 0.5 : 1,
+                  minWidth: '80px'
+                }}
+              >
+                {savingBudget ? 'Saving...' : 'Save'}
+              </button>
+            </div>
+
+            {budget > 0 && awsCosts && (
+              <div style={{ marginTop: '20px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.65)' }}>
+                    Current spend vs budget
+                  </span>
+                  <span style={{ 
+                    fontSize: '12px', 
+                    color: 'rgba(255,255,255,0.92)', 
+                    fontFamily: 'system-ui', 
+                    fontFeatureSettings: '"tnum"' 
+                  }}>
+                    ${awsCosts.total.toFixed(2)} / ${budget}
+                  </span>
+                </div>
+                
+                <div style={{ height: '8px', background: 'rgba(255,255,255,0.1)', borderRadius: '4px', overflow: 'hidden' }}>
+                  <div
+                    style={{
+                      width: `${Math.min((awsCosts.total / budget) * 100, 100)}%`,
+                      height: '100%',
+                      background: (awsCosts.total / budget) > 0.9 ? '#FF453A' : (awsCosts.total / budget) > 0.7 ? '#FF9500' : '#32D74B',
+                      borderRadius: '4px',
+                      transition: 'all 0.6s ease'
+                    }}
+                  />
+                </div>
+                
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '8px' }}>
+                  <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.45)' }}>
+                    {Math.round((awsCosts.total / budget) * 100)}% used
+                  </span>
+                  <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.45)' }}>
+                    ${(budget - awsCosts.total).toFixed(2)} remaining
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+        </GlassCard>
 
         {/* Row 2: Two-column layout */}
         <div style={{ 
