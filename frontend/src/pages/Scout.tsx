@@ -39,21 +39,21 @@ export default function Scout() {
 
   return (
     <PageTransition>
-      <div className="max-w-5xl mx-auto space-y-6">
+      <div style={{ maxWidth: "1280px", margin: "0 auto", display: "flex", flexDirection: "column", gap: "28px" }}>
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-glass tracking-tight flex items-center gap-3">
+            <h1 style={{ color: 'rgba(255,255,255,0.92)' }} className="text-3xl font-bold tracking-tight flex items-center gap-3">
               <Radar size={24} className="text-cyan-300/60" strokeWidth={1.5} />
               Twitter Scout
             </h1>
-            <p className="text-sm text-glass-muted mt-1">Business opportunities discovered by AI</p>
+            <p style={{ color: 'rgba(255,255,255,0.45)' }} className="text-sm mt-1">Business opportunities discovered by AI</p>
           </div>
           <motion.button
             whileHover={{ scale: 1.03, y: -1 }}
             whileTap={{ scale: 0.97 }}
             onClick={() => setSortBy(sortBy === 'score' ? 'date' : 'score')}
-            className="glass-button flex items-center gap-2 px-4 py-2 text-xs font-medium"
+            className="macos-button flex items-center gap-2 px-4 py-2 text-xs font-medium"
           >
             <SortDesc size={13} />
             {sortBy === 'score' ? 'By Score' : 'By Date'}
@@ -61,27 +61,33 @@ export default function Scout() {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-3 gap-4">
-          <GlassCard className="p-5" delay={0.05}>
-            <p className="text-[10px] text-glass-muted font-semibold uppercase tracking-wider mb-2">Total Found</p>
-            <p className="text-3xl font-light text-glass">{opportunities.length}</p>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "16px" }}>
+          <GlassCard delay={0.05} noPad>
+            <div style={{ padding: 20 }}>
+              <p style={{ color: 'rgba(255,255,255,0.45)' }} className="text-[10px] font-semibold uppercase tracking-wider mb-2">Total Found</p>
+              <p style={{ color: 'rgba(255,255,255,0.92)' }} className="text-2xl font-light">{opportunities.length}</p>
+            </div>
           </GlassCard>
-          <GlassCard className="p-5" delay={0.1}>
-            <p className="text-[10px] text-glass-muted font-semibold uppercase tracking-wider mb-2">High Score (85+)</p>
-            <p className="text-3xl font-light text-emerald-300">
-              {opportunities.filter((o: any) => o.score >= 85).length}
-            </p>
+          <GlassCard delay={0.1} noPad>
+            <div style={{ padding: 20 }}>
+              <p style={{ color: 'rgba(255,255,255,0.45)' }} className="text-[10px] font-semibold uppercase tracking-wider mb-2">High Score (85+)</p>
+              <p className="text-2xl font-light text-emerald-300">
+                {opportunities.filter((o: any) => o.score >= 85).length}
+              </p>
+            </div>
           </GlassCard>
-          <GlassCard className="p-5" delay={0.15}>
-            <p className="text-[10px] text-glass-muted font-semibold uppercase tracking-wider mb-2">Deployed</p>
-            <p className="text-3xl font-light text-blue-300">
-              {opportunities.filter((o: any) => o.status === 'deployed').length}
-            </p>
+          <GlassCard delay={0.15} noPad>
+            <div style={{ padding: 20 }}>
+              <p style={{ color: 'rgba(255,255,255,0.45)' }} className="text-[10px] font-semibold uppercase tracking-wider mb-2">Deployed</p>
+              <p className="text-2xl font-light text-blue-300">
+                {opportunities.filter((o: any) => o.status === 'deployed').length}
+              </p>
+            </div>
           </GlassCard>
         </div>
 
         {/* Opportunity List */}
-        <div className="space-y-3">
+        <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
           {opportunities.map((opp: any, i: number) => {
             const sc = scoreColor(opp.score)
             return (
@@ -91,8 +97,8 @@ export default function Scout() {
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: 0.15 + i * 0.04 }}
                 whileHover={{ x: 4, scale: 1.005 }}
-                className="liquid-glass p-5 cursor-pointer group"
-                style={{ borderRadius: '20px' }}
+                className="liquid-glass cursor-pointer group"
+                style={{ borderRadius: '20px', padding: 20 }}
               >
                 <div className="relative z-10 flex items-start gap-4">
                   {/* Score Badge */}
@@ -103,22 +109,22 @@ export default function Scout() {
                   {/* Content */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2.5 mb-1.5">
-                      <h3 className="text-sm font-semibold text-glass">{opp.title}</h3>
-                      <span className={`pill-badge text-[10px] px-2 py-0.5 font-semibold border ${statusStyles[opp.status] || statusStyles.new}`}>
+                      <h3 style={{ color: 'rgba(255,255,255,0.92)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} className="text-sm font-semibold">{opp.title}</h3>
+                      <span className={`pill-badge text-[10px] px-2 py-0.5 font-semibold border ${statusStyles[opp.status] || statusStyles.new}`} style={{ flexShrink: 0 }}>
                         {opp.status}
                       </span>
                     </div>
-                    <p className="text-xs text-glass-muted mb-3 line-clamp-2">{opp.summary}</p>
+                    <p style={{ color: 'rgba(255,255,255,0.45)', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }} className="text-xs mb-3">{opp.summary}</p>
                     <div className="flex items-center gap-4">
-                      <div className="flex gap-1.5">
+                      <div className="flex gap-1.5" style={{ overflow: 'hidden' }}>
                         {opp.tags.map((tag: string) => (
-                          <span key={tag} className="pill-badge text-[10px] px-2 py-0.5 text-glass-muted font-medium">
+                          <span key={tag} style={{ color: 'rgba(255,255,255,0.45)', flexShrink: 0 }} className="pill-badge text-[10px] px-2 py-0.5 font-medium">
                             {tag}
                           </span>
                         ))}
                       </div>
-                      <span className="text-[10px] text-glass-muted">{opp.source}</span>
-                      <span className="text-[10px] text-glass-muted">{timeAgo(opp.found)}</span>
+                      <span style={{ color: 'rgba(255,255,255,0.45)' }} className="text-[10px]">{opp.source}</span>
+                      <span style={{ color: 'rgba(255,255,255,0.45)' }} className="text-[10px]">{timeAgo(opp.found)}</span>
                     </div>
                   </div>
 
@@ -127,11 +133,11 @@ export default function Scout() {
                     <motion.button
                       whileHover={{ scale: 1.05 }}
                       whileTap={{ scale: 0.95 }}
-                      className="glass-button glass-button-primary flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium"
+                      className="macos-button macos-button-primary flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium"
                     >
                       <Send size={11} /> Deploy
                     </motion.button>
-                    <button className="glass-button p-1.5">
+                    <button className="macos-button p-1.5">
                       <ExternalLink size={13} className="text-white/60" />
                     </button>
                   </div>

@@ -1,34 +1,46 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
 @import "tailwindcss";
 
 :root {
-  /* Liquid Glass Design Tokens */
-  --glass-bg: rgba(255, 255, 255, 0.12);
-  --glass-bg-hover: rgba(255, 255, 255, 0.18);
-  --glass-border: rgba(255, 255, 255, 0.25);
-  --glass-border-hover: rgba(255, 255, 255, 0.4);
-  --glass-highlight: rgba(255, 255, 255, 0.4);
-  --glass-shadow: rgba(31, 38, 135, 0.15);
-  --glass-inset-top: rgba(255, 255, 255, 0.4);
-  --glass-inset-bottom: rgba(255, 255, 255, 0.1);
-  --glass-blur: 40px;
-  --glass-radius: 24px;
-  --glass-radius-sm: 16px;
-  --glass-radius-xs: 12px;
-  
-  --text-primary: #1a1a2e;
-  --text-secondary: #3d3d5c;
-  --text-muted: #6b6b8a;
-  --text-light: rgba(255, 255, 255, 0.95);
-  
-  --accent-blue: #3b82f6;
-  --accent-purple: #8b5cf6;
-  --accent-emerald: #10b981;
-  --accent-amber: #f59e0b;
-  --accent-red: #ef4444;
-  --accent-pink: #ec4899;
-  --accent-cyan: #06b6d4;
+  /* macOS System Colors */
+  --system-bg: #1c1c1e;
+  --system-bg-secondary: #2c2c2e;
+  --system-bg-tertiary: #3a3a3c;
+  --system-separator: rgba(255, 255, 255, 0.1);
+
+  /* macOS Window Chrome */
+  --window-bg: rgba(30, 30, 32, 0.85);
+  --window-border: rgba(255, 255, 255, 0.12);
+  --window-shadow: 0 22px 70px 4px rgba(0, 0, 0, 0.56);
+
+  /* macOS Sidebar */
+  --sidebar-bg: rgba(40, 40, 42, 0.72);
+  --sidebar-border: rgba(255, 255, 255, 0.08);
+
+  /* Text Hierarchy */
+  --text-primary: rgba(255, 255, 255, 0.92);
+  --text-secondary: rgba(255, 255, 255, 0.65);
+  --text-tertiary: rgba(255, 255, 255, 0.45);
+  --text-quaternary: rgba(255, 255, 255, 0.25);
+
+  /* System Accent Colors */
+  --system-blue: #007AFF;
+  --system-green: #32D74B;
+  --system-orange: #FF9500;
+  --system-red: #FF453A;
+  --system-purple: #BF5AF2;
+  --system-yellow: #FFD60A;
+  --system-gray: #8E8E93;
+
+  /* Control Styles */
+  --control-bg: rgba(255, 255, 255, 0.1);
+  --control-bg-hover: rgba(255, 255, 255, 0.15);
+  --control-border: rgba(255, 255, 255, 0.15);
+
+  /* Vibrancy */
+  --vibrancy-blur: 80px;
+  --vibrancy-saturation: 180%;
 }
 
 * {
@@ -38,232 +50,334 @@
 }
 
 html, body, #root {
-  height: 100%;
+  height: 100vh;
+  min-height: 100vh;
 }
 
 body {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter', 'Helvetica Neue', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overflow: hidden;
+  background: #0d1117;
+  color: var(--text-primary);
 }
 
-/* ═══════════════════════════════════════════════════
-   ANIMATED GRADIENT MESH BACKGROUND
-   ═══════════════════════════════════════════════════ */
-.gradient-mesh-bg {
-  background: 
-    radial-gradient(ellipse at 10% 20%, #667eea 0%, transparent 50%),
-    radial-gradient(ellipse at 90% 20%, #764ba2 0%, transparent 50%),
-    radial-gradient(ellipse at 50% 80%, #f093fb 0%, transparent 50%),
-    radial-gradient(ellipse at 20% 70%, #4facfe 0%, transparent 40%),
-    radial-gradient(ellipse at 80% 60%, #00f2fe 0%, transparent 40%),
-    radial-gradient(ellipse at 50% 20%, #43e97b 0%, transparent 30%),
-    linear-gradient(135deg, #0c0c1d 0%, #1a0a2e 25%, #0d1b2a 50%, #1a0a2e 75%, #0c0c1d 100%);
-  background-size: 200% 200%, 200% 200%, 200% 200%, 200% 200%, 200% 200%, 200% 200%, 100% 100%;
-  animation: mesh-flow 25s ease-in-out infinite;
-}
-
-@keyframes mesh-flow {
-  0%, 100% {
-    background-position: 
-      0% 0%, 100% 0%, 50% 100%, 0% 100%, 100% 50%, 50% 0%, 0% 0%;
-  }
-  25% {
-    background-position:
-      30% 20%, 70% 30%, 60% 80%, 20% 60%, 80% 40%, 40% 10%, 0% 0%;
-  }
-  50% {
-    background-position:
-      100% 100%, 0% 100%, 50% 0%, 100% 0%, 0% 50%, 50% 100%, 0% 0%;
-  }
-  75% {
-    background-position:
-      70% 80%, 30% 70%, 40% 20%, 80% 40%, 20% 60%, 60% 90%, 0% 0%;
-  }
-}
-
-/* ═══════════════════════════════════════════════════
-   LIQUID GLASS PANELS
-   ═══════════════════════════════════════════════════ */
-.liquid-glass {
+/* macOS Desktop Background — Navy Blue brushed metal + glass */
+.macos-desktop {
   position: relative;
-  background: rgba(255, 255, 255, 0.08);
-  backdrop-filter: blur(40px) saturate(180%) brightness(110%);
-  -webkit-backdrop-filter: blur(40px) saturate(180%) brightness(110%);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: var(--glass-radius);
-  box-shadow:
-    0 8px 32px rgba(31, 38, 135, 0.15),
-    0 2px 8px rgba(0, 0, 0, 0.1),
-    inset 0 1px 0 rgba(255, 255, 255, 0.35),
-    inset 0 -1px 0 rgba(255, 255, 255, 0.08);
-  overflow: hidden;
-  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  background: linear-gradient(135deg, #0d1117 0%, #141c2b 30%, #0f1720 50%, #162033 70%, #0d1117 100%);
+  min-height: 100vh;
 }
 
-/* Specular shine overlay */
-.liquid-glass::before {
+/* Blue brushed metal lines */
+.macos-desktop::before {
   content: '';
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 50%;
-  background: linear-gradient(180deg, 
-    rgba(255, 255, 255, 0.2) 0%, 
-    rgba(255, 255, 255, 0.05) 40%,
-    transparent 100%
-  );
-  border-radius: var(--glass-radius) var(--glass-radius) 0 0;
+  inset: 0;
+  background:
+    repeating-linear-gradient(
+      90deg,
+      transparent 0px,
+      rgba(100,140,255,0.012) 1px,
+      transparent 2px,
+      transparent 4px
+    );
   pointer-events: none;
+  z-index: 0;
+}
+
+/* Glass layer over the metal */
+.macos-desktop::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(100, 130, 200, 0.04);
+  box-shadow: inset 0 1px 0 rgba(140, 170, 255, 0.08), inset 0 -1px 0 rgba(140, 170, 255, 0.03);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* macOS Window */
+.macos-window {
+  background: var(--window-bg);
+  backdrop-filter: blur(var(--vibrancy-blur)) saturate(var(--vibrancy-saturation));
+  -webkit-backdrop-filter: blur(var(--vibrancy-blur)) saturate(var(--vibrancy-saturation));
+  border: 1px solid var(--window-border);
+  border-radius: 10px;
+  box-shadow: var(--window-shadow);
+  overflow: hidden;
+}
+
+/* macOS Panel - Frosted glass panels */
+.macos-panel {
+  position: relative;
   z-index: 1;
-}
-
-/* Edge light effect */
-.liquid-glass::after {
-  content: '';
-  position: absolute;
-  top: -1px;
-  left: 10%;
-  right: 10%;
-  height: 1px;
-  background: linear-gradient(90deg, 
-    transparent, 
-    rgba(255, 255, 255, 0.6), 
-    transparent
-  );
-  pointer-events: none;
-  z-index: 2;
-}
-
-.liquid-glass:hover {
-  background: rgba(255, 255, 255, 0.12);
-  border-color: rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(60px) saturate(200%);
+  -webkit-backdrop-filter: blur(60px) saturate(200%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-top-color: rgba(255, 255, 255, 0.18);
+  border-radius: 16px;
   box-shadow:
-    0 12px 40px rgba(31, 38, 135, 0.2),
-    0 4px 12px rgba(0, 0, 0, 0.12),
-    inset 0 1px 0 rgba(255, 255, 255, 0.4),
-    inset 0 -1px 0 rgba(255, 255, 255, 0.1);
-  transform: translateY(-2px);
+    0 8px 40px rgba(0, 0, 0, 0.4),
+    0 2px 8px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    inset 0 0 0 0.5px rgba(255, 255, 255, 0.05);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
-/* Variant: no hover transform */
-.liquid-glass-static {
+.macos-panel:hover {
+  box-shadow:
+    0 16px 48px rgba(0, 0, 0, 0.45),
+    0 4px 16px rgba(0, 0, 0, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15),
+    inset 0 0 0 0.5px rgba(255, 255, 255, 0.08);
+}
+
+/* macOS Sidebar — Gray brushed steel + blue tinted glass */
+.macos-sidebar {
   position: relative;
-  background: rgba(255, 255, 255, 0.08);
-  backdrop-filter: blur(40px) saturate(180%) brightness(110%);
-  -webkit-backdrop-filter: blur(40px) saturate(180%) brightness(110%);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: var(--glass-radius);
-  box-shadow:
-    0 8px 32px rgba(31, 38, 135, 0.15),
-    0 2px 8px rgba(0, 0, 0, 0.1),
-    inset 0 1px 0 rgba(255, 255, 255, 0.35),
-    inset 0 -1px 0 rgba(255, 255, 255, 0.08);
-  overflow: hidden;
-}
-
-.liquid-glass-static::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 50%;
-  background: linear-gradient(180deg,
-    rgba(255, 255, 255, 0.15) 0%,
-    rgba(255, 255, 255, 0.03) 40%,
-    transparent 100%
-  );
-  border-radius: var(--glass-radius) var(--glass-radius) 0 0;
-  pointer-events: none;
   z-index: 1;
+  background: linear-gradient(135deg, #1a1a1f 0%, #2a2a30 30%, #1e1e24 50%, #2d2d34 70%, #1a1a1f 100%);
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-.liquid-glass-static::after {
+/* Gray brush texture on sidebar */
+.macos-sidebar::before {
   content: '';
   position: absolute;
-  top: -1px;
-  left: 10%;
-  right: 10%;
-  height: 1px;
-  background: linear-gradient(90deg, 
-    transparent, 
-    rgba(255, 255, 255, 0.5), 
-    transparent
-  );
+  inset: 0;
+  background: repeating-linear-gradient(90deg, transparent 0px, rgba(255,255,255,0.015) 1px, transparent 2px, transparent 4px);
   pointer-events: none;
-  z-index: 2;
 }
 
-/* ═══════════════════════════════════════════════════
-   SIDEBAR GLASS
-   ═══════════════════════════════════════════════════ */
-.sidebar-glass {
-  background: rgba(255, 255, 255, 0.06);
-  backdrop-filter: blur(60px) saturate(200%) brightness(105%);
-  -webkit-backdrop-filter: blur(60px) saturate(200%) brightness(105%);
-  border-right: 1px solid rgba(255, 255, 255, 0.12);
-  box-shadow:
-    4px 0 24px rgba(31, 38, 135, 0.1),
-    inset -1px 0 0 rgba(255, 255, 255, 0.08);
+/* Blue tinted glass layer on sidebar */
+.macos-sidebar::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(140, 160, 200, 0.045);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1), inset 0 -1px 0 rgba(255, 255, 255, 0.03);
+  pointer-events: none;
 }
 
-/* ═══════════════════════════════════════════════════
-   NAV ITEMS
-   ═══════════════════════════════════════════════════ */
-.nav-glass {
+/* macOS List Item */
+.macos-list-item {
   position: relative;
-  border-radius: 14px;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  overflow: hidden;
+  padding: 10px 14px;
+  border-radius: 8px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.15s ease;
+  cursor: default;
+  user-select: none;
 }
 
-.nav-glass:hover {
-  background: rgba(255, 255, 255, 0.08);
+.macos-list-item:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-primary);
 }
 
-.nav-glass-active {
-  background: rgba(255, 255, 255, 0.12);
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  box-shadow:
-    0 4px 16px rgba(31, 38, 135, 0.12),
-    inset 0 1px 0 rgba(255, 255, 255, 0.25);
-}
-
-.nav-glass-active::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 50%;
-  background: linear-gradient(180deg, 
-    rgba(255, 255, 255, 0.12) 0%, 
-    transparent 100%
-  );
-  border-radius: 14px 14px 0 0;
-  pointer-events: none;
-}
-
-/* ═══════════════════════════════════════════════════
-   PILL BADGES
-   ═══════════════════════════════════════════════════ */
-.pill-badge {
-  background: rgba(255, 255, 255, 0.1);
+.macos-list-item.active {
+  background: rgba(0, 122, 255, 0.25);
   backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  border-radius: 100px;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  color: white;
+  border: 1px solid rgba(0, 122, 255, 0.3);
 }
 
-/* ═══════════════════════════════════════════════════
-   SCROLLBAR
-   ═══════════════════════════════════════════════════ */
-::-webkit-scrollbar {
+/* macOS Button */
+.macos-button {
+  padding: 5px 12px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.15s ease;
+  cursor: default;
+  user-select: none;
+}
+
+.macos-button:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.macos-button:active {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.macos-button-primary {
+  background: var(--system-blue);
+  border-color: var(--system-blue);
+  color: white;
+}
+
+.macos-button-primary:hover {
+  background: #0071F0;
+  border-color: #0071F0;
+}
+
+/* macOS Input */
+.macos-input {
+  padding: 6px 10px;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  color: var(--text-primary);
+  font-size: 13px;
+  transition: all 0.15s ease;
+}
+
+.macos-input:focus {
+  outline: none;
+  background: rgba(0, 0, 0, 0.35);
+  border-color: var(--system-blue);
+  box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.2);
+}
+
+.macos-input::placeholder {
+  color: var(--text-tertiary);
+}
+
+/* Status Dots */
+.status-dot {
   width: 6px;
   height: 6px;
+  border-radius: 50%;
+}
+
+.status-dot-green {
+  background: var(--system-green);
+  box-shadow: 0 0 4px var(--system-green);
+}
+
+.status-dot-orange {
+  background: var(--system-orange);
+  box-shadow: 0 0 4px var(--system-orange);
+}
+
+.status-dot-red {
+  background: var(--system-red);
+  box-shadow: 0 0 4px var(--system-red);
+}
+
+/* macOS Badge */
+.macos-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.macos-badge-blue {
+  background: rgba(0, 122, 255, 0.2);
+  color: #4DA3FF;
+}
+
+.macos-badge-green {
+  background: rgba(50, 215, 75, 0.2);
+  color: #32D74B;
+}
+
+.macos-badge-orange {
+  background: rgba(255, 149, 0, 0.2);
+  color: #FF9500;
+}
+
+.macos-badge-red {
+  background: rgba(255, 69, 58, 0.2);
+  color: #FF453A;
+}
+
+/* Typography */
+.text-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.text-title {
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: -0.5px;
+}
+
+.text-heading {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.text-body {
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.text-caption {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--text-tertiary);
+}
+
+/* macOS Table */
+.macos-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.macos-table th {
+  padding: 8px 12px;
+  text-align: left;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 1px solid var(--system-separator);
+}
+
+.macos-table td {
+  padding: 12px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.macos-table tr:hover td {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+/* Progress Bar */
+.macos-progress {
+  height: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.macos-progress-fill {
+  height: 100%;
+  background: var(--system-blue);
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
 }
 
 ::-webkit-scrollbar-track {
@@ -271,209 +385,86 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.12);
-  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.3);
 }
 
-/* ═══════════════════════════════════════════════════
-   ANIMATIONS
-   ═══════════════════════════════════════════════════ */
-@keyframes pulse-glow {
-  0%, 100% { box-shadow: 0 0 4px rgba(16, 185, 129, 0.4); }
-  50% { box-shadow: 0 0 14px rgba(16, 185, 129, 0.8); }
+/* Animations */
+@keyframes subtle-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
 }
 
-@keyframes shimmer {
-  0% { transform: translateX(-100%); }
-  100% { transform: translateX(100%); }
+.animate-subtle-pulse {
+  animation: subtle-pulse 2s ease-in-out infinite;
 }
 
-@keyframes float {
-  0%, 100% { transform: translateY(0px); }
-  50% { transform: translateY(-6px); }
+/* Utility Classes */
+.hover-lift {
+  transition: transform 0.15s ease;
 }
 
-.glow-green {
-  animation: pulse-glow 2s ease-in-out infinite;
+.hover-lift:hover {
+  transform: translateY(-2px);
 }
 
-.animate-float {
-  animation: float 6s ease-in-out infinite;
+.divider-h {
+  height: 1px;
+  background: var(--system-separator);
 }
 
-/* ═══════════════════════════════════════════════════
-   TEXT STYLES
-   ═══════════════════════════════════════════════════ */
-.text-glass {
-  color: rgba(255, 255, 255, 0.95);
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+.divider-v {
+  width: 1px;
+  background: var(--system-separator);
 }
 
-.text-glass-secondary {
-  color: rgba(255, 255, 255, 0.6);
+/* Recharts Tooltip Override */
+.recharts-tooltip-wrapper {
+  outline: none !important;
 }
 
-.text-glass-muted {
-  color: rgba(255, 255, 255, 0.4);
+.recharts-default-tooltip {
+  background: rgba(30, 30, 32, 0.95) !important;
+  backdrop-filter: blur(20px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  border-radius: 6px !important;
+  padding: 8px 12px !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
 }
 
-.gradient-text {
-  background: linear-gradient(135deg, #60a5fa, #c084fc, #f472b6);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+.recharts-tooltip-label {
+  color: var(--text-tertiary) !important;
+  font-size: 11px !important;
+  margin-bottom: 4px !important;
 }
 
-/* ═══════════════════════════════════════════════════
-   GLASS INPUTS
-   ═══════════════════════════════════════════════════ */
-.glass-input {
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 14px;
-  color: rgba(255, 255, 255, 0.9);
-  backdrop-filter: blur(20px);
-  transition: all 0.3s ease;
+.recharts-tooltip-item {
+  color: var(--text-primary) !important;
+  font-size: 12px !important;
 }
 
-.glass-input::placeholder {
-  color: rgba(255, 255, 255, 0.3);
-}
-
-.glass-input:focus {
-  outline: none;
-  background: rgba(255, 255, 255, 0.1);
-  border-color: rgba(255, 255, 255, 0.3);
-  box-shadow: 
-    0 0 0 3px rgba(139, 92, 246, 0.15),
-    inset 0 1px 0 rgba(255, 255, 255, 0.15);
-}
-
-/* ═══════════════════════════════════════════════════
-   GLASS BUTTONS
-   ═══════════════════════════════════════════════════ */
-.glass-button {
-  position: relative;
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 14px;
-  color: rgba(255, 255, 255, 0.9);
-  backdrop-filter: blur(20px);
-  box-shadow:
-    0 4px 16px rgba(31, 38, 135, 0.1),
-    inset 0 1px 0 rgba(255, 255, 255, 0.25);
-  transition: all 0.3s ease;
-  overflow: hidden;
-}
-
-.glass-button::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 50%;
-  background: linear-gradient(180deg, rgba(255,255,255,0.15) 0%, transparent 100%);
-  pointer-events: none;
-}
-
-.glass-button:hover {
-  background: rgba(255, 255, 255, 0.15);
-  border-color: rgba(255, 255, 255, 0.3);
-  transform: translateY(-1px);
-  box-shadow:
-    0 6px 20px rgba(31, 38, 135, 0.15),
-    inset 0 1px 0 rgba(255, 255, 255, 0.3);
-}
-
-.glass-button-primary {
-  background: rgba(99, 102, 241, 0.25);
-  border-color: rgba(99, 102, 241, 0.35);
-}
-
-.glass-button-primary:hover {
-  background: rgba(99, 102, 241, 0.35);
-  border-color: rgba(99, 102, 241, 0.5);
-}
-
-/* ═══════════════════════════════════════════════════
-   PROGRESS BARS
-   ═══════════════════════════════════════════════════ */
-.glass-progress {
-  background: rgba(255, 255, 255, 0.08);
-  border-radius: 100px;
-  overflow: hidden;
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.15);
-}
-
-.glass-progress-fill {
-  border-radius: 100px;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3);
-  transition: width 1s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-/* ═══════════════════════════════════════════════════
-   RECHARTS TOOLTIP OVERRIDE
-   ═══════════════════════════════════════════════════ */
-.glass-tooltip {
-  background: rgba(255, 255, 255, 0.12) !important;
-  backdrop-filter: blur(40px) saturate(180%) !important;
-  border: 1px solid rgba(255, 255, 255, 0.2) !important;
-  border-radius: 14px !important;
-  box-shadow: 
-    0 8px 32px rgba(31, 38, 135, 0.2),
-    inset 0 1px 0 rgba(255, 255, 255, 0.3) !important;
-  padding: 10px 14px !important;
-}
-
-/* ═══════════════════════════════════════════════════
-   TABLE / LIST ROWS
-   ═══════════════════════════════════════════════════ */
-.glass-row {
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  transition: all 0.2s ease;
-}
-
-.glass-row:hover {
-  background: rgba(255, 255, 255, 0.04);
-}
-
-.glass-row:last-child {
-  border-bottom: none;
-}
-
-/* ═══════════════════════════════════════════════════
-   UPLOAD ZONE
-   ═══════════════════════════════════════════════════ */
-.glass-dropzone {
-  background: rgba(255, 255, 255, 0.03);
-  border: 2px dashed rgba(255, 255, 255, 0.15);
-  border-radius: var(--glass-radius);
-  transition: all 0.3s ease;
-}
-
-.glass-dropzone-active {
-  background: rgba(99, 102, 241, 0.08);
-  border-color: rgba(99, 102, 241, 0.4);
-}
-
-/* ═══════════════════════════════════════════════════
-   CHAT BUBBLES
-   ═══════════════════════════════════════════════════ */
-.glass-bubble-left {
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 16px 16px 16px 4px;
-}
-
+/* Remove old glass morphism styles */
+.liquid-glass,
+.liquid-glass-static,
+.glass-tooltip,
+.gradient-mesh-bg,
+.nav-glass,
+.sidebar-glass,
+.pill-badge,
+.glass-input,
+.glass-button,
+.glass-progress,
+.glass-row,
+.glass-dropzone,
+.glass-bubble-left,
 .glass-bubble-right {
-  background: rgba(99, 102, 241, 0.15);
-  border: 1px solid rgba(99, 102, 241, 0.2);
-  border-radius: 16px 16px 4px 16px;
+  /* Reset - will be replaced with macOS styles */
 }
-
-/* SVG filter for refraction is defined inline in App.tsx */
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}

@@ -12,17 +12,19 @@ interface Props {
 export default function GlassCard({ children, className = '', hover = true, delay = 0, noPad = false }: Props) {
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20, scale: 0.98 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      transition={{ duration: 0.5, delay, ease: [0.4, 0, 0.2, 1] }}
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4, delay, ease: [0.4, 0, 0.2, 1] }}
       whileHover={hover ? {
-        y: -3,
-        scale: 1.005,
-        transition: { duration: 0.3 }
+        y: -2,
+        transition: {
+          duration: 0.15,
+          ease: [0.4, 0, 0.2, 1]
+        }
       } : undefined}
-      className={`${hover ? 'liquid-glass' : 'liquid-glass-static'} relative ${className}`}
+      className={`macos-panel ${className}`}
     >
-      <div className={`relative z-10 ${noPad ? '' : ''}`}>
+      <div style={noPad ? undefined : { padding: 24 }}>
         {children}
       </div>
     </motion.div>

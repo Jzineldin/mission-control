@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Background Concepts</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; color: #fff; background: #111; }
+
+.grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  padding: 32px;
+  min-height: 100vh;
+}
+
+.concept {
+  position: relative;
+  border-radius: 20px;
+  overflow: hidden;
+  padding: 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  min-height: 500px;
+}
+
+.concept h2 {
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.3px;
+  position: relative;
+  z-index: 2;
+}
+
+.concept p {
+  font-size: 13px;
+  opacity: 0.6;
+  position: relative;
+  z-index: 2;
+}
+
+.glass-card {
+  position: relative;
+  z-index: 2;
+  background: rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(40px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.1);
+}
+
+.glass-card h3 { font-size: 14px; font-weight: 600; margin-bottom: 8px; }
+.glass-card .number { font-size: 28px; font-weight: 300; }
+.glass-card .label { font-size: 11px; opacity: 0.5; text-transform: uppercase; letter-spacing: 0.5px; }
+
+/* ============ CONCEPT A: Dark Brushed Steel ============ */
+.concept-a {
+  background: 
+    linear-gradient(135deg, #1a1a1f 0%, #2a2a30 30%, #1e1e24 50%, #2d2d34 70%, #1a1a1f 100%);
+}
+.concept-a::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: 
+    repeating-linear-gradient(
+      90deg,
+      transparent 0px,
+      rgba(255,255,255,0.015) 1px,
+      transparent 2px,
+      transparent 4px
+    );
+  pointer-events: none;
+}
+.concept-a::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: 
+    radial-gradient(ellipse at 30% 0%, rgba(255,255,255,0.06) 0%, transparent 60%),
+    radial-gradient(ellipse at 70% 100%, rgba(255,255,255,0.03) 0%, transparent 50%);
+  pointer-events: none;
+}
+
+/* ============ CONCEPT B: Space Black with light reflection ============ */
+.concept-b {
+  background: linear-gradient(160deg, #0f0f14 0%, #1a1a22 40%, #12121a 60%, #0f0f14 100%);
+}
+.concept-b::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 120% 40% at 50% -10%, rgba(180,180,200,0.08) 0%, transparent 70%),
+    radial-gradient(ellipse 80% 30% at 20% 110%, rgba(100,100,140,0.04) 0%, transparent 60%);
+  pointer-events: none;
+}
+.concept-b::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.025'/%3E%3C/svg%3E");
+  pointer-events: none;
+}
+
+/* ============ CONCEPT C: Titanium with vertical brush ============ */
+.concept-c {
+  background: linear-gradient(180deg, #1c1c22 0%, #222228 50%, #18181e 100%);
+}
+.concept-c::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    repeating-linear-gradient(
+      180deg,
+      transparent 0px,
+      rgba(255,255,255,0.008) 1px,
+      transparent 2px,
+      transparent 3px
+    );
+  pointer-events: none;
+}
+.concept-c::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 60% 50% at 50% 0%, rgba(200,200,220,0.06) 0%, transparent 60%),
+    linear-gradient(180deg, rgba(255,255,255,0.02) 0%, transparent 30%, transparent 70%, rgba(255,255,255,0.01) 100%);
+  pointer-events: none;
+}
+
+/* ============ CONCEPT D: Anodized Dark with subtle color ============ */
+.concept-d {
+  background: linear-gradient(145deg, #141418 0%, #1a1a20 30%, #16161c 60%, #141418 100%);
+}
+.concept-d::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 100% 60% at 40% -20%, rgba(100,120,200,0.06) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 40% at 80% 110%, rgba(140,100,180,0.04) 0%, transparent 50%);
+  pointer-events: none;
+}
+.concept-d::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.02'/%3E%3C/svg%3E");
+  pointer-events: none;
+}
+</style>
+</head>
+<body>
+<div class="grid">
+  <!-- Concept A -->
+  <div class="concept concept-a">
+    <h2>A — Brushed Steel</h2>
+    <p>Horisontella "borst-linjer" + subtle top highlight. Typ Apple Pro Display XDR baksida.</p>
+    <div class="glass-card">
+      <div class="label">Active Sessions</div>
+      <div class="number">23</div>
+    </div>
+    <div class="glass-card">
+      <h3>Channels</h3>
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <span>Discord</span>
+        <span style="color:#32D74B;font-size:12px;">● Active</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Concept B -->
+  <div class="concept concept-b">
+    <h2>B — Space Black</h2>
+    <p>Ren mörk yta med subtle top-ljus reflektion, som en iPhone 15 Pro Space Black. Noise texture.</p>
+    <div class="glass-card">
+      <div class="label">Active Sessions</div>
+      <div class="number">23</div>
+    </div>
+    <div class="glass-card">
+      <h3>Channels</h3>
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <span>Discord</span>
+        <span style="color:#32D74B;font-size:12px;">● Active</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Concept C -->
+  <div class="concept concept-c">
+    <h2>C — Titanium</h2>
+    <p>Vertikala borst-linjer + top edge highlight. MacBook Pro Titanium-känsla. Subtil glans.</p>
+    <div class="glass-card">
+      <div class="label">Active Sessions</div>
+      <div class="number">23</div>
+    </div>
+    <div class="glass-card">
+      <h3>Channels</h3>
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <span>Discord</span>
+        <span style="color:#32D74B;font-size:12px;">● Active</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Concept D -->
+  <div class="concept concept-d">
+    <h2>D — Anodized Dark</h2>
+    <p>Mörk anodiserad aluminium med en hint av blå/lila skimmer. Noise texture. Typ Mac Pro-känsla.</p>
+    <div class="glass-card">
+      <div class="label">Active Sessions</div>
+      <div class="number">23</div>
+    </div>
+    <div class="glass-card">
+      <h3>Channels</h3>
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <span>Discord</span>
+        <span style="color:#32D74B;font-size:12px;">● Active</span>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

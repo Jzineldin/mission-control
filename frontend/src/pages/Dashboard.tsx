@@ -10,8 +10,7 @@ import {
   Zap,
   Mail,
   Calendar,
-  Code,
-  Sparkles
+  Code
 } from 'lucide-react'
 import PageTransition from '../components/PageTransition'
 import GlassCard from '../components/GlassCard'
@@ -50,7 +49,7 @@ export default function Dashboard() {
     return (
       <PageTransition>
         <div className="flex items-center justify-center h-full">
-          <div className="w-8 h-8 border-2 border-purple-400 border-t-transparent rounded-full animate-spin" />
+          <div className="w-6 h-6 border-2 border-[#007AFF] border-t-transparent rounded-full animate-spin" />
         </div>
       </PageTransition>
     )
@@ -60,51 +59,46 @@ export default function Dashboard() {
 
   return (
     <PageTransition>
-      <div className="max-w-7xl mx-auto space-y-5 pb-8">
+      <div style={{ maxWidth: '1280px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '28px' }}>
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div>
-            <h1 className="text-3xl font-bold text-glass tracking-tight flex items-center gap-2">
-              Dashboard
-              <Sparkles size={20} className="text-purple-300/60" />
-            </h1>
-            <p className="text-sm text-glass-muted mt-1">System overview and agent status</p>
+            <h1 className="text-title">Dashboard</h1>
+            <p className="text-body" style={{ marginTop: '8px' }}>System overview and agent status</p>
           </div>
-          <div className="pill-badge flex items-center gap-2 px-3 py-1.5 text-xs text-emerald-300 font-medium">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 glow-green" />
-            Live
-          </div>
+          <StatusBadge status="active" pulse label="Live" />
         </div>
 
         {/* Hero Status Card */}
-        <GlassCard className="p-6" delay={0.05}>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="w-16 h-16 rounded-3xl bg-gradient-to-br from-indigo-500/30 via-purple-500/20 to-pink-500/20 border border-white/15 flex items-center justify-center text-3xl shadow-lg shadow-purple-500/10">
-                🤖
+        <GlassCard delay={0.05}>
+          <div style={{ padding: '24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+              <div style={{ width: 48, height: 48, borderRadius: 12, background: 'rgba(0,122,255,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Activity size={24} style={{ color: '#007AFF' }} />
               </div>
               <div>
-                <div className="flex items-center gap-3">
-                  <h2 className="text-xl font-bold text-glass">{agent.name}</h2>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <h2 className="text-heading">{agent.name}</h2>
                   <StatusBadge status="active" pulse />
                 </div>
-                <p className="text-sm text-glass-muted mt-0.5">
+                <p className="text-caption" style={{ marginTop: 4 }}>
                   {agent.model} · {agent.heartbeatInterval} heartbeat · {agent.totalAgents} agent{agent.totalAgents > 1 ? 's' : ''}
                 </p>
               </div>
             </div>
-            <div className="hidden md:flex items-center gap-8">
-              <div className="text-right">
-                <p className="text-[10px] text-glass-muted uppercase tracking-[0.15em] font-semibold">Sessions</p>
-                <p className="text-3xl font-light text-glass mt-1">
+            <div style={{ display: 'flex', alignItems: 'center', gap: '32px' }}>
+              <div style={{ textAlign: 'right' }}>
+                <p className="text-label">Sessions</p>
+                <p style={{ fontSize: '24px', fontWeight: 300, color: 'rgba(255,255,255,0.92)', marginTop: 4 }}>
                   <AnimatedCounter end={agent.activeSessions} />
                 </p>
               </div>
-              <div className="w-px h-12 bg-gradient-to-b from-transparent via-white/15 to-transparent" />
-              <div className="text-right">
-                <p className="text-[10px] text-glass-muted uppercase tracking-[0.15em] font-semibold">Memory</p>
-                <p className="text-3xl font-light text-glass mt-1">
-                  <AnimatedCounter end={agent.memoryChunks} /> <span className="text-sm text-glass-muted">chunks</span>
+              <div className="divider-v" style={{ height: 40 }} />
+              <div style={{ textAlign: 'right' }}>
+                <p className="text-label">Memory</p>
+                <p style={{ fontSize: '24px', fontWeight: 300, color: 'rgba(255,255,255,0.92)', marginTop: 4 }}>
+                  <AnimatedCounter end={agent.memoryChunks} />
+                  <span style={{ fontSize: 14, color: 'rgba(255,255,255,0.45)', marginLeft: 4 }}>chunks</span>
                 </p>
               </div>
             </div>
@@ -112,127 +106,128 @@ export default function Dashboard() {
         </GlassCard>
 
         {/* Stats Grid */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '20px' }}>
           {[
-            { label: 'Active Sessions', value: agent.activeSessions, icon: Activity, gradient: 'from-blue-400/20 to-blue-600/10' },
-            { label: 'Memory Files', value: agent.memoryFiles, icon: Database, gradient: 'from-purple-400/20 to-purple-600/10' },
-            { label: 'Memory Chunks', value: agent.memoryChunks, icon: Cpu, gradient: 'from-emerald-400/20 to-emerald-600/10' },
-            { label: 'Channels', value: agent.channels?.length || 0, icon: Radio, gradient: 'from-amber-400/20 to-amber-600/10' },
+            { label: 'Active Sessions', value: agent.activeSessions, icon: Activity, color: '#007AFF' },
+            { label: 'Memory Files', value: agent.memoryFiles, icon: Database, color: '#BF5AF2' },
+            { label: 'Memory Chunks', value: agent.memoryChunks, icon: Cpu, color: '#32D74B' },
+            { label: 'Channels', value: agent.channels?.length || 0, icon: Radio, color: '#FF9500' },
           ].map((stat, i) => (
-            <GlassCard key={stat.label} className="p-5" delay={0.1 + i * 0.05}>
-              <div className="flex items-center justify-between mb-4">
-                <div className={`w-9 h-9 rounded-xl bg-gradient-to-br ${stat.gradient} border border-white/10 flex items-center justify-center`}>
-                  <stat.icon size={16} className="text-white/70" strokeWidth={1.5} />
+            <GlassCard key={stat.label} delay={0.1 + i * 0.05}>
+              <div style={{ padding: '20px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
+                  <div style={{ width: 36, height: 36, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: `${stat.color}20` }}>
+                    <stat.icon size={16} style={{ color: stat.color }} strokeWidth={2} />
+                  </div>
+                  <span className="text-label">{stat.label}</span>
                 </div>
-                <span className="text-[10px] text-glass-muted font-semibold uppercase tracking-wider">{stat.label}</span>
+                <p style={{ fontSize: '28px', fontWeight: 300, color: 'rgba(255,255,255,0.92)' }}>
+                  <AnimatedCounter end={stat.value} />
+                </p>
               </div>
-              <p className="text-3xl font-light text-glass">
-                <AnimatedCounter end={stat.value} />
-              </p>
             </GlassCard>
           ))}
         </div>
 
-        {/* Two-column: Left (Channels + Token) | Right (Heartbeat + Activity) */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        {/* Two-column Layout */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
           {/* Left Column */}
-          <div className="space-y-5">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
             {/* Channels */}
-            <GlassCard className="p-6" delay={0.2} hover={false}>
-              <h3 className="text-sm font-semibold text-glass-secondary mb-4 flex items-center gap-2">
-                <Radio size={14} className="text-purple-300/60" /> Channels
-              </h3>
-              <div className="space-y-1">
-                {agent.channels?.length > 0 ? agent.channels.map((ch: any) => (
-                  <div key={ch.name} className="flex items-center justify-between py-3 glass-row">
-                    <div className="flex items-center gap-3">
-                      <span className="text-lg">
-                        {ch.name === 'Discord' ? '💬' : ch.name === 'WhatsApp' ? '📱' : '✈️'}
-                      </span>
-                      <div>
-                        <p className="text-sm font-medium text-glass">{ch.name}</p>
-                        <p className="text-[11px] text-glass-muted">{ch.detail}</p>
+            <GlassCard delay={0.2} hover={false}>
+              <div style={{ padding: '24px' }}>
+                <h3 className="text-heading" style={{ marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Radio size={14} style={{ color: '#BF5AF2' }} /> Channels
+                </h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  {agent.channels?.length > 0 ? agent.channels.map((ch: any) => (
+                    <div key={ch.name} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0, flex: 1 }}>
+                        <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                          <MessageSquare size={14} style={{ color: 'rgba(255,255,255,0.65)' }} />
+                        </div>
+                        <div style={{ minWidth: 0 }}>
+                          <p className="text-body" style={{ fontWeight: 500 }}>{ch.name}</p>
+                          <p className="text-caption" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ch.detail}</p>
+                        </div>
                       </div>
+                      <StatusBadge status={ch.state === 'OK' ? 'active' : ch.state === 'OFF' ? 'off' : 'error'} />
                     </div>
-                    <StatusBadge status={ch.state === 'OK' ? 'active' : ch.state === 'OFF' ? 'off' : 'error'} />
-                  </div>
-                )) : (
-                  <p className="text-xs text-glass-muted">No channel data available</p>
-                )}
+                  )) : (
+                    <p className="text-caption">No channel data available</p>
+                  )}
+                </div>
               </div>
             </GlassCard>
 
             {/* Token Usage */}
-            <GlassCard className="p-6" delay={0.25} hover={false}>
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-sm font-semibold text-glass-secondary flex items-center gap-2">
-                  <BarChart3 size={14} className="text-cyan-300/60" /> Token Usage
-                </h3>
-                <span className="text-2xl font-light text-glass">{tokenUsage.percentage}%</span>
-              </div>
-              <div className="glass-progress h-3 mb-3">
-                <div
-                  className="glass-progress-fill h-full bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 rounded-full"
-                  style={{ width: `${tokenUsage.percentage}%`, transition: 'width 1s ease' }}
-                />
-              </div>
-              <div className="flex justify-between">
-                <span className="text-xs text-glass-muted">
-                  {(tokenUsage.used / 1000).toFixed(0)}k used
-                </span>
-                <span className="text-xs text-glass-muted">
-                  {(tokenUsage.limit / 1000).toFixed(0)}k limit
-                </span>
+            <GlassCard delay={0.25} hover={false}>
+              <div style={{ padding: '24px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+                  <h3 className="text-heading" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <BarChart3 size={14} style={{ color: '#06B6D4' }} /> Token Usage
+                  </h3>
+                  <span className="text-heading">{tokenUsage.percentage}%</span>
+                </div>
+                <div className="macos-progress" style={{ marginBottom: '10px' }}>
+                  <div className="macos-progress-fill" style={{ width: `${tokenUsage.percentage}%` }} />
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span className="text-caption">{(tokenUsage.used / 1000).toFixed(0)}k used</span>
+                  <span className="text-caption">{(tokenUsage.limit / 1000).toFixed(0)}k limit</span>
+                </div>
               </div>
             </GlassCard>
 
             {/* Heartbeat */}
-            <GlassCard className="p-6" delay={0.3} hover={false}>
-              <h3 className="text-sm font-semibold text-glass-secondary mb-4 flex items-center gap-2">
-                <Heart size={14} className="text-pink-300/60" /> Heartbeat
-              </h3>
-              <div className="grid grid-cols-3 gap-4">
-                <div className="text-center">
-                  <p className="text-[10px] text-glass-muted uppercase tracking-wider mb-1">Last</p>
-                  <p className="text-sm font-medium text-glass">
-                    {heartbeat.lastHeartbeat
-                      ? timeAgo(new Date(heartbeat.lastHeartbeat * 1000).toISOString())
-                      : '—'}
-                  </p>
-                </div>
-                <div className="text-center">
-                  <p className="text-[10px] text-glass-muted uppercase tracking-wider mb-1">Next</p>
-                  <p className="text-sm font-mono text-purple-300">{countdown || '—'}</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-[10px] text-glass-muted uppercase tracking-wider mb-1">Interval</p>
-                  <p className="text-sm font-medium text-glass">{agent.heartbeatInterval}</p>
+            <GlassCard delay={0.3} hover={false}>
+              <div style={{ padding: '24px' }}>
+                <h3 className="text-heading" style={{ marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Heart size={14} style={{ color: '#FF453A' }} /> Heartbeat
+                </h3>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', textAlign: 'center' }}>
+                  <div>
+                    <p className="text-label" style={{ marginBottom: '6px' }}>Last</p>
+                    <p className="text-body">{heartbeat.lastHeartbeat ? timeAgo(new Date(heartbeat.lastHeartbeat * 1000).toISOString()) : '—'}</p>
+                  </div>
+                  <div>
+                    <p className="text-label" style={{ marginBottom: '6px' }}>Next</p>
+                    <p className="text-body" style={{ fontFamily: 'monospace', color: '#007AFF' }}>{countdown || '—'}</p>
+                  </div>
+                  <div>
+                    <p className="text-label" style={{ marginBottom: '6px' }}>Interval</p>
+                    <p className="text-body">{agent.heartbeatInterval}</p>
+                  </div>
                 </div>
               </div>
             </GlassCard>
           </div>
 
-          {/* Right Column — Activity Feed (taller) */}
-          <GlassCard className="p-6" delay={0.2} hover={false}>
-            <h3 className="text-sm font-semibold text-glass-secondary mb-4 flex items-center gap-2">
-              <Zap size={14} className="text-amber-300/60" /> Recent Activity
-            </h3>
-            <div className="space-y-1 overflow-y-auto scrollbar-thin" style={{ maxHeight: 'calc(100% - 40px)' }}>
-              {recentActivity.map((a: any, i: number) => {
-                const Icon = activityIcons[a.type] || Activity
-                return (
-                  <div key={i} className="flex items-start gap-3 py-3 glass-row">
-                    <div className="w-9 h-9 rounded-xl bg-white/[0.06] border border-white/[0.08] flex items-center justify-center shrink-0 mt-0.5">
-                      <Icon size={15} className="text-white/50" strokeWidth={1.5} />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium text-glass">{a.action}</p>
-                      <p className="text-xs text-glass-muted mt-0.5 line-clamp-2">{a.detail}</p>
-                    </div>
-                    <span className="text-[10px] text-glass-muted shrink-0 ml-auto pt-1">{timeAgo(a.time)}</span>
-                  </div>
-                )
-              })}
+          {/* Right Column - Activity Feed */}
+          <GlassCard delay={0.2} hover={false}>
+            <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', height: '100%', maxHeight: '560px' }}>
+              <h3 className="text-heading" style={{ marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Zap size={14} style={{ color: '#FFD60A' }} /> Recent Activity
+              </h3>
+              <div style={{ flex: 1, overflowY: 'auto', paddingRight: '8px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  {recentActivity.map((a: any, i: number) => {
+                    const Icon = activityIcons[a.type] || Activity
+                    return (
+                      <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                        <div style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                          <Icon size={13} style={{ color: 'rgba(255,255,255,0.5)' }} strokeWidth={2} />
+                        </div>
+                        <div style={{ minWidth: 0, flex: 1 }}>
+                          <p className="text-body" style={{ fontWeight: 500 }}>{a.action}</p>
+                          <p className="text-caption" style={{ marginTop: 3, overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{a.detail}</p>
+                        </div>
+                        <span className="text-caption" style={{ flexShrink: 0, whiteSpace: 'nowrap' }}>{timeAgo(a.time)}</span>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
             </div>
           </GlassCard>
         </div>

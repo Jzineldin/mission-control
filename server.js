@@ -1,18 +1,83 @@
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
+const http = require('http');
 const { execSync } = require('child_process');
 
 const app = express();
 const PORT = 3333;
+const GATEWAY_PORT = 18789;
+const GATEWAY_TOKEN = 'mc-zinbot-2026';
 
-// Serve the liquid glass dashboard
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public/index.html'));
-});
+app.use(express.json());
 
-// Serve React frontend (static assets) as fallback
+// Serve React frontend (static assets)
 app.use(express.static(path.join(__dirname, 'frontend/dist')));
+
+// Serve public files (concepts, etc)
+app.use('/public', express.static(path.join(__dirname, 'public')));
+
+// ========== CHAT PROXY ==========
+// Proxies to OpenClaw Gateway chat completions API (streaming SSE)
+app.post('/api/chat', async (req, res) => {
+  const { messages, stream } = req.body;
+
+  const payload = JSON.stringify({
+    model: 'openclaw',
+    messages: messages || [],
+    stream: !!stream,
+    user: 'mission-control',
+  });
+
+  console.log('[Chat proxy] Sending to gateway, payload length:', Buffer.byteLength(payload));
+
+  try {
+    const gwRes = await fetch(`http://127.0.0.1:${GATEWAY_PORT}/v1/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${GATEWAY_TOKEN}`,
+      },
+      body: payload,
+      signal: AbortSignal.timeout(120000),
+    });
+
+    if (stream) {
+      // SSE streaming — pipe through
+      res.writeHead(gwRes.status, {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+        'X-Accel-Buffering': 'no',
+      });
+
+      const reader = gwRes.body.getReader();
+      const pump = async () => {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) { res.end(); break; }
+          res.write(value);
+        }
+      };
+      pump().catch(err => {
+        console.error('[Chat proxy] Stream error:', err.message);
+        res.end();
+      });
+
+      req.on('close', () => { reader.cancel(); });
+    } else {
+      // Non-streaming JSON
+      const data = await gwRes.text();
+      console.log('[Chat proxy] Gateway responded:', gwRes.status, data.substring(0, 100));
+      res.status(gwRes.status).send(data);
+    }
+  } catch (err) {
+    console.error('[Chat proxy] Fetch error:', err.message);
+    if (!res.headersSent) {
+      res.status(502).json({ error: `Gateway error: ${err.message}` });
+    }
+  }
+});
 
 // API: Agent status + heartbeat
 app.get('/api/status', (req, res) => {

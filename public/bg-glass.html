@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sidebar Gray + Main Dark Blue</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; color: #fff; background: #0a0a0a; overflow-x: hidden; }
+
+.layout {
+  display: flex;
+  height: 100vh;
+  margin-bottom: 20px;
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,0.06);
+}
+
+.label-bar {
+  background: rgba(255,255,255,0.05);
+  padding: 12px 24px;
+  font-size: 14px;
+  font-weight: 600;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+.label-bar span { opacity: 0.5; font-weight: 400; font-size: 12px; margin-left: 12px; }
+
+/* === SIDEBAR BASE: Gray brushed steel + blue tinted glass === */
+.sidebar {
+  width: 240px;
+  flex-shrink: 0;
+  position: relative;
+  padding: 24px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.sidebar .brush {
+  position: absolute; inset: 0; z-index: 0; pointer-events: none;
+  background:
+    linear-gradient(135deg, #1a1a1f 0%, #2a2a30 30%, #1e1e24 50%, #2d2d34 70%, #1a1a1f 100%);
+}
+.sidebar .brush::after {
+  content: ''; position: absolute; inset: 0;
+  background: repeating-linear-gradient(90deg, transparent 0px, rgba(255,255,255,0.015) 1px, transparent 2px, transparent 4px);
+}
+.sidebar .glass {
+  position: absolute; inset: 0; z-index: 1; pointer-events: none;
+  background: rgba(140, 160, 200, 0.045);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1), inset 0 -1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.sidebar .logo { position: relative; z-index: 2; display: flex; align-items: center; gap: 10px; padding: 8px; margin-bottom: 16px; }
+.sidebar .logo-icon { width: 32px; height: 32px; border-radius: 8px; background: #007AFF; display: flex; align-items: center; justify-content: center; font-size: 14px; }
+.sidebar .logo-text { font-size: 13px; font-weight: 600; }
+.sidebar .logo-sub { font-size: 10px; opacity: 0.45; }
+.sidebar .divider { height: 1px; background: rgba(255,255,255,0.08); margin: 8px 0; position: relative; z-index: 2; }
+
+.nav-item {
+  position: relative; z-index: 2;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  opacity: 0.6;
+  cursor: pointer;
+}
+.nav-item.active {
+  background: rgba(0, 122, 255, 0.25);
+  border: 1px solid rgba(0, 122, 255, 0.3);
+  opacity: 1;
+  color: white;
+}
+
+/* === MAIN CONTENT === */
+.main {
+  flex: 1;
+  position: relative;
+  padding: 32px 40px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.panel {
+  position: relative; z-index: 2;
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(40px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-top-color: rgba(255, 255, 255, 0.16);
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.08);
+}
+.panel h3 { font-size: 14px; font-weight: 600; margin-bottom: 12px; }
+.panel .number { font-size: 28px; font-weight: 300; }
+.panel .label { font-size: 11px; opacity: 0.5; text-transform: uppercase; letter-spacing: 0.5px; }
+.stat-row { display: flex; gap: 20px; position: relative; z-index: 2; }
+.stat-row .panel { flex: 1; }
+h1 { font-size: 22px; font-weight: 600; letter-spacing: -0.5px; position: relative; z-index: 2; }
+.subtitle { font-size: 13px; opacity: 0.5; position: relative; z-index: 2; }
+.page-label { position: relative; z-index: 2; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; opacity: 0.3; margin-bottom: -16px; }
+
+/* ============ CONCEPT 1: Navy Blue ============ */
+.main-1 .bg {
+  position: absolute; inset: 0; z-index: 0;
+  background: linear-gradient(135deg, #0d1117 0%, #141c2b 30%, #0f1720 50%, #162033 70%, #0d1117 100%);
+}
+.main-1 .bg::after {
+  content: ''; position: absolute; inset: 0;
+  background:
+    repeating-linear-gradient(90deg, transparent 0px, rgba(100,140,255,0.012) 1px, transparent 2px, transparent 4px);
+}
+.main-1 .glass-layer {
+  position: absolute; inset: 0; z-index: 1; pointer-events: none;
+  background: rgba(100, 130, 200, 0.04);
+  box-shadow: inset 0 1px 0 rgba(140, 170, 255, 0.08), inset 0 -1px 0 rgba(140, 170, 255, 0.03);
+}
+
+/* ============ CONCEPT 2: Deep Ocean Blue ============ */
+.main-2 .bg {
+  position: absolute; inset: 0; z-index: 0;
+  background: linear-gradient(135deg, #0a0e18 0%, #101828 30%, #0c1220 50%, #121d30 70%, #0a0e18 100%);
+}
+.main-2 .bg::after {
+  content: ''; position: absolute; inset: 0;
+  background:
+    repeating-linear-gradient(90deg, transparent 0px, rgba(80,120,220,0.01) 1px, transparent 2px, transparent 4px);
+}
+.main-2 .glass-layer {
+  position: absolute; inset: 0; z-index: 1; pointer-events: none;
+  background: rgba(80, 110, 180, 0.05);
+  box-shadow: inset 0 1px 0 rgba(120, 150, 220, 0.1), inset 0 -1px 0 rgba(120, 150, 220, 0.04);
+}
+
+/* ============ CONCEPT 3: Midnight Blue ============ */
+.main-3 .bg {
+  position: absolute; inset: 0; z-index: 0;
+  background: linear-gradient(135deg, #080c14 0%, #0e1524 30%, #0a101c 50%, #10192a 70%, #080c14 100%);
+}
+.main-3 .bg::after {
+  content: ''; position: absolute; inset: 0;
+  background:
+    repeating-linear-gradient(90deg, transparent 0px, rgba(60,100,200,0.008) 1px, transparent 2px, transparent 4px);
+}
+.main-3 .glass-layer {
+  position: absolute; inset: 0; z-index: 1; pointer-events: none;
+  background: rgba(60, 90, 160, 0.05);
+  box-shadow: 
+    inset 0 1px 0 rgba(100, 140, 220, 0.1),
+    inset 0 2px 0 rgba(100, 140, 220, 0.03),
+    inset 0 -1px 0 rgba(100, 140, 220, 0.05);
+}
+
+/* ============ CONCEPT 4: Steel Blue ============ */
+.main-4 .bg {
+  position: absolute; inset: 0; z-index: 0;
+  background: linear-gradient(135deg, #111520 0%, #1a2030 30%, #141a28 50%, #1c2438 70%, #111520 100%);
+}
+.main-4 .bg::after {
+  content: ''; position: absolute; inset: 0;
+  background:
+    repeating-linear-gradient(90deg, transparent 0px, rgba(120,150,220,0.015) 1px, transparent 2px, transparent 4px);
+}
+.main-4 .glass-layer {
+  position: absolute; inset: 0; z-index: 1; pointer-events: none;
+  background: rgba(110, 140, 200, 0.045);
+  box-shadow: 
+    inset 0 1px 0 rgba(140, 170, 230, 0.1),
+    inset 0 -1px 0 rgba(140, 170, 230, 0.04),
+    inset 1px 0 0 rgba(140, 170, 230, 0.02),
+    inset -1px 0 0 rgba(140, 170, 230, 0.02);
+}
+</style>
+</head>
+<body>
+
+<!-- CONCEPT 1: Navy Blue -->
+<div class="label-bar">1 — Navy Blue <span>Mellanton, tydlig blå men inte för ljus</span></div>
+<div class="layout">
+  <div class="sidebar">
+    <div class="brush"></div>
+    <div class="glass"></div>
+    <div class="logo"><div class="logo-icon">⚡</div><div><div class="logo-text">Mission Control</div><div class="logo-sub">System Monitor</div></div></div>
+    <div class="divider"></div>
+    <div class="nav-item active">Dashboard</div>
+    <div class="nav-item">Workshop</div>
+    <div class="nav-item">Cost Tracker</div>
+    <div class="nav-item">Cron Monitor</div>
+  </div>
+  <div class="main main-1">
+    <div class="bg"></div>
+    <div class="glass-layer"></div>
+    <div><h1>Dashboard</h1><div class="subtitle">System overview and agent status</div></div>
+    <div class="stat-row">
+      <div class="panel"><div class="label">Sessions</div><div class="number">23</div></div>
+      <div class="panel"><div class="label">Memory</div><div class="number">225</div></div>
+      <div class="panel"><div class="label">Channels</div><div class="number">3</div></div>
+    </div>
+    <div class="panel"><h3>Recent Activity</h3><div style="opacity:0.5;font-size:13px;line-height:1.8">Heartbeat check — 2h ago<br>Email scan — 3h ago<br>Memory maintenance — 4h ago</div></div>
+  </div>
+</div>
+
+<!-- CONCEPT 2: Deep Ocean -->
+<div class="label-bar">2 — Deep Ocean <span>Mörkare, mer mättad blå. Mer dramatiskt.</span></div>
+<div class="layout">
+  <div class="sidebar">
+    <div class="brush"></div>
+    <div class="glass"></div>
+    <div class="logo"><div class="logo-icon">⚡</div><div><div class="logo-text">Mission Control</div><div class="logo-sub">System Monitor</div></div></div>
+    <div class="divider"></div>
+    <div class="nav-item active">Dashboard</div>
+    <div class="nav-item">Workshop</div>
+    <div class="nav-item">Cost Tracker</div>
+    <div class="nav-item">Cron Monitor</div>
+  </div>
+  <div class="main main-2">
+    <div class="bg"></div>
+    <div class="glass-layer"></div>
+    <div><h1>Dashboard</h1><div class="subtitle">System overview and agent status</div></div>
+    <div class="stat-row">
+      <div class="panel"><div class="label">Sessions</div><div class="number">23</div></div>
+      <div class="panel"><div class="label">Memory</div><div class="number">225</div></div>
+      <div class="panel"><div class="label">Channels</div><div class="number">3</div></div>
+    </div>
+    <div class="panel"><h3>Recent Activity</h3><div style="opacity:0.5;font-size:13px;line-height:1.8">Heartbeat check — 2h ago<br>Email scan — 3h ago<br>Memory maintenance — 4h ago</div></div>
+  </div>
+</div>
+
+<!-- CONCEPT 3: Midnight -->
+<div class="label-bar">3 — Midnight <span>Nästan svart med blå undertoner. Mest subtilt.</span></div>
+<div class="layout">
+  <div class="sidebar">
+    <div class="brush"></div>
+    <div class="glass"></div>
+    <div class="logo"><div class="logo-icon">⚡</div><div><div class="logo-text">Mission Control</div><div class="logo-sub">System Monitor</div></div></div>
+    <div class="divider"></div>
+    <div class="nav-item active">Dashboard</div>
+    <div class="nav-item">Workshop</div>
+    <div class="nav-item">Cost Tracker</div>
+    <div class="nav-item">Cron Monitor</div>
+  </div>
+  <div class="main main-3">
+    <div class="bg"></div>
+    <div class="glass-layer"></div>
+    <div><h1>Dashboard</h1><div class="subtitle">System overview and agent status</div></div>
+    <div class="stat-row">
+      <div class="panel"><div class="label">Sessions</div><div class="number">23</div></div>
+      <div class="panel"><div class="label">Memory</div><div class="number">225</div></div>
+      <div class="panel"><div class="label">Channels</div><div class="number">3</div></div>
+    </div>
+    <div class="panel"><h3>Recent Activity</h3><div style="opacity:0.5;font-size:13px;line-height:1.8">Heartbeat check — 2h ago<br>Email scan — 3h ago<br>Memory maintenance — 4h ago</div></div>
+  </div>
+</div>
+
+<!-- CONCEPT 4: Steel Blue -->
+<div class="label-bar">4 — Steel Blue <span>Ljusare, mer "stål med blå anodisering". Tydligast metall-känsla.</span></div>
+<div class="layout">
+  <div class="sidebar">
+    <div class="brush"></div>
+    <div class="glass"></div>
+    <div class="logo"><div class="logo-icon">⚡</div><div><div class="logo-text">Mission Control</div><div class="logo-sub">System Monitor</div></div></div>
+    <div class="divider"></div>
+    <div class="nav-item active">Dashboard</div>
+    <div class="nav-item">Workshop</div>
+    <div class="nav-item">Cost Tracker</div>
+    <div class="nav-item">Cron Monitor</div>
+  </div>
+  <div class="main main-4">
+    <div class="bg"></div>
+    <div class="glass-layer"></div>
+    <div><h1>Dashboard</h1><div class="subtitle">System overview and agent status</div></div>
+    <div class="stat-row">
+      <div class="panel"><div class="label">Sessions</div><div class="number">23</div></div>
+      <div class="panel"><div class="label">Memory</div><div class="number">225</div></div>
+      <div class="panel"><div class="label">Channels</div><div class="number">3</div></div>
+    </div>
+    <div class="panel"><h3>Recent Activity</h3><div style="opacity:0.5;font-size:13px;line-height:1.8">Heartbeat check — 2h ago<br>Email scan — 3h ago<br>Memory maintenance — 4h ago</div></div>
+  </div>
+</div>
+
+</body>
+</html>
