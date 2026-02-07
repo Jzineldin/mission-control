@@ -82,7 +82,7 @@ export default function Chat() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [])
 
-  useEffect(() => { scrollToBottom() }, [messages, scrollToBottom])
+  useEffect(() => { scrollToBottom() }, [messages, scrollToBottom, historyMessages])
 
   const sessions = (sessionsData?.sessions || sessionsData || [])
     .filter((s: any) => {
@@ -161,6 +161,35 @@ export default function Chat() {
     setIsStreaming(false)
   }
 
+  const [sessionInput, setSessionInput] = useState('')
+  const [sessionSending, setSessionSending] = useState(false)
+
+  const sendToSession = async () => {
+    const text = sessionInput.trim()
+    if (!text || sessionSending || !activeSession || activeSession === 'main-chat') return
+    
+    setSessionSending(true)
+    // Optimistically add to UI
+    setHistoryMessages(prev => [...prev, { role: 'user', content: text, ts: Date.now() }])
+    setSessionInput('')
+    
+    try {
+      const res = await fetch(`/api/sessions/${encodeURIComponent(activeSession)}/send`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: text })
+      })
+      const data = await res.json()
+      if (data.result) {
+        setHistoryMessages(prev => [...prev, { role: 'assistant', content: data.result, ts: Date.now() }])
+      }
+    } catch (err: any) {
+      setHistoryMessages(prev => [...prev, { role: 'assistant', content: `⚠️ ${err.message}`, ts: Date.now() }])
+    } finally {
+      setSessionSending(false)
+    }
+  }
+
   const openMainChat = () => {
     setActiveSession('main-chat')
     setActiveSessionName('Zinbot')
@@ -208,7 +237,7 @@ export default function Chat() {
             </button>
             <div style={{ flex: 1, minWidth: 0 }}>
               <h2 style={{ fontSize: 15, fontWeight: 600, color: 'rgba(255,255,255,0.92)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{activeSessionName}</h2>
-              <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)' }}>Session history (read-only)</p>
+              <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)' }}>Session history · send a message to continue</p>
             </div>
           </div>
 
@@ -244,6 +273,26 @@ export default function Chat() {
                   ))}
                 </div>
               )}
+              <div ref={messagesEndRef} />
+            </div>
+
+            {/* Send message to continue conversation */}
+            <div style={{ padding: m ? '10px 14px 14px' : '12px 20px 16px', borderTop: '1px solid rgba(255,255,255,0.06)', zIndex: 10 }}>
+              <form onSubmit={(e) => { e.preventDefault(); sendToSession(); }} style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
+                <textarea
+                  value={sessionInput}
+                  onChange={(e) => setSessionInput(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendToSession(); } }}
+                  placeholder="Continue this conversation..."
+                  disabled={sessionSending}
+                  rows={1}
+                  style={{ flex: 1, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: '10px 12px', color: 'rgba(255,255,255,0.9)', fontSize: 13, resize: 'none', outline: 'none', fontFamily: 'inherit', maxHeight: 80, lineHeight: 1.4 }}
+                  onInput={(e) => { const t = e.currentTarget; t.style.height = 'auto'; t.style.height = Math.min(t.scrollHeight, 80) + 'px' }}
+                />
+                <button type="submit" disabled={!sessionInput.trim() || sessionSending} style={{ width: 36, height: 36, borderRadius: 10, border: 'none', background: sessionInput.trim() && !sessionSending ? '#007AFF' : 'rgba(255,255,255,0.06)', color: sessionInput.trim() && !sessionSending ? '#fff' : 'rgba(255,255,255,0.25)', cursor: sessionInput.trim() && !sessionSending ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  {sessionSending ? <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> : <Send size={16} />}
+                </button>
+              </form>
             </div>
           </div>
         </div>

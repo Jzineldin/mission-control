@@ -1395,6 +1395,35 @@ app.get('/api/sessions/:sessionKey/history', async (req, res) => {
   }
 });
 
+// Send message to a session
+app.post('/api/sessions/:sessionKey/send', async (req, res) => {
+  try {
+    const sessionKey = decodeURIComponent(req.params.sessionKey);
+    const { message } = req.body;
+    if (!message) return res.status(400).json({ error: 'message required' });
+    
+    const configPath = path.join(require('os').homedir(), '.openclaw/openclaw.json');
+    const cfg = fs.existsSync(configPath) ? JSON.parse(fs.readFileSync(configPath, 'utf8')) : {};
+    const gwToken = cfg.gateway?.auth?.token || 'mc-zinbot-2026';
+    const gwPort = cfg.gateway?.port || 18789;
+    
+    const response = await fetch(`http://127.0.0.1:${gwPort}/tools/invoke`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${gwToken}` },
+      body: JSON.stringify({
+        tool: 'sessions_send',
+        input: { sessionKey, message, timeoutSeconds: 120 }
+      })
+    });
+    
+    const data = await response.json();
+    const resultText = data?.result?.content?.[0]?.text || '';
+    res.json({ ok: response.ok, result: resultText });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // === Document Management ===
 const docsDir = path.join(__dirname, 'documents');
 if (!fs.existsSync(docsDir)) fs.mkdirSync(docsDir, { recursive: true });
