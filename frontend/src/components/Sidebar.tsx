@@ -28,7 +28,7 @@ const allNavItems = [
   { to: '/costs', icon: DollarSign, label: 'Cost Tracker', module: 'costs' },
   { to: '/cron', icon: Clock, label: 'Cron Monitor', module: 'cron' },
   { to: '/scout', icon: Radar, label: 'Scout', module: 'scout' },
-  { to: '/docs', icon: FileText, label: 'Doc Digest', module: 'docs' },
+  // Doc Digest removed — may return as Memory Explorer
   { to: '/agents', icon: Bot, label: 'Agent Hub', module: 'agents' },
   { to: '/settings', icon: Settings, label: 'Settings', module: 'settings' },
   { to: '/skills', icon: Puzzle, label: 'Skills', module: 'skills' },

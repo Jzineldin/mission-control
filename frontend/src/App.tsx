@@ -11,7 +11,7 @@ import Workshop from './pages/Workshop'
 import Costs from './pages/Costs'
 import Cron from './pages/Cron'
 import Scout from './pages/Scout'
-import Docs from './pages/Docs'
+// Doc Digest removed — may return as Memory Explorer
 import Agents from './pages/Agents'
 import Settings from './pages/Settings'
 import Skills from './pages/Skills'
@@ -108,7 +108,7 @@ export default function App() {
               <Route path="/costs" element={<Costs />} />
               <Route path="/cron" element={<Cron />} />
               <Route path="/scout" element={<Scout />} />
-              <Route path="/docs" element={<Docs />} />
+              {/* Doc Digest removed */}
               <Route path="/agents" element={<Agents />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/skills" element={<Skills />} />

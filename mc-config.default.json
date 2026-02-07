@@ -8,7 +8,7 @@
     "costs": true,
     "cron": true,
     "scout": false,
-    "docs": true,
+    "docs": false,
     "agents": true,
     "settings": true,
     "skills": true,
@@ -32,10 +32,30 @@
     "enabled": false,
     "braveApiKey": "",
     "queries": [
-      { "q": "\"looking for\" \"web developer\" OR \"website developer\" remote 2026", "category": "freelance", "source": "web", "weight": 1.0 },
-      { "q": "site:x.com \"hiring\" OR \"looking for\" \"react developer\" OR \"frontend developer\" remote", "category": "twitter-jobs", "source": "twitter", "weight": 0.9 },
-      { "q": "site:reddit.com/r/forhire \"looking for\" react developer", "category": "reddit-gigs", "source": "reddit", "weight": 0.8 },
-      { "q": "\"startup grant\" OR \"startup competition\" 2026 application deadline", "category": "funding", "source": "web", "weight": 0.95 }
+      {
+        "q": "\"looking for\" \"web developer\" OR \"website developer\" remote 2026",
+        "category": "freelance",
+        "source": "web",
+        "weight": 1.0
+      },
+      {
+        "q": "site:x.com \"hiring\" OR \"looking for\" \"react developer\" OR \"frontend developer\" remote",
+        "category": "twitter-jobs",
+        "source": "twitter",
+        "weight": 0.9
+      },
+      {
+        "q": "site:reddit.com/r/forhire \"looking for\" react developer",
+        "category": "reddit-gigs",
+        "source": "reddit",
+        "weight": 0.8
+      },
+      {
+        "q": "\"startup grant\" OR \"startup competition\" 2026 application deadline",
+        "category": "funding",
+        "source": "web",
+        "weight": 0.95
+      }
     ],
     "schedule": "daily"
   },
