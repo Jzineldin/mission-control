@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Plus, Clock, Zap, CheckCircle, Play, X, AlertCircle, Loader2 } from 'lucide-react'
+import { Plus, Clock, Zap, CheckCircle, Play, X, AlertCircle, Loader2, MessageSquare, ArrowLeft, Send } from 'lucide-react'
 import PageTransition from '../components/PageTransition'
 import GlassCard from '../components/GlassCard'
 import { useApi, timeAgo } from '../lib/hooks'
@@ -31,15 +31,30 @@ interface Task {
   error?: string
   tags: string[]
   source?: string
+  childSessionKey?: string
+}
+
+interface ChatMessage {
+  role: string
+  content: string
+  ts?: number
 }
 
 export default function Workshop() {
   const m = useIsMobile()
-  const { data, loading, refetch } = useApi<any>('/api/tasks', 5000) // Poll every 5s for live updates
+  const { data, loading, refetch } = useApi<any>('/api/tasks', 5000)
   const [showAddModal, setShowAddModal] = useState(false)
-  const [showResultModal, setShowResultModal] = useState<Task | null>(null)
+  const [chatTask, setChatTask] = useState<Task | null>(null)
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
+  const [chatLoading, setChatLoading] = useState(false)
+  const [chatInput, setChatInput] = useState('')
+  const [chatSending, setChatSending] = useState(false)
   const [addForm, setAddForm] = useState({ title: '', description: '', priority: 'medium', tags: '' })
   const [executing, setExecuting] = useState<Record<string, boolean>>({})
+  const messagesEndRef = useRef<HTMLDivElement>(null)
+
+  const scrollToBottom = () => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  useEffect(() => { scrollToBottom() }, [chatMessages])
 
   if (loading || !data) {
     return (
@@ -78,9 +93,193 @@ export default function Workshop() {
       await fetch(`/api/tasks/${taskId}/execute`, { method: 'POST' })
       refetch()
     } catch {}
-    // Don't clear executing — task moves to inProgress and polling will update
   }
 
+  const openTaskChat = async (task: Task) => {
+    setChatTask(task)
+    setChatMessages([])
+    setChatLoading(true)
+    
+    // Load existing chat history if we have a session key
+    if (task.childSessionKey) {
+      try {
+        const res = await fetch(`/api/sessions/${encodeURIComponent(task.childSessionKey)}/history`)
+        const msgs = await res.json()
+        if (Array.isArray(msgs)) {
+          setChatMessages(msgs.map((m: any) => ({ role: m.role, content: m.content, ts: m.ts })))
+        }
+      } catch {}
+    }
+    
+    // If task has a result but no session, show result as message
+    if (task.result && !task.childSessionKey) {
+      setChatMessages([
+        { role: 'user', content: `Task: ${task.title}\n${task.description}`, ts: Date.parse(task.created || '') || Date.now() },
+        { role: 'assistant', content: task.result, ts: Date.parse(task.completed || '') || Date.now() },
+      ])
+    }
+    
+    setChatLoading(false)
+  }
+
+  const sendTaskMessage = async () => {
+    const text = chatInput.trim()
+    if (!text || chatSending || !chatTask) return
+    
+    setChatSending(true)
+    setChatMessages(prev => [...prev, { role: 'user', content: text, ts: Date.now() }])
+    setChatInput('')
+    
+    if (chatTask.childSessionKey) {
+      // Send to existing sub-agent session
+      try {
+        const res = await fetch(`/api/sessions/${encodeURIComponent(chatTask.childSessionKey)}/send`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: text })
+        })
+        const data = await res.json()
+        if (data.result) {
+          setChatMessages(prev => [...prev, { role: 'assistant', content: data.result, ts: Date.now() }])
+        }
+      } catch (err: any) {
+        setChatMessages(prev => [...prev, { role: 'assistant', content: `⚠️ ${err.message}`, ts: Date.now() }])
+      }
+    } else {
+      // No session yet — execute the task with this message as context
+      try {
+        const res = await fetch(`/api/tasks/${chatTask.id}/execute`, { method: 'POST' })
+        const data = await res.json()
+        setChatMessages(prev => [...prev, { role: 'assistant', content: '⏳ Task execution started. Results will appear when the sub-agent finishes...', ts: Date.now() }])
+        // Update chatTask with session key
+        if (data.childKey) {
+          setChatTask(prev => prev ? { ...prev, childSessionKey: data.childKey } : null)
+        }
+        refetch()
+      } catch (err: any) {
+        setChatMessages(prev => [...prev, { role: 'assistant', content: `⚠️ ${err.message}`, ts: Date.now() }])
+      }
+    }
+    
+    setChatSending(false)
+  }
+
+  // === TASK CHAT VIEW ===
+  if (chatTask) {
+    const isExecuting = chatTask.status === 'executing'
+    return (
+      <PageTransition>
+        <div style={{ maxWidth: m ? '100%' : 900, margin: '0 auto', display: 'flex', flexDirection: 'column', height: m ? 'calc(100vh - 100px)' : 'calc(100vh - 96px)' }}>
+          {/* Header */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: m ? 12 : 16 }}>
+            <button
+              onClick={() => setChatTask(null)}
+              style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: 8, cursor: 'pointer', display: 'flex', color: 'rgba(255,255,255,0.7)' }}
+            >
+              <ArrowLeft size={18} />
+            </button>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <h2 style={{ fontSize: 15, fontWeight: 600, color: 'rgba(255,255,255,0.92)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {chatTask.title}
+              </h2>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 2 }}>
+                <span style={{ width: 6, height: 6, borderRadius: '50%', background: priorityConfig[chatTask.priority]?.color || '#8E8E93' }} />
+                <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)' }}>
+                  {chatTask.status === 'executing' ? 'Sub-agent working...' : chatTask.status === 'done' ? 'Completed' : 'Queue'}
+                </span>
+                {chatTask.childSessionKey && (
+                  <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 4, background: 'rgba(0,122,255,0.1)', color: '#007AFF' }}>live session</span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Chat panel */}
+          <div className="macos-panel" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minHeight: 0 }}>
+            {/* Messages */}
+            <div style={{ flex: 1, overflowY: 'auto', padding: m ? 14 : 20 }}>
+              {/* Task description as system message */}
+              {chatTask.description && (
+                <div style={{ padding: '10px 14px', borderRadius: 10, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', marginBottom: 16 }}>
+                  <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginBottom: 4 }}>Task Description</p>
+                  <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', lineHeight: 1.5 }}>{chatTask.description}</p>
+                </div>
+              )}
+
+              {chatLoading ? (
+                <div style={{ display: 'flex', justifyContent: 'center', padding: 40 }}>
+                  <Loader2 size={20} style={{ color: '#007AFF', animation: 'spin 1s linear infinite' }} />
+                </div>
+              ) : chatMessages.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '40px 20px', color: 'rgba(255,255,255,0.3)' }}>
+                  <MessageSquare size={32} style={{ marginBottom: 12, opacity: 0.3 }} />
+                  <p style={{ fontSize: 13 }}>
+                    {chatTask.childSessionKey ? 'Loading conversation...' : 'No messages yet. Send a message or click Execute to start.'}
+                  </p>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  {chatMessages.map((msg, i) => (
+                    <div key={i} style={{ display: 'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start' }}>
+                      <div style={{
+                        maxWidth: '85%',
+                        padding: '10px 14px',
+                        borderRadius: msg.role === 'user' ? '14px 14px 4px 14px' : '14px 14px 14px 4px',
+                        background: msg.role === 'user' ? '#007AFF' : 'rgba(255,255,255,0.06)',
+                        border: msg.role === 'user' ? 'none' : '1px solid rgba(255,255,255,0.08)',
+                      }}>
+                        <p style={{ fontSize: 13, color: msg.role === 'user' ? '#fff' : 'rgba(255,255,255,0.85)', lineHeight: 1.55, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+                          {msg.content}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Executing indicator */}
+              {isExecuting && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 0', marginTop: 8 }}>
+                  <Loader2 size={14} style={{ color: '#007AFF', animation: 'spin 1s linear infinite' }} />
+                  <span style={{ fontSize: 12, color: '#007AFF' }}>Sub-agent is working on this task...</span>
+                </div>
+              )}
+
+              <div ref={messagesEndRef} />
+            </div>
+
+            {/* Input */}
+            <div style={{ padding: m ? '10px 14px 14px' : '12px 20px 16px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+              <form onSubmit={(e) => { e.preventDefault(); sendTaskMessage(); }} style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
+                <textarea
+                  value={chatInput}
+                  onChange={(e) => setChatInput(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendTaskMessage(); } }}
+                  placeholder={chatTask.childSessionKey ? "Talk to the sub-agent about this task..." : "Describe what you want done, then send to execute..."}
+                  disabled={chatSending}
+                  rows={1}
+                  autoFocus
+                  style={{ flex: 1, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: '10px 12px', color: 'rgba(255,255,255,0.9)', fontSize: 13, resize: 'none', outline: 'none', fontFamily: 'inherit', maxHeight: 80, lineHeight: 1.4 }}
+                  onInput={(e) => { const t = e.currentTarget; t.style.height = 'auto'; t.style.height = Math.min(t.scrollHeight, 80) + 'px' }}
+                />
+                <button type="submit" disabled={!chatInput.trim() || chatSending} style={{
+                  width: 36, height: 36, borderRadius: 10, border: 'none', flexShrink: 0,
+                  background: chatInput.trim() && !chatSending ? '#007AFF' : 'rgba(255,255,255,0.06)',
+                  color: chatInput.trim() && !chatSending ? '#fff' : 'rgba(255,255,255,0.25)',
+                  cursor: chatInput.trim() && !chatSending ? 'pointer' : 'default',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  {chatSending ? <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> : <Send size={16} />}
+                </button>
+              </form>
+            </div>
+          </div>
+        </div>
+      </PageTransition>
+    )
+  }
+
+  // === KANBAN VIEW ===
   return (
     <PageTransition>
       <div style={{ maxWidth: 1280, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: m ? 14 : 24 }}>
@@ -108,7 +307,7 @@ export default function Workshop() {
 
         {/* Kanban Columns */}
         <div style={{ display: 'flex', flexDirection: m ? 'column' : 'row', gap: m ? 20 : 24 }}>
-          {(['queue', 'inProgress', 'done'] as const).map((col, ci) => {
+          {(['queue', 'inProgress', 'done'] as const).map((col) => {
             const tasks: Task[] = columns[col] || []
             const config = columnConfig[col]
             const Icon = config.icon
@@ -135,8 +334,8 @@ export default function Workshop() {
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: 0.05 + i * 0.03 }}
                       className="macos-panel"
-                      style={{ padding: m ? 14 : 16, cursor: col === 'done' && task.result ? 'pointer' : 'default' }}
-                      onClick={() => { if (col === 'done' && task.result) setShowResultModal(task) }}
+                      style={{ padding: m ? 14 : 16, cursor: 'pointer' }}
+                      onClick={() => openTaskChat(task)}
                     >
                       {/* Priority dot + title */}
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
@@ -192,29 +391,41 @@ export default function Workshop() {
                           )}
                         </div>
 
-                        {/* Execute button for queue tasks */}
-                        {col === 'queue' && (
-                          <button
-                            onClick={(e) => { e.stopPropagation(); handleExecute(task.id); }}
-                            disabled={executing[task.id]}
-                            style={{
-                              display: 'flex', alignItems: 'center', gap: 5,
-                              padding: '6px 12px', borderRadius: 8,
-                              border: 'none', cursor: executing[task.id] ? 'wait' : 'pointer',
-                              background: executing[task.id] ? 'rgba(0,122,255,0.3)' : '#007AFF',
-                              color: '#fff', fontSize: 11, fontWeight: 600,
-                              flexShrink: 0,
-                            }}
-                          >
-                            {executing[task.id] ? <Loader2 size={12} style={{ animation: 'spin 1s linear infinite' }} /> : <Play size={12} />}
-                            Execute
-                          </button>
-                        )}
+                        {/* Action buttons */}
+                        <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0 }}>
+                          {/* Chat button for tasks with sessions */}
+                          {(task.childSessionKey || col === 'done') && (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); openTaskChat(task); }}
+                              style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '5px 10px', borderRadius: 7, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.6)', fontSize: 11, cursor: 'pointer' }}
+                            >
+                              <MessageSquare size={11} /> Chat
+                            </button>
+                          )}
 
-                        {/* Time */}
-                        <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)', flexShrink: 0 }}>
-                          {task.completed ? timeAgo(task.completed) : task.created ? timeAgo(task.created) : ''}
-                        </span>
+                          {/* Execute button for queue tasks */}
+                          {col === 'queue' && (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleExecute(task.id); }}
+                              disabled={executing[task.id]}
+                              style={{
+                                display: 'flex', alignItems: 'center', gap: 5,
+                                padding: '6px 12px', borderRadius: 8,
+                                border: 'none', cursor: executing[task.id] ? 'wait' : 'pointer',
+                                background: executing[task.id] ? 'rgba(0,122,255,0.3)' : '#007AFF',
+                                color: '#fff', fontSize: 11, fontWeight: 600,
+                              }}
+                            >
+                              {executing[task.id] ? <Loader2 size={12} style={{ animation: 'spin 1s linear infinite' }} /> : <Play size={12} />}
+                              Execute
+                            </button>
+                          )}
+
+                          {/* Time */}
+                          <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)' }}>
+                            {task.completed ? timeAgo(task.completed) : task.created ? timeAgo(task.created) : ''}
+                          </span>
+                        </div>
                       </div>
                     </motion.div>
                   ))}
@@ -257,7 +468,7 @@ export default function Workshop() {
                     onChange={(e) => setAddForm(prev => ({ ...prev, title: e.target.value }))}
                     placeholder="e.g. Research competitors, Write blog post..."
                     autoFocus
-                    style={{ width: '100%', padding: '10px 14px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, fontSize: 13, color: 'rgba(255,255,255,0.92)', outline: 'none' }}
+                    style={{ width: '100%', padding: '10px 14px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, fontSize: 13, color: 'rgba(255,255,255,0.92)', outline: 'none', boxSizing: 'border-box' }}
                   />
                 </div>
                 <div>
@@ -267,7 +478,7 @@ export default function Workshop() {
                     onChange={(e) => setAddForm(prev => ({ ...prev, description: e.target.value }))}
                     placeholder="What should be done? Any specific instructions..."
                     rows={3}
-                    style={{ width: '100%', padding: '10px 14px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, fontSize: 13, color: 'rgba(255,255,255,0.92)', outline: 'none', resize: 'vertical', minHeight: 70 }}
+                    style={{ width: '100%', padding: '10px 14px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, fontSize: 13, color: 'rgba(255,255,255,0.92)', outline: 'none', resize: 'vertical', minHeight: 70, boxSizing: 'border-box' }}
                   />
                 </div>
                 <div style={{ display: 'flex', gap: 12 }}>
@@ -298,7 +509,7 @@ export default function Workshop() {
                     value={addForm.tags}
                     onChange={(e) => setAddForm(prev => ({ ...prev, tags: e.target.value }))}
                     placeholder="research, email, dev..."
-                    style={{ width: '100%', padding: '10px 14px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, fontSize: 13, color: 'rgba(255,255,255,0.92)', outline: 'none' }}
+                    style={{ width: '100%', padding: '10px 14px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, fontSize: 13, color: 'rgba(255,255,255,0.92)', outline: 'none', boxSizing: 'border-box' }}
                   />
                 </div>
               </div>
@@ -316,44 +527,6 @@ export default function Workshop() {
               >
                 Add to Queue
               </button>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Result Modal */}
-      <AnimatePresence>
-        {showResultModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
-            onClick={() => setShowResultModal(null)}
-          >
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              onClick={(e) => e.stopPropagation()}
-              style={{ background: 'rgba(28,28,30,0.95)', backdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: m ? 12 : 16, padding: m ? 20 : 28, width: '100%', maxWidth: m ? '95vw' : 560, maxHeight: '80vh', overflowY: 'auto' }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-                <h2 style={{ fontSize: 16, fontWeight: 700, color: 'rgba(255,255,255,0.92)' }}>Task Result</h2>
-                <button onClick={() => setShowResultModal(null)} style={{ background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: 8, width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
-                  <X size={16} style={{ color: 'rgba(255,255,255,0.6)' }} />
-                </button>
-              </div>
-              <h3 style={{ fontSize: 14, fontWeight: 600, color: 'rgba(255,255,255,0.85)', marginBottom: 8 }}>{showResultModal.title}</h3>
-              {showResultModal.description && (
-                <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', marginBottom: 16 }}>{showResultModal.description}</p>
-              )}
-              <div style={{ padding: 16, borderRadius: 10, background: 'rgba(50,215,75,0.06)', border: '1px solid rgba(50,215,75,0.15)' }}>
-                <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.8)', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{showResultModal.result}</p>
-              </div>
-              {showResultModal.completed && (
-                <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginTop: 12 }}>Completed {timeAgo(showResultModal.completed)}</p>
-              )}
             </motion.div>
           </motion.div>
         )}
