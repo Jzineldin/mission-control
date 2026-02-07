@@ -1754,4 +1754,55 @@ app.get('*', (req, res) => {
 
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Mission Control running at http://localhost:${PORT}`);
+  
+  // Recover stuck inProgress tasks on startup
+  try {
+    const tasks = JSON.parse(fs.readFileSync(TASKS_FILE, 'utf8'));
+    const sessionsFile = path.join(require('os').homedir(), '.openclaw/agents/main/sessions/sessions.json');
+    const sessions = fs.existsSync(sessionsFile) ? JSON.parse(fs.readFileSync(sessionsFile, 'utf8')) : {};
+    
+    let recovered = 0;
+    for (const task of [...tasks.columns.inProgress]) {
+      const childKey = task.childSessionKey || '';
+      const sessionInfo = sessions[childKey] || {};
+      const sessionId = sessionInfo.sessionId || '';
+      
+      if (!sessionId) continue;
+      
+      const transcriptPath = path.join(require('os').homedir(), '.openclaw/agents/main/sessions', `${sessionId}.jsonl`);
+      if (!fs.existsSync(transcriptPath)) continue;
+      
+      const lines = fs.readFileSync(transcriptPath, 'utf8').trim().split('\n');
+      let resultText = '';
+      for (let i = lines.length - 1; i >= 0; i--) {
+        try {
+          const evt = JSON.parse(lines[i]);
+          if (evt.type === 'message' && evt.message?.role === 'assistant') {
+            const content = evt.message.content;
+            resultText = Array.isArray(content)
+              ? content.filter(c => c.type === 'text').map(c => c.text).join('\n')
+              : typeof content === 'string' ? content : '';
+            if (resultText) break;
+          }
+        } catch(e) {}
+      }
+      
+      if (resultText) {
+        const idx = tasks.columns.inProgress.indexOf(task);
+        if (idx >= 0) tasks.columns.inProgress.splice(idx, 1);
+        task.status = 'done';
+        task.completed = new Date().toISOString();
+        task.result = resultText.substring(0, 3000);
+        tasks.columns.done.unshift(task);
+        recovered++;
+      }
+    }
+    
+    if (recovered > 0) {
+      fs.writeFileSync(TASKS_FILE, JSON.stringify(tasks, null, 2));
+      console.log(`🔄 Recovered ${recovered} stuck inProgress tasks on startup`);
+    }
+  } catch(e) {
+    console.error('[Startup recovery]', e.message);
+  }
 });
