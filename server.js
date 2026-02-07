@@ -2378,7 +2378,7 @@ app.post('/api/quick/emails', async (req, res) => {
     const r = await fetch(`http://127.0.0.1:${GATEWAY_PORT}/tools/invoke`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${GATEWAY_TOKEN}` },
-      body: JSON.stringify({ tool: 'sessions_send', args: { sessionKey: 'agent:main:main', message: 'Check for urgent unread emails and report back briefly.' } })
+      body: JSON.stringify({ tool: 'sessions_send', args: { sessionKey: 'agent:main:main', message: 'Check for urgent unread emails and report back briefly.' }, _disabled: 'moved to cron — disable direct pings to avoid loops' })
     });
     const data = await r.json();
     // result may be a JSON string — parse it to extract reply

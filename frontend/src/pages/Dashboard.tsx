@@ -168,10 +168,14 @@ export default function Dashboard() {
     const interval = setInterval(() => {
       const last = data.heartbeat.lastHeartbeat || Date.now() / 1000
       const next = last + 3600
-      const remaining = Math.max(0, next - Date.now() / 1000)
-      const mins = Math.floor(remaining / 60)
-      const secs = Math.floor(remaining % 60)
-      setCountdown(`${mins}m ${secs}s`)
+      const remaining = next - Date.now() / 1000
+      if (remaining <= 0) {
+        setCountdown('Overdue')
+      } else {
+        const mins = Math.floor(remaining / 60)
+        const secs = Math.floor(remaining % 60)
+        setCountdown(`${mins}m ${secs}s`)
+      }
     }, 1000)
     return () => clearInterval(interval)
   }, [data])
@@ -446,7 +450,7 @@ export default function Dashboard() {
                   </div>
                   <div>
                     <p style={{ fontSize: 10, fontWeight: 600, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', marginBottom: 4 }}>Next</p>
-                    <p style={{ fontSize: 12, color: '#007AFF', fontFamily: 'monospace' }}>{countdown || '—'}</p>
+                    <p style={{ fontSize: 12, color: countdown === 'Overdue' ? '#FF453A' : '#007AFF', fontFamily: 'monospace' }}>{countdown || '—'}</p>
                   </div>
                   <div>
                     <p style={{ fontSize: 10, fontWeight: 600, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', marginBottom: 4 }}>Interval</p>
