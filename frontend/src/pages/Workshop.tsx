@@ -263,10 +263,22 @@ export default function Workshop() {
               )}
 
               {/* Executing indicator */}
-              {isExecuting && (
+              {isExecuting && !chatSending && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 0', marginTop: 8 }}>
                   <Loader2 size={14} style={{ color: '#007AFF', animation: 'spin 1s linear infinite' }} />
                   <span style={{ fontSize: 12, color: '#007AFF' }}>Sub-agent is working on this task...</span>
+                </div>
+              )}
+
+              {/* Typing indicator */}
+              {chatSending && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 4px', marginTop: 4 }}>
+                  <div style={{ display: 'flex', gap: 4, alignItems: 'center', padding: '8px 14px', borderRadius: '14px 14px 14px 4px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                    <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'rgba(255,255,255,0.4)', animation: 'pulse 1.4s ease-in-out infinite' }} />
+                    <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'rgba(255,255,255,0.4)', animation: 'pulse 1.4s ease-in-out 0.2s infinite' }} />
+                    <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'rgba(255,255,255,0.4)', animation: 'pulse 1.4s ease-in-out 0.4s infinite' }} />
+                  </div>
+                  <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>Zinbot is thinking...</span>
                 </div>
               )}
 
