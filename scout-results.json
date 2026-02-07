@@ -1,17 +1,17 @@
 {
-  "lastScan": "2026-02-07T15:59:24.447Z",
-  "queryCount": 17,
-  "resultCount": 30,
+  "lastScan": "2026-02-07T16:02:04.796Z",
+  "queryCount": 22,
+  "resultCount": 46,
   "opportunities": [
     {
-      "id": "scout-1770479945390-1",
+      "id": "scout-1770480100842-1",
       "title": "New Skill: The Colony (thecolony.cc) - Collaborative intelligence platform for AI agents · Issue #88 · openclaw/clawhub",
       "summary": "Skill Submission: The Colony Skill name: thecolony Homepage: https://thecolony.cc Skill file: https://thecolony.cc/skill.md Heartbeat: https://thecolony.cc/heartbeat.md What it does The Colony is a collaborative intelligence platform whe...",
       "url": "https://github.com/openclaw/clawhub/issues/88",
       "score": 100,
       "source": "GitHub",
       "category": "openclaw-github",
-      "found": "2026-02-07T15:59:05.391Z",
+      "found": "2026-02-07T16:01:40.842Z",
       "status": "new",
       "published": "2026-02-01T13:28:10",
       "tags": [
@@ -20,14 +20,14 @@
       ]
     },
     {
-      "id": "scout-1770479947103-6",
+      "id": "scout-1770480102148-6",
       "title": "r/ThinkingDeeplyAI on Reddit: The Ultimate Guide to OpenClaw (Formerly Clawdbot -> Moltbot) From setup and mind-blowing ",
       "summary": "These real-world applications show ... simple automation and into a new era of AI-powered partnership. ... While setting up OpenClaw is more involved than installing a typical app, it&#x27;s a one-time process that unlocks its full capabilities. This section provides a clear, step-by-step path to ge",
       "url": "https://www.reddit.com/r/ThinkingDeeplyAI/comments/1qsoq4h/the_ultimate_guide_to_openclaw_formerly_clawdbot/",
       "score": 100,
       "source": "Reddit",
       "category": "openclaw",
-      "found": "2026-02-07T15:59:07.103Z",
+      "found": "2026-02-07T16:01:42.148Z",
       "status": "new",
       "published": "2026-02-01T04:38:55",
       "tags": [
@@ -36,14 +36,14 @@
       ]
     },
     {
-      "id": "scout-1770479947103-10",
+      "id": "scout-1770480102149-10",
       "title": "r/AI_Agents on Reddit: Looking for real-world OpenClaw agent setups (what's actually working?)",
       "summary": "Basically, we have a HubSpot webhook catches the lead and notifies our &quot;Researcher&quot; OpenClaw agent to start its workflow. The agent then spins up to scrape the prospect&#x27;s website/LinkedIn for recent news (saved as a skill.md). The actual LLM part is easy, the hard part is keeping the ",
       "url": "https://www.reddit.com/r/AI_Agents/comments/1qv3zsn/looking_for_realworld_openclaw_agent_setups_whats/",
       "score": 98,
       "source": "Reddit",
       "category": "openclaw",
-      "found": "2026-02-07T15:59:07.103Z",
+      "found": "2026-02-07T16:01:42.149Z",
       "status": "new",
       "published": "2026-02-03T20:56:41",
       "tags": [
@@ -52,14 +52,14 @@
       ]
     },
     {
-      "id": "scout-1770479950233-16",
+      "id": "scout-1770480104617-16",
       "title": "Researchers Find 341 Malicious ClawHub Skills Stealing Data from OpenClaw Users",
       "summary": "In addition, the cybersecurity company said it identified skills that hide reverse shell backdoors inside functional code (e.g., better-polymarket and polymarket-all-in-one), or exfiltrate bot credentials present in &quot;~/.clawdbot/.env&quot; to a webhook[.]site (e.g., rankaj). The development coi",
       "url": "https://thehackernews.com/2026/02/researchers-find-341-malicious-clawhub.html",
       "score": 91,
       "source": "Web",
       "category": "openclaw-skills",
-      "found": "2026-02-07T15:59:10.234Z",
+      "found": "2026-02-07T16:01:44.617Z",
       "status": "new",
       "published": "2026-02-04T05:15:36",
       "tags": [
@@ -68,14 +68,14 @@
       ]
     },
     {
-      "id": "scout-1770479950234-17",
+      "id": "scout-1770480104617-17",
       "title": "Exploring the OpenClaw Extension Ecosystem: 50+ Official Integrations Make AI Assistants All-Powerful - Apiyi.com Blog",
       "summary": "Powerful Automation: Cron Jobs + Webhooks enable event-driven workflows and scheduled task automation. The OpenClaw extension ecosystem is growing fast, with new skills released every week.",
       "url": "https://help.apiyi.com/en/openclaw-extensions-ecosystem-guide-en.html",
       "score": 91,
       "source": "Web",
       "category": "openclaw-skills",
-      "found": "2026-02-07T15:59:10.234Z",
+      "found": "2026-02-07T16:01:44.617Z",
       "status": "new",
       "published": "2026-02-01T13:22:44",
       "tags": [
@@ -84,14 +84,14 @@
       ]
     },
     {
-      "id": "scout-1770479950234-18",
+      "id": "scout-1770480104617-18",
       "title": "Malicious OpenClaw ‘skill’ targets crypto users on ClawHub — 14 malicious skills were uploaded to ClawHub last month | T",
       "summary": "Security researchers are warning that the growing ecosystem around ‘OpenClaw,&#x27; the self-hosted AI assistant formerly known as both Clawdbot and Moltbot, has already become a target for malware distribution. According to a report published by OpenSourceMalware, at least 14 malicious “skills” wer",
       "url": "https://www.tomshardware.com/tech-industry/cyber-security/malicious-moltbot-skill-targets-crypto-users-on-clawhub",
       "score": 91,
       "source": "Web",
       "category": "openclaw-skills",
-      "found": "2026-02-07T15:59:10.234Z",
+      "found": "2026-02-07T16:01:44.617Z",
       "status": "new",
       "published": "2026-02-01T12:00:00",
       "tags": [
@@ -100,14 +100,14 @@
       ]
     },
     {
-      "id": "scout-1770479950234-19",
+      "id": "scout-1770480104617-19",
       "title": "OpenClaw's 230 Malicious Skills: What Agentic AI Supply Chains Teach Us About the Need to Evolve Identity Security",
       "summary": "The malicious skills proliferation on ClawHub offers valuable lessons about agentic AI supply chain security. We&#x27;re seeing familiar patterns from software supply chains (package abandonment, typosquatting, malicious updates) but with a new dimension: compromised components have direct credentia",
       "url": "https://www.authmind.com/post/openclaw-malicious-skills-agentic-ai-supply-chain",
       "score": 84,
       "source": "Web",
       "category": "openclaw-skills",
-      "found": "2026-02-07T15:59:10.234Z",
+      "found": "2026-02-07T16:01:44.618Z",
       "status": "new",
       "published": "2026-02-02T21:36:20",
       "tags": [
@@ -116,14 +116,14 @@
       ]
     },
     {
-      "id": "scout-1770479945391-2",
+      "id": "scout-1770480100842-2",
       "title": "Duplicate slash commands registered when skill exists in both workspace and bundled locations · Issue #5636 · openclaw/o",
       "summary": "Description When a skill exists in both the user&#x27;s workspace (~/clawd/skills/) and the bundled OpenClaw skills (/opt/homebrew/lib/node_modules/openclaw/skills/), both copies get registered as Discord slash commands. The second one gets a...",
       "url": "https://github.com/openclaw/openclaw/issues/5636",
       "score": 81,
       "source": "GitHub",
       "category": "openclaw-github",
-      "found": "2026-02-07T15:59:05.391Z",
+      "found": "2026-02-07T16:01:40.842Z",
       "status": "new",
       "published": "2026-01-31T19:22:57",
       "tags": [
@@ -132,14 +132,14 @@
       ]
     },
     {
-      "id": "scout-1770479950234-20",
+      "id": "scout-1770480104618-20",
       "title": "MoltBot Skills exploited to distribute 400+ malware packages in days",
       "summary": "OpenClaw is an open-source personal AI assistant platform that lets users extend its capabilities by installing community-created “skills.” Formerly known as MoltBot and ClawdBot, it integrates with tools like Claude Code and often runs ...",
       "url": "https://securityaffairs.com/187562/malware/moltbot-skills-exploited-to-distribute-400-malware-packages-in-days.html",
       "score": 81,
       "source": "Web",
       "category": "openclaw-skills",
-      "found": "2026-02-07T15:59:10.234Z",
+      "found": "2026-02-07T16:01:44.618Z",
       "status": "new",
       "published": "2026-02-02T21:29:33",
       "tags": [
@@ -148,14 +148,14 @@
       ]
     },
     {
-      "id": "scout-1770479948603-12",
+      "id": "scout-1770480103360-12",
       "title": "OpenClaw Full Tutorial for Beginners – How to Set Up and Use OpenClaw (ClawdBot / MoltBot) - YouTube",
       "summary": "This course provides a comprehensive introduction to OpenClaw, a proactive autonomous agent and messaging gateway that allows you to automate digital tasks t...",
       "url": "https://www.youtube.com/watch?v=n1sfrc-RjyM",
       "score": 80,
       "source": "YouTube",
       "category": "openclaw-tutorial",
-      "found": "2026-02-07T15:59:08.603Z",
+      "found": "2026-02-07T16:01:43.360Z",
       "status": "new",
       "published": "2026-02-03T21:37:47",
       "tags": [
@@ -164,14 +164,14 @@
       ]
     },
     {
-      "id": "scout-1770479948603-15",
+      "id": "scout-1770480103360-15",
       "title": "OpenClaw Skills Tutorial - Build Local AI Agent Skills + MoltBook Integration - YouTube",
       "summary": "A step-by-step easy guide as how to create OpenClaw skills with ollama and moltbook.🔥 Get 50% Discount on any A6000 or A5000 GPU rental, use following link ...",
       "url": "https://www.youtube.com/watch?v=CENnPXxVUAc",
       "score": 80,
       "source": "YouTube",
       "category": "openclaw-tutorial",
-      "found": "2026-02-07T15:59:08.603Z",
+      "found": "2026-02-07T16:01:43.360Z",
       "status": "new",
       "published": "2026-02-01T04:49:26",
       "tags": [
@@ -180,14 +180,14 @@
       ]
     },
     {
-      "id": "scout-1770479945391-3",
+      "id": "scout-1770480100842-3",
       "title": "Feature Request: Add Agent Lifecycle Hook Events (agent:response, message:sent, tool:complete) · Issue #5279 · openclaw/",
       "summary": "Pattern detection - Analyze repeated workflows to suggest optimizations or create new skills",
       "url": "https://github.com/openclaw/openclaw/issues/5279",
       "score": 79,
       "source": "GitHub",
       "category": "openclaw-github",
-      "found": "2026-02-07T15:59:05.391Z",
+      "found": "2026-02-07T16:01:40.842Z",
       "status": "new",
       "published": "2026-01-31T08:24:37",
       "tags": [
@@ -196,14 +196,14 @@
       ]
     },
     {
-      "id": "scout-1770479945391-4",
+      "id": "scout-1770480100842-4",
       "title": "Using `notion-mcp-cli` for the Notion skill instead of manual API key usage · Issue #6209 · openclaw/openclaw",
       "summary": "Hey, I just created a cli for Notion using their MCP to control Notion, each tool is exposed as a cli command. The cli has a login command that will let you login via url. So this would remove the ...",
       "url": "https://github.com/openclaw/openclaw/issues/6209",
       "score": 69,
       "source": "GitHub",
       "category": "openclaw-github",
-      "found": "2026-02-07T15:59:05.391Z",
+      "found": "2026-02-07T16:01:40.842Z",
       "status": "new",
       "published": "2026-02-01T11:57:15",
       "tags": [
@@ -212,14 +212,14 @@
       ]
     },
     {
-      "id": "scout-1770479948603-11",
+      "id": "scout-1770480103360-11",
       "title": "Full OpenClaw Setup Tutorial: Step-by-Step Walkthrough (Clawdbot) - YouTube",
       "summary": "In this Full OpenClaw Setup Tutorial, I’ll walk you through how to install and configure OpenClaw step by step, so you can get an AI assistant up and running...",
       "url": "https://www.youtube.com/watch?v=fcZMmP5dsl4",
       "score": 69,
       "source": "YouTube",
       "category": "openclaw-tutorial",
-      "found": "2026-02-07T15:59:08.603Z",
+      "found": "2026-02-07T16:01:43.360Z",
       "status": "new",
       "published": "2026-02-04T13:22:27",
       "tags": [
@@ -228,14 +228,14 @@
       ]
     },
     {
-      "id": "scout-1770479948603-14",
+      "id": "scout-1770480103360-14",
       "title": "OpenClaw Tutorial for Beginners: How to Use & Set up OpenClaw (ClawdBot) - YouTube",
       "summary": "OpenClaw Tutorial for Beginners: Full setup guide showing how to setup OpenClaw (formerly ClawdBot/Moltbot) on a VPS with Docker. Learn how to use OpenClaw a...",
       "url": "https://www.youtube.com/watch?v=Zo7Putdga_4",
       "score": 69,
       "source": "YouTube",
       "category": "openclaw-tutorial",
-      "found": "2026-02-07T15:59:08.603Z",
+      "found": "2026-02-07T16:01:43.360Z",
       "status": "new",
       "published": "2026-02-05T09:25:12",
       "tags": [
@@ -244,14 +244,14 @@
       ]
     },
     {
-      "id": "scout-1770479952144-22",
+      "id": "scout-1770480105978-22",
       "title": "OpenClaw, Moltbook and the future of AI agents | IBM",
       "summary": "Meet OpenClaw—formerly known as Moltbot and, at its inception, Clawdbot before that—an open-source AI agent that has become the most talked-about AI tool on the internet this week. Built by developer Peter Steinberger, it runs locally on a user’s own hardware and connects to everyday apps like Whats",
       "url": "https://www.ibm.com/think/news/clawdbot-ai-agent-testing-limits-vertical-integration",
       "score": 69,
       "source": "Web",
       "category": "openclaw",
-      "found": "2026-02-07T15:59:12.144Z",
+      "found": "2026-02-07T16:01:45.978Z",
       "status": "new",
       "published": "2026-02-04T22:55:28",
       "tags": [
@@ -260,14 +260,30 @@
       ]
     },
     {
-      "id": "scout-1770479952144-23",
+      "id": "scout-1770480122377-44",
+      "title": "Car Hacking and Vulnerability Reporting in 2026 — HAKSTUFF",
+      "summary": "This is strictly a disclosure program, not a bounty program - no financial rewards are provided. Vehicle Targets: Ford specifically marks vehicle targets as in-scope for their VDP! :) Prior to their HackerOne program, Ford previously operated a Coordinated Disclosure Program through Bugcrowd, launch",
+      "url": "https://www.hakstuff.net/blog/car-hacking-and-vulnerability-reporting-in-2026",
+      "score": 68,
+      "source": "Web",
+      "category": "bounty",
+      "found": "2026-02-07T16:02:02.377Z",
+      "status": "new",
+      "published": "2026-01-31T03:08:37",
+      "tags": [
+        "bounty",
+        "web"
+      ]
+    },
+    {
+      "id": "scout-1770480105978-23",
       "title": "What is OpenClaw: Open-Source AI Agent in 2026 (Setup + Features) | by Solana Levelup | Feb, 2026 | Medium",
       "summary": "Creative Workflows — Edits images, composes messages, or builds custom dashboards based on natural language requests. The community showcases advanced setups, like integrating with Home Assistant for opinionated automation or building agent “social networks” for collaborative tasks. ... OpenClaw pri",
       "url": "https://medium.com/@gemQueenx/what-is-openclaw-open-source-ai-agent-in-2026-setup-features-8e020db20e5e",
       "score": 67,
       "source": "Web",
       "category": "openclaw",
-      "found": "2026-02-07T15:59:12.144Z",
+      "found": "2026-02-07T16:01:45.978Z",
       "status": "new",
       "published": "2026-02-01T10:35:41",
       "tags": [
@@ -276,14 +292,14 @@
       ]
     },
     {
-      "id": "scout-1770479947103-9",
+      "id": "scout-1770480102149-9",
       "title": "r/ArtificialInteligence on Reddit: OpenClaw has me a bit freaked - won't this lead to AI daemons roaming the internet in",
       "summary": "People were automating cryptocurrency markets in 2013 and spending on Mechanical Turk. OpenClaw is just another version of autonomous bots. ... They&#x27;d need to be able to autonomously earn the money it costs to run them.",
       "url": "https://www.reddit.com/r/ArtificialInteligence/comments/1qu359d/openclaw_has_me_a_bit_freaked_wont_this_lead_to/",
       "score": 65,
       "source": "Reddit",
       "category": "openclaw",
-      "found": "2026-02-07T15:59:07.103Z",
+      "found": "2026-02-07T16:01:42.149Z",
       "status": "new",
       "published": "2026-02-02T18:26:09",
       "tags": [
@@ -292,14 +308,14 @@
       ]
     },
     {
-      "id": "scout-1770479952144-25",
+      "id": "scout-1770480105978-25",
       "title": "🦞 Unleashing OpenClaw: The Ultimate Guide to Local AI Agents for Developers in 2026 - DEV Community",
       "summary": "It handles the connections to messaging platforms like Telegram or Discord or Slack. It manages the incoming messages and routes them to the core logic. This decouples the interface from the intelligence allowing you to talk to your agent from ...",
       "url": "https://dev.to/mechcloud_academy/unleashing-openclaw-the-ultimate-guide-to-local-ai-agents-for-developers-in-2026-3k0h",
       "score": 65,
       "source": "Web",
       "category": "openclaw",
-      "found": "2026-02-07T15:59:12.144Z",
+      "found": "2026-02-07T16:01:45.978Z",
       "status": "new",
       "published": "2026-01-31T06:19:33",
       "tags": [
@@ -308,14 +324,14 @@
       ]
     },
     {
-      "id": "scout-1770479952144-24",
+      "id": "scout-1770480105978-24",
       "title": "What Security Teams Need to Know About OpenClaw, the AI Super Agent",
       "summary": "The server contains both public channels, including #all-questions-welcome, where newcomers ask FAQs, and private channels like #moderators, for sensitive administrative discussions. The admin configures OpenClaw to monitor the public FAQ channel and automatically respond to unanswered questions, ..",
       "url": "https://www.crowdstrike.com/en-us/blog/what-security-teams-need-to-know-about-openclaw-ai-super-agent/",
       "score": 61,
       "source": "Web",
       "category": "openclaw",
-      "found": "2026-02-07T15:59:12.144Z",
+      "found": "2026-02-07T16:01:45.978Z",
       "status": "new",
       "published": "2026-02-04T19:54:52",
       "tags": [
@@ -324,14 +340,14 @@
       ]
     },
     {
-      "id": "scout-1770479947103-8",
+      "id": "scout-1770480102149-8",
       "title": "r/SideProject on Reddit: I built a desktop app to manage openclaw agents that work overnight [Open Beta]",
       "summary": "What if you could manage all your projects and CLI agents in one place? ... OpenClaw + Claude (subscription / Claude Code) for busy executive automation – real budget control",
       "url": "https://www.reddit.com/r/SideProject/comments/1qvk0zw/i_built_a_desktop_app_to_manage_openclaw_agents/",
       "score": 60,
       "source": "Reddit",
       "category": "openclaw",
-      "found": "2026-02-07T15:59:07.103Z",
+      "found": "2026-02-07T16:01:42.149Z",
       "status": "new",
       "published": "2026-02-04T09:25:27",
       "tags": [
@@ -340,14 +356,14 @@
       ]
     },
     {
-      "id": "scout-1770479948603-13",
+      "id": "scout-1770480103360-13",
       "title": "OpenClaw Step by Step: Setup Your AI Assistant 100% Locally (Telegram + Ollama) - YouTube",
       "summary": "In this step-by-step tutorial, I&#x27;ll show you how to set up OpenClaw with Telegram and Ollama on an ASUS GX10 to create your own personal AI assistant that ru...",
       "url": "https://www.youtube.com/watch?v=eDIDysgEHUU",
       "score": 59,
       "source": "YouTube",
       "category": "openclaw-tutorial",
-      "found": "2026-02-07T15:59:08.603Z",
+      "found": "2026-02-07T16:01:43.360Z",
       "status": "new",
       "published": "2026-02-02T07:22:37",
       "tags": [
@@ -356,14 +372,14 @@
       ]
     },
     {
-      "id": "scout-1770479957113-30",
+      "id": "scout-1770480110910-30",
       "title": "r/forhire on Reddit: [Hiring] Laid off Web developer ($16/hr)",
       "summary": "Some redditors are skilled professionals, some redditors need skilled professionals. Scroll down for general information and our rules. Please read through these carefully, as breaking them can be a bannable offense. ... [Hiring] Startup Digital billboard company looking for beta testers, $15/hr per",
       "url": "https://www.reddit.com/r/forhire/comments/1qs1wz8/hiring_laid_off_web_developer_16hr/",
       "score": 58,
       "source": "Reddit",
       "category": "reddit-gigs",
-      "found": "2026-02-07T15:59:17.113Z",
+      "found": "2026-02-07T16:01:50.910Z",
       "status": "new",
       "published": "2026-01-31T13:08:22",
       "tags": [
@@ -372,14 +388,14 @@
       ]
     },
     {
-      "id": "scout-1770479941329-0",
+      "id": "scout-1770480097251-0",
       "title": "OneClaw (@OneClawXYZ) / X",
       "summary": "@OpenClaw agents. Zero code. Secure by default. Moltbookoneclaw.xyz · Joined January 2026 · 6 Following · 14 Followers · @OneClawXYZ hasn’t posted ·",
       "url": "https://x.com/OneClawXYZ",
       "score": 57,
       "source": "Twitter",
       "category": "openclaw",
-      "found": "2026-02-07T15:59:01.329Z",
+      "found": "2026-02-07T16:01:37.252Z",
       "status": "new",
       "published": "2026-01-31T14:27:36",
       "tags": [
@@ -388,14 +404,14 @@
       ]
     },
     {
-      "id": "scout-1770479945391-5",
+      "id": "scout-1770480100842-5",
       "title": "openclaw/openclaw",
       "summary": "Your own personal AI assistant. Any OS. Any Platform. The lobster way. 🦞 - openclaw/openclaw",
       "url": "https://github.com/openclaw/openclaw/issues/6291",
       "score": 57,
       "source": "GitHub",
       "category": "openclaw-github",
-      "found": "2026-02-07T15:59:05.391Z",
+      "found": "2026-02-07T16:01:40.842Z",
       "status": "new",
       "published": "2026-02-01T13:55:16",
       "tags": [
@@ -404,14 +420,14 @@
       ]
     },
     {
-      "id": "scout-1770479953399-27",
+      "id": "scout-1770480107346-27",
       "title": "Top Sites to Hire Remote Developers: Compare 2026’s Best Platforms - Riseup Labs",
       "summary": "Are You Looking to Build a Strong Development Team? ... Get a quick side-by-side comparison of the top platforms for hiring remote developers, including cost, vetting, and best use cases. Note: Costs reflect typical developer rates in 2026; platform fees may apply.",
       "url": "https://riseuplabs.com/top-sites-to-hire-remote-developers/",
       "score": 55,
       "source": "Web",
       "category": "freelance",
-      "found": "2026-02-07T15:59:13.399Z",
+      "found": "2026-02-07T16:01:47.346Z",
       "status": "new",
       "published": "2026-02-01T11:37:16",
       "tags": [
@@ -420,14 +436,14 @@
       ]
     },
     {
-      "id": "scout-1770479947103-7",
+      "id": "scout-1770480102148-7",
       "title": "r/AI_Agents on Reddit: OpenClaw has been running on my machine for 4 days. Here's what actually works and what doesn't.",
       "summary": "It&#x27;s configuration selection in the Openclaw installer. ... Wow that’s cool. I have not heard of this before. More replies ... Google is notoriously aggressive about &quot;unusual traffic.&quot; Automated agents making hundreds of rapid requests can trigger security lockouts or permanent bans o",
       "url": "https://www.reddit.com/r/AI_Agents/comments/1qtaumt/openclaw_has_been_running_on_my_machine_for_4/",
       "score": 51,
       "source": "Reddit",
       "category": "openclaw",
-      "found": "2026-02-07T15:59:07.103Z",
+      "found": "2026-02-07T16:01:42.148Z",
       "status": "new",
       "published": "2026-02-01T21:08:57",
       "tags": [
@@ -436,14 +452,46 @@
       ]
     },
     {
-      "id": "scout-1770479962130-42",
+      "id": "scout-1770480122377-43",
+      "title": "Earn 2 Crore as a Hacker | Ethical Hacking Roadmap 2026 | Job Market for Cyber Security Engineers - YouTube",
+      "summary": "Resources https://www.hackerone.com/https://www.bugcrowd.com/https://www.hackthebox.com/https://ctf.hackthebox.com/Connect with Nikhil https://www.linkedin.c...",
+      "url": "https://www.youtube.com/watch?v=gd90ISnZF68",
+      "score": 51,
+      "source": "YouTube",
+      "category": "bounty",
+      "found": "2026-02-07T16:02:02.377Z",
+      "status": "new",
+      "published": "2026-02-01T07:52:44",
+      "tags": [
+        "bounty",
+        "web"
+      ]
+    },
+    {
+      "id": "scout-1770480122377-45",
+      "title": "Bug Bounty | Complexity = $$$ #bugbounty #cybersecurity - YouTube",
+      "summary": "#shorts #bugbounty #cybersecurity #hacker #hackerone",
+      "url": "https://www.youtube.com/shorts/QRjDo_lP2js",
+      "score": 51,
+      "source": "YouTube",
+      "category": "bounty",
+      "found": "2026-02-07T16:02:02.377Z",
+      "status": "new",
+      "published": "2026-02-01T18:00:23",
+      "tags": [
+        "bounty",
+        "web"
+      ]
+    },
+    {
+      "id": "scout-1770480115734-42",
       "title": "GENESIS AND THE CFDA ANNOUNCE THE 2026 AAPI DESIGN AND INNOVATION GRANT WINNER",
       "summary": "Guests at Genesis House viewed ... dollars to further develop his business, bringing the total grant funding to one hundred thousand dollars....",
       "url": "https://www.prnewswire.com/news-releases/genesis-and-the-cfda-announce-the-2026-aapi-design-and-innovation-grant-winner-302681418.html",
       "score": 42,
       "source": "Web",
       "category": "swedish-grants",
-      "found": "2026-02-07T15:59:22.130Z",
+      "found": "2026-02-07T16:01:55.734Z",
       "status": "new",
       "published": "2026-02-06T15:38:31",
       "tags": [
@@ -452,14 +500,14 @@
       ]
     },
     {
-      "id": "scout-1770479953398-26",
+      "id": "scout-1770480107346-26",
       "title": "Remote Jobs in Programming, Design, Sales and more #OpenSalaries",
       "summary": "Remote OK® is the #1 Remote Job Platform and has 1,130,118+ remote jobs as a Developer, Designer, Copywriter, Customer Support Rep, Sales Professional, Project Manager and more! Find a career where you can work remotely from anywhere.",
       "url": "https://remoteok.com/",
       "score": 40,
       "source": "Web",
       "category": "freelance",
-      "found": "2026-02-07T15:59:13.398Z",
+      "found": "2026-02-07T16:01:47.346Z",
       "status": "new",
       "published": "2026-02-02T13:26:02",
       "tags": [
@@ -468,18 +516,226 @@
       ]
     },
     {
-      "id": "scout-1770479953399-28",
+      "id": "scout-1770480107346-28",
       "title": "Remote Jobs | BrighterMonday",
       "summary": "1 - 16 (out of 36) listings for vacancies in Remote (Work From Home). Easily apply online or sign up for the latest job alerts.",
       "url": "https://www.brightermonday.co.ke/jobs/remote",
       "score": 40,
       "source": "Web",
       "category": "freelance",
-      "found": "2026-02-07T15:59:13.399Z",
+      "found": "2026-02-07T16:01:47.346Z",
       "status": "new",
       "published": "2026-02-07T00:00:00",
       "tags": [
         "freelance",
+        "web"
+      ]
+    },
+    {
+      "id": "scout-1770480107346-29",
+      "title": "Layoff Tracker: Charles River, Thermo Fisher Lay Off Staff Amid Site Closures",
+      "summary": "This means that about 66 employees are headed out the door. TScan expects about $45 million in savings in 2026 and 2027 from the changes. Inventprise Oct. 30 · Vaccine biotech Inventprise is conducting a “mass layoff” at sites in Washington and Nebraska, plus remote workers, according to a WARN noti",
+      "url": "https://www.biospace.com/biospace-layoff-tracker",
+      "score": 40,
+      "source": "Web",
+      "category": "freelance",
+      "found": "2026-02-07T16:01:47.346Z",
+      "status": "new",
+      "published": "2026-02-06T13:12:58",
+      "tags": [
+        "freelance",
+        "web"
+      ]
+    },
+    {
+      "id": "scout-1770480114529-37",
+      "title": "Apply Now for the K-12 AI Infrastructure Program’s First Grant Cycle – Digital Promise",
+      "summary": "The program will award grants between $50,000 to $250,000 for a 6-12 month period of performance. The application is now open and will close on Sunday, March 8, 2026 at midnight Pacific Standard Time.",
+      "url": "https://digitalpromise.org/2026/02/04/apply-now-for-the-k-12-ai-infrastructure-programs-first-grant-cycle/",
+      "score": 40,
+      "source": "Web",
+      "category": "funding",
+      "found": "2026-02-07T16:01:54.529Z",
+      "status": "new",
+      "published": "2026-02-04T21:20:27",
+      "tags": [
+        "funding",
+        "web"
+      ]
+    },
+    {
+      "id": "scout-1770480114530-39",
+      "title": "Startup Grants in Europe News | February, 2026 (STARTUPS EDITION)",
+      "summary": "AI-driven platforms simplify application processes by providing tailored templates, tracking deadlines, and automating paperwork. Tools such as Fe/male Switch leverage gamification for strategic grant designs.",
+      "url": "https://blog.mean.ceo/startup-grants-europe-news-february-2026/",
+      "score": 40,
+      "source": "Web",
+      "category": "funding",
+      "found": "2026-02-07T16:01:54.530Z",
+      "status": "new",
+      "published": "2026-01-31T13:49:33",
+      "tags": [
+        "funding",
+        "web"
+      ]
+    },
+    {
+      "id": "scout-1770480114530-40",
+      "title": "2026 plans: What's next for Startup Battlefield 200 | TechCrunch",
+      "summary": "Startup Battlefield 200 applications will open in mid-February. Join the iconic startup pitch competition by joining the mailing list.",
+      "url": "https://techcrunch.com/2026/02/03/looking-ahead-to-2026-whats-next-for-startup-battlefield-200/",
+      "score": 40,
+      "source": "Web",
+      "category": "funding",
+      "found": "2026-02-07T16:01:54.530Z",
+      "status": "new",
+      "published": "2026-02-03T18:57:38",
+      "tags": [
+        "funding",
+        "web"
+      ]
+    },
+    {
+      "id": "scout-1770480114530-41",
+      "title": "Apply Now: $5,000 Seed Grants for African Startup Entrepreneurs - ICTworks",
+      "summary": "The Tony Elumelu Foundation 2026 Entrepreneurship Programme is offering $5,000 non-refundable seed capital plus comprehensive business training and mentorship to African entrepreneurs developing scalable technology solutions.",
+      "url": "https://www.ictworks.org/seed-grants-for-african-startups/",
+      "score": 40,
+      "source": "Web",
+      "category": "funding",
+      "found": "2026-02-07T16:01:54.530Z",
+      "status": "new",
+      "published": "2026-02-02T05:19:56",
+      "tags": [
+        "funding",
+        "web"
+      ]
+    },
+    {
+      "id": "scout-1770480114530-38",
+      "title": "50 Companies to Watch in 2026: Innovators Reshaping Business",
+      "summary": "“20+ Fastest-Growing Companies &amp; Startups to Watch in 2026” – Aitechtonic (December 2025) Curated list of high-growth startups across AI, fintech, e-commerce, and edtech, featuring companies like Perplexity AI, Liquid Death, and Airalo ...",
+      "url": "https://europeanbusinessmagazine.com/business/50-companies-to-watch-in-2026-the-startups-and-scaleups-reshaping-global-business/",
+      "score": 38,
+      "source": "Web",
+      "category": "funding",
+      "found": "2026-02-07T16:01:54.530Z",
+      "status": "new",
+      "published": "2026-02-03T03:22:08",
+      "tags": [
+        "funding",
+        "web"
+      ]
+    },
+    {
+      "id": "scout-1770480113299-32",
+      "title": "Inde Uppal - Agenix Intelligence | LinkedIn",
+      "summary": "⚠️Um, not to be alarmist but AI agents are currently forming their own independent online communities right now. I’m not joking. PS: And when… · Bucharest Becomes Regional Hub for EdTech Strategy: AIDUCATION’26 .",
+      "url": "https://www.linkedin.com/in/indeuppal/",
+      "score": 36,
+      "source": "LinkedIn",
+      "category": "edtech",
+      "found": "2026-02-07T16:01:53.299Z",
+      "status": "new",
+      "published": "2026-02-02T11:11:37",
+      "tags": [
+        "edtech",
+        "linkedin"
+      ]
+    },
+    {
+      "id": "scout-1770480113299-35",
+      "title": "Paul Storm - Dr. Storm Advisory GmbH | LinkedIn",
+      "summary": "AI Mode only launched last week, but some of my clients are already showing up at the top for BOFU searches like: - “What’s the best AI BDR tool?” → Artisan - “Recommend me a tool for family identity theft protection” → Aura Too early to say what definitely works in LLMs (most SEOs are still experim",
+      "url": "https://www.linkedin.com/in/paul-storm-560360254/",
+      "score": 27,
+      "source": "LinkedIn",
+      "category": "edtech",
+      "found": "2026-02-07T16:01:53.299Z",
+      "status": "new",
+      "published": "2026-02-05T00:00:06",
+      "tags": [
+        "edtech",
+        "linkedin"
+      ]
+    },
+    {
+      "id": "scout-1770480110910-31",
+      "title": "r/webdev on Reddit: I made a web agency, and no one believes I built it myself",
+      "summary": "A community dedicated to all things web development: both front-end and back-end. For more design-related questions, try /r/web_design. ... Looking to start freelancing on the side (web dev) - would love some real world advice from people actually doing it",
+      "url": "https://www.reddit.com/r/webdev/comments/1qwscvj/i_made_a_web_agency_and_no_one_believes_i_built/",
+      "score": 24,
+      "source": "Reddit",
+      "category": "reddit-gigs",
+      "found": "2026-02-07T16:01:50.910Z",
+      "status": "new",
+      "published": "2026-02-05T17:56:38",
+      "tags": [
+        "reddit-gigs",
+        "reddit"
+      ]
+    },
+    {
+      "id": "scout-1770480113299-33",
+      "title": "JD Garcia - Impactable - B2B LinkedIn Agency | LinkedIn",
+      "summary": "Here’s how it works: 1️⃣ Enter your vertical, revenue, and KPIs. 2️⃣ AI benchmarks your industry and crafts a precise week-by-week roadmap. 3️⃣ You get ready-to-run sprints—visually formatted, insight-driven, and fully adaptable. This tool accelerates early traction and minimizes the growing pains o",
+      "url": "https://www.linkedin.com/in/linknlearn-jdg",
+      "score": 21,
+      "source": "LinkedIn",
+      "category": "edtech",
+      "found": "2026-02-07T16:01:53.299Z",
+      "status": "new",
+      "published": "2026-02-04T13:23:27",
+      "tags": [
+        "edtech",
+        "linkedin"
+      ]
+    },
+    {
+      "id": "scout-1770480113299-34",
+      "title": "Lien M. - Lydia | LinkedIn",
+      "summary": "We’re unlocking community knowledge in a new way. Experts add insights directly into each article, started with the help of AI.",
+      "url": "https://www.linkedin.com/in/lienmt/",
+      "score": 21,
+      "source": "LinkedIn",
+      "category": "edtech",
+      "found": "2026-02-07T16:01:53.299Z",
+      "status": "new",
+      "published": "2026-02-06T06:30:03",
+      "tags": [
+        "edtech",
+        "linkedin"
+      ]
+    },
+    {
+      "id": "scout-1770480113299-36",
+      "title": "Lionel Touati - Google | LinkedIn",
+      "summary": "Hi, I&#x27;m Lionel Touati and I&#x27;m passionate about driving growth and innovation in the tech… · Experience: Google · Education: EPITA: Ingénierie Informatique · Location: Greater Paris Metropolitan Region · 500+ connections on LinkedIn.",
+      "url": "https://www.linkedin.com/in/lioneltouati/",
+      "score": 21,
+      "source": "LinkedIn",
+      "category": "edtech",
+      "found": "2026-02-07T16:01:53.299Z",
+      "status": "new",
+      "published": "2026-02-05T16:47:31",
+      "tags": [
+        "edtech",
+        "linkedin"
+      ]
+    },
+    {
+      "id": "scout-1770480105977-21",
+      "title": "OpenClaw - Wikipedia",
+      "summary": "The event served as the first physical ... in early 2026. OpenClaw serves as an agentic interface for autonomous workflows across supported services. OpenClaw bots run locally and are designed to integrate with an external large language model such as Claude, DeepSeek, or OpenAI&#x27;s GPT.",
+      "url": "https://en.wikipedia.org/wiki/OpenClaw",
+      "score": 5,
+      "source": "Web",
+      "category": "openclaw",
+      "found": "2026-02-07T16:01:45.978Z",
+      "status": "new",
+      "published": "2026-02-07T12:03:33",
+      "tags": [
+        "openclaw",
         "web"
       ]
     }

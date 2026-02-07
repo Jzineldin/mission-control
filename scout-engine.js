@@ -13,7 +13,7 @@ const path = require('path');
 const BRAVE_API_KEY = 'BSAXySWcgWqzDfU2GUVBNZ2XfCcUtLx';
 const RESULTS_FILE = path.join(__dirname, 'scout-results.json');
 const MAX_RESULTS_PER_QUERY = 5;
-const MAX_TOTAL = 30;
+const MAX_TOTAL = 50;
 
 // Kevin's goals and skills for scoring
 const GOALS = {
@@ -52,6 +52,13 @@ const QUERIES = [
   
   // === UPWORK ===
   { q: 'site:upwork.com react next.js supabase developer', category: 'upwork', source: 'upwork', weight: 0.8 },
+  
+  // === BUG BOUNTY / HACKERONE ===
+  { q: 'site:hackerone.com "new program" OR "launched" OR "bounty" 2026', category: 'bounty', source: 'hackerone', weight: 1.0 },
+  { q: 'site:x.com hackerone "new program" OR "bounty" OR "launched" OR "paying"', category: 'bounty', source: 'twitter', weight: 0.95 },
+  { q: 'site:x.com "bug bounty" "high" OR "critical" OR "payout" OR "$" 2026', category: 'bounty', source: 'twitter', weight: 0.9 },
+  { q: 'hackerone OR bugcrowd "new scope" OR "increased bounty" OR "bonus" 2026', category: 'bounty', source: 'web', weight: 0.9 },
+  { q: 'site:reddit.com/r/bugbounty "just found" OR "payout" OR "tips" OR "methodology"', category: 'bounty', source: 'reddit', weight: 0.85 },
 ];
 
 async function braveSearch(query, count = MAX_RESULTS_PER_QUERY) {
@@ -116,6 +123,12 @@ function scoreOpportunity(result, query) {
   if (text.includes('new skill') || text.includes('built a skill') || text.includes('automation')) score += 10;
   if (text.includes('tutorial') || text.includes('guide') || text.includes('how to')) score += 8;
   
+  // Bug bounty signals
+  if (text.includes('bounty') || text.includes('hackerone') || text.includes('bugcrowd')) score += 12;
+  if (text.includes('payout') || text.includes('reward') || text.includes('critical')) score += 10;
+  if (text.includes('new program') || text.includes('new scope') || text.includes('launched')) score += 8;
+  if (query.category === 'bounty') score += 15;
+  
   // Source weight
   score = Math.round(score * query.weight);
   
@@ -140,6 +153,8 @@ function detectSource(url) {
   if (url.includes('github.com')) return 'GitHub';
   if (url.includes('youtube.com') || url.includes('youtu.be')) return 'YouTube';
   if (url.includes('clawhub.com')) return 'ClawHub';
+  if (url.includes('hackerone.com')) return 'HackerOne';
+  if (url.includes('bugcrowd.com')) return 'Bugcrowd';
   if (url.includes('openclaw.ai') || url.includes('docs.openclaw')) return 'OpenClaw';
   return 'Web';
 }

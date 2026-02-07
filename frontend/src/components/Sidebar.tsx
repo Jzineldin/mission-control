@@ -17,7 +17,7 @@ const navItems = [
   { to: '/workshop', icon: Hammer, label: 'Workshop' },
   { to: '/costs', icon: DollarSign, label: 'Cost Tracker' },
   { to: '/cron', icon: Clock, label: 'Cron Monitor' },
-  { to: '/scout', icon: Radar, label: 'Twitter Scout' },
+  { to: '/scout', icon: Radar, label: 'Scout' },
   { to: '/docs', icon: FileText, label: 'Doc Digest' },
   { to: '/agents', icon: Bot, label: 'Agent Hub' },
 ]
