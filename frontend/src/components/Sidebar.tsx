@@ -23,7 +23,7 @@ interface McConfig {
 
 const allNavItems = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard', module: 'dashboard' },
-  { to: '/chat', icon: MessageCircle, label: 'Chat', module: 'chat' },
+  { to: '/chat', icon: MessageCircle, label: 'Conversations', module: 'chat' },
   { to: '/workshop', icon: Hammer, label: 'Workshop', module: 'workshop' },
   { to: '/costs', icon: DollarSign, label: 'Cost Tracker', module: 'costs' },
   { to: '/cron', icon: Clock, label: 'Cron Monitor', module: 'cron' },

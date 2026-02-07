@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { Menu, X } from 'lucide-react'
 import { useIsMobile } from './lib/useIsMobile'
 import Sidebar from './components/Sidebar'
+import ChatWidget from './components/ChatWidget'
 import Dashboard from './pages/Dashboard'
 import Chat from './pages/Chat'
 import Workshop from './pages/Workshop'
@@ -94,6 +95,9 @@ export default function App() {
           </AnimatePresence>
         </div>
       </main>
+
+      {/* Global chat widget — available on all pages */}
+      <ChatWidget />
     </div>
   )
 }

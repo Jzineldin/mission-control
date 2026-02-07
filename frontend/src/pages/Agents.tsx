@@ -141,10 +141,10 @@ export default function Agents() {
           </motion.button>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: m ? '1fr' : '2fr 1fr', gap: m ? 16 : 24 }}>
+        <div>
           {/* Agent Grid */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            <div style={{ display: 'grid', gridTemplateColumns: m ? '1fr' : 'repeat(2, 1fr)', gap: m ? 12 : 16 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: m ? '1fr' : 'repeat(auto-fill, minmax(320px, 1fr))', gap: m ? 12 : 16 }}>
               {agents.map((agent: any, i: number) => (
                 <motion.div
                   key={agent.id}
@@ -242,47 +242,6 @@ export default function Agents() {
               )}
             </AnimatePresence>
           </div>
-
-          {/* Chat Feed */}
-          <GlassCard delay={0.15} hover={false} noPad>
-            <div style={{ padding: m ? 16 : 24 }}>
-              <h3 style={{ fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.65)', marginBottom: 20, display: 'flex', alignItems: 'center', gap: 8 }}>
-                <MessageSquare size={14} style={{ color: '#BF5AF2' }} /> Inter-Agent Chat
-              </h3>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxHeight: 520, overflowY: 'auto', paddingRight: 4 }}>
-                {conversations.map((msg: any, i: number) => {
-                  const fromAgent = agents.find((a: any) => a.id === msg.from)
-                  const isLeft = i % 2 === 0
-                  return (
-                    <motion.div
-                      key={i}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: 0.2 + i * 0.04 }}
-                      style={{ display: 'flex', gap: 10, flexDirection: isLeft ? 'row' : 'row-reverse' }}
-                    >
-                      <div style={{ width: 32, height: 32, borderRadius: 10, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, flexShrink: 0 }}>
-                        {fromAgent?.avatar || '🤖'}
-                      </div>
-                      <div style={{ maxWidth: '80%', textAlign: isLeft ? 'left' : 'right' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4, justifyContent: isLeft ? 'flex-start' : 'flex-end' }}>
-                          <span style={{ fontSize: 10, fontWeight: 600, color: 'rgba(255,255,255,0.65)' }}>{fromAgent?.name || msg.from}</span>
-                          <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.45)' }}>→ {msg.to}</span>
-                        </div>
-                        <div style={{
-                          padding: '10px 14px', fontSize: 12, color: 'rgba(255,255,255,0.65)', lineHeight: 1.5,
-                          borderRadius: 12, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)',
-                        }}>
-                          {msg.message}
-                        </div>
-                        <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.35)', marginTop: 4, display: 'block' }}>{timeAgo(msg.time)}</span>
-                      </div>
-                    </motion.div>
-                  )
-                })}
-              </div>
-            </div>
-          </GlassCard>
         </div>
 
         {/* Create Agent Modal */}
