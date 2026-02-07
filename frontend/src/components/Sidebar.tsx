@@ -8,7 +8,10 @@ import {
   FileText,
   Bot,
   Activity,
-  MessageCircle
+  MessageCircle,
+  Settings,
+  Puzzle,
+  Cloud
 } from 'lucide-react'
 
 const navItems = [
@@ -20,6 +23,9 @@ const navItems = [
   { to: '/scout', icon: Radar, label: 'Scout' },
   { to: '/docs', icon: FileText, label: 'Doc Digest' },
   { to: '/agents', icon: Bot, label: 'Agent Hub' },
+  { to: '/settings', icon: Settings, label: 'Settings' },
+  { to: '/skills', icon: Puzzle, label: 'Skills' },
+  { to: '/aws', icon: Cloud, label: 'AWS' },
 ]
 
 export default function Sidebar() {

@@ -63,14 +63,15 @@ body {
   color: var(--text-primary);
 }
 
-/* macOS Desktop Background — Navy Blue brushed metal + glass */
+/* macOS Desktop Background — Navy Blue brushed metal + glass with subtle noise */
 .macos-desktop {
   position: relative;
-  background: linear-gradient(135deg, #0d1117 0%, #141c2b 30%, #0f1720 50%, #162033 70%, #0d1117 100%);
+  background:
+    linear-gradient(135deg, #0d1117 0%, #141c2b 30%, #0f1720 50%, #162033 70%, #0d1117 100%);
   min-height: 100vh;
 }
 
-/* Blue brushed metal lines */
+/* Blue brushed metal lines + subtle grid pattern */
 .macos-desktop::before {
   content: '';
   position: absolute;
@@ -82,20 +83,32 @@ body {
       rgba(100,140,255,0.012) 1px,
       transparent 2px,
       transparent 4px
+    ),
+    repeating-linear-gradient(
+      0deg,
+      transparent 0px,
+      rgba(100,140,255,0.008) 1px,
+      transparent 2px,
+      transparent 120px
     );
   pointer-events: none;
   z-index: 0;
+  mix-blend-mode: overlay;
 }
 
-/* Glass layer over the metal */
+/* Glass layer over the metal with noise texture */
 .macos-desktop::after {
   content: '';
   position: absolute;
   inset: 0;
-  background: rgba(100, 130, 200, 0.04);
+  background:
+    radial-gradient(circle at 20% 30%, rgba(100, 130, 200, 0.06) 0%, transparent 50%),
+    radial-gradient(circle at 80% 70%, rgba(140, 170, 255, 0.04) 0%, transparent 50%),
+    rgba(100, 130, 200, 0.04);
   box-shadow: inset 0 1px 0 rgba(140, 170, 255, 0.08), inset 0 -1px 0 rgba(140, 170, 255, 0.03);
   pointer-events: none;
   z-index: 0;
+  opacity: 0.8;
 }
 
 /* macOS Window */
@@ -109,7 +122,7 @@ body {
   overflow: hidden;
 }
 
-/* macOS Panel - Frosted glass panels */
+/* macOS Panel - Frosted glass panels with inner glow */
 .macos-panel {
   position: relative;
   z-index: 1;
@@ -122,16 +135,18 @@ body {
   box-shadow:
     0 8px 40px rgba(0, 0, 0, 0.4),
     0 2px 8px rgba(0, 0, 0, 0.2),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15),
     inset 0 0 0 0.5px rgba(255, 255, 255, 0.05);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+              box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .macos-panel:hover {
+  transform: scale(1.02);
   box-shadow:
     0 16px 48px rgba(0, 0, 0, 0.45),
     0 4px 16px rgba(0, 0, 0, 0.25),
-    inset 0 1px 0 rgba(255, 255, 255, 0.15),
+    inset 0 2px 0 rgba(255, 255, 255, 0.2),
     inset 0 0 0 0.5px rgba(255, 255, 255, 0.08);
 }
 
@@ -170,7 +185,7 @@ body {
   color: var(--text-secondary);
   font-size: 13px;
   font-weight: 500;
-  transition: all 0.15s ease;
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
   cursor: default;
   user-select: none;
 }
@@ -185,6 +200,8 @@ body {
   backdrop-filter: blur(20px);
   color: white;
   border: 1px solid rgba(0, 122, 255, 0.3);
+  box-shadow: 0 0 20px rgba(0, 122, 255, 0.3),
+              inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
 /* macOS Button */
@@ -218,6 +235,23 @@ body {
 .macos-button-primary:hover {
   background: #0071F0;
   border-color: #0071F0;
+}
+
+/* macOS Control (generic control element) */
+.macos-control {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+}
+
+.macos-control:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.15);
 }
 
 /* macOS Input */
@@ -412,6 +446,30 @@ body {
   transform: translateY(-2px);
 }
 
+/* Stat Cards with tabular numbers */
+.stat-card {
+  padding: 20px;
+  text-align: center;
+}
+
+.stat-value {
+  font-size: 32px;
+  font-weight: 600;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+  letter-spacing: -0.5px;
+}
+
+.stat-label {
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  margin-top: 4px;
+  letter-spacing: 0.5px;
+}
+
 .divider-h {
   height: 1px;
   background: var(--system-separator);
@@ -445,6 +503,41 @@ body {
 .recharts-tooltip-item {
   color: var(--text-primary) !important;
   font-size: 12px !important;
+}
+
+/* Page Transitions */
+@keyframes pageEnter {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.98);
+    filter: blur(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+}
+
+@keyframes pageExit {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-20px) scale(0.98);
+    filter: blur(4px);
+  }
+}
+
+.page-transition-enter {
+  animation: pageEnter 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.page-transition-exit {
+  animation: pageExit 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 
 /* Remove old glass morphism styles */

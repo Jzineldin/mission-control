@@ -695,6 +695,340 @@ app.get('/api/agents', async (req, res) => {
   }
 });
 
+// Settings API endpoints
+app.get('/api/settings', async (req, res) => {
+  try {
+    // Read OpenClaw config
+    const configPath = '/home/ubuntu/.openclaw/openclaw.json';
+    const configData = fs.existsSync(configPath)
+      ? JSON.parse(fs.readFileSync(configPath, 'utf8'))
+      : {};
+
+    // Sanitize config (remove sensitive data)
+    const sanitized = {
+      model: configData.model || 'anthropic.claude-3-opus-20240229-v1:0',
+      gateway_port: configData.gateway_port || 18789,
+      memory_path: configData.memory_path || '/home/ubuntu/clawd/memory',
+      skills_path: configData.skills_path || '/home/ubuntu/clawd/skills',
+      bedrock_region: configData.bedrock_region || 'us-east-1'
+    };
+
+    res.json(sanitized);
+  } catch (error) {
+    console.error('Settings error:', error);
+    res.status(500).json({ error: 'Failed to load settings' });
+  }
+});
+
+app.post('/api/model', async (req, res) => {
+  try {
+    const { model } = req.body;
+
+    // Call OpenClaw gateway to update model
+    const response = await fetch(`http://127.0.0.1:${GATEWAY_PORT}/config/model`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${GATEWAY_TOKEN}`
+      },
+      body: JSON.stringify({ model })
+    });
+
+    if (response.ok) {
+      res.json({ success: true });
+    } else {
+      res.status(500).json({ error: 'Failed to switch model' });
+    }
+  } catch (error) {
+    console.error('Model switch error:', error);
+    res.status(500).json({ error: 'Failed to switch model' });
+  }
+});
+
+// Skills API endpoints
+app.get('/api/skills', async (req, res) => {
+  try {
+    const installed = [];
+    const available = [];
+
+    // Read OpenClaw config for installed skills
+    const configPath = '/home/ubuntu/.openclaw/openclaw.json';
+    let config = {};
+    if (fs.existsSync(configPath)) {
+      config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    }
+
+    // Get installed skills from config
+    if (config.skills && config.skills.entries) {
+      for (const [name, skillConfig] of Object.entries(config.skills.entries)) {
+        installed.push({
+          name,
+          description: skillConfig.description || 'No description',
+          status: skillConfig.enabled !== false ? 'active' : 'inactive',
+          installed: true,
+          path: skillConfig.path,
+          type: skillConfig.path?.includes('/usr/lib') ? 'system' : 'workspace'
+        });
+      }
+    }
+
+    // Scan workspace skills directory
+    const workspaceSkillsPath = '/home/ubuntu/clawd/skills';
+    if (fs.existsSync(workspaceSkillsPath)) {
+      const dirs = fs.readdirSync(workspaceSkillsPath, { withFileTypes: true })
+        .filter(dirent => dirent.isDirectory())
+        .map(dirent => dirent.name);
+
+      for (const dir of dirs) {
+        const skillPath = path.join(workspaceSkillsPath, dir);
+        const isInstalled = installed.some(s => s.name === dir);
+
+        if (!isInstalled) {
+          // Check for package.json or skill.json
+          let skillInfo = { name: dir, description: 'Workspace skill' };
+          const packagePath = path.join(skillPath, 'package.json');
+          const skillJsonPath = path.join(skillPath, 'skill.json');
+
+          if (fs.existsSync(packagePath)) {
+            const pkg = JSON.parse(fs.readFileSync(packagePath, 'utf8'));
+            skillInfo.description = pkg.description || skillInfo.description;
+            skillInfo.version = pkg.version;
+            skillInfo.author = pkg.author;
+          } else if (fs.existsSync(skillJsonPath)) {
+            const skill = JSON.parse(fs.readFileSync(skillJsonPath, 'utf8'));
+            skillInfo.description = skill.description || skillInfo.description;
+            skillInfo.version = skill.version;
+          }
+
+          available.push({
+            ...skillInfo,
+            status: 'available',
+            installed: false,
+            path: skillPath,
+            type: 'workspace'
+          });
+        }
+      }
+    }
+
+    // Scan system skills directory
+    const systemSkillsPath = '/usr/lib/node_modules/openclaw/skills';
+    if (fs.existsSync(systemSkillsPath)) {
+      const dirs = fs.readdirSync(systemSkillsPath, { withFileTypes: true })
+        .filter(dirent => dirent.isDirectory())
+        .map(dirent => dirent.name);
+
+      for (const dir of dirs) {
+        const skillPath = path.join(systemSkillsPath, dir);
+        const isInstalled = installed.some(s => s.name === dir);
+
+        if (!isInstalled) {
+          available.push({
+            name: dir,
+            description: 'System skill',
+            status: 'available',
+            installed: false,
+            path: skillPath,
+            type: 'system'
+          });
+        }
+      }
+    }
+
+    res.json({ installed, available });
+  } catch (error) {
+    console.error('Skills error:', error);
+    res.status(500).json({ error: 'Failed to load skills' });
+  }
+});
+
+app.post('/api/skills/:name/toggle', async (req, res) => {
+  try {
+    const { name } = req.params;
+
+    // Update OpenClaw config
+    const configPath = '/home/ubuntu/.openclaw/openclaw.json';
+    const config = fs.existsSync(configPath)
+      ? JSON.parse(fs.readFileSync(configPath, 'utf8'))
+      : { skills: { entries: {} } };
+
+    if (config.skills?.entries?.[name]) {
+      config.skills.entries[name].enabled = !config.skills.entries[name].enabled;
+      fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+
+      // Notify gateway about config change
+      await fetch(`http://127.0.0.1:${GATEWAY_PORT}/config/reload`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${GATEWAY_TOKEN}`
+        }
+      });
+
+      res.json({ success: true });
+    } else {
+      res.status(404).json({ error: 'Skill not found' });
+    }
+  } catch (error) {
+    console.error('Skill toggle error:', error);
+    res.status(500).json({ error: 'Failed to toggle skill' });
+  }
+});
+
+app.post('/api/skills/:name/install', async (req, res) => {
+  // Simplified install - just add to config
+  try {
+    const { name } = req.params;
+    res.json({ success: true, message: 'Skill installation not implemented' });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to install skill' });
+  }
+});
+
+app.post('/api/skills/:name/uninstall', async (req, res) => {
+  // Simplified uninstall - just remove from config
+  try {
+    const { name } = req.params;
+    res.json({ success: true, message: 'Skill uninstall not implemented' });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to uninstall skill' });
+  }
+});
+
+// AWS API endpoints
+app.get('/api/aws/services', async (req, res) => {
+  try {
+    const util = require('util');
+    const execPromise = util.promisify(require('child_process').exec);
+
+    // Real account info
+    let account = { id: '239541130189', region: 'us-east-1' };
+    try {
+      const { stdout } = await execPromise('aws sts get-caller-identity --output json 2>/dev/null');
+      const sts = JSON.parse(stdout);
+      account.id = sts.Account;
+      account.user = sts.Arn.split('/').pop();
+    } catch {}
+
+    // Real services — check what's actually accessible
+    const services = [];
+    const checks = [
+      { name: 'Amazon Bedrock', cmd: 'aws bedrock list-foundation-models --query "length(modelSummaries)" --output text 2>/dev/null', desc: 'Foundation models (Opus, Sonnet, Haiku)', parse: (v) => `${v.trim()} models available` },
+      { name: 'Amazon Polly', cmd: 'aws polly describe-voices --query "length(Voices)" --output text 2>/dev/null', desc: 'Text-to-speech (Neural voices)', parse: (v) => `${v.trim()} voices` },
+      { name: 'Amazon Transcribe', cmd: 'aws transcribe list-transcription-jobs --max-results 1 --output json 2>/dev/null', desc: 'Speech-to-text', parse: () => 'Ready' },
+      { name: 'Amazon Translate', cmd: 'aws translate list-languages --query "length(Languages)" --output text 2>/dev/null', desc: 'Translation (75+ languages)', parse: (v) => `${v.trim()} languages` },
+      { name: 'Amazon S3', cmd: 'aws s3api head-bucket --bucket zinbot-resources-239541130189 2>/dev/null && echo ok', desc: 'Storage (zinbot-resources)', parse: () => 'Bucket active' },
+    ];
+
+    for (const svc of checks) {
+      try {
+        const { stdout } = await execPromise(svc.cmd, { timeout: 5000 });
+        services.push({ name: svc.name, status: 'active', description: svc.desc, detail: svc.parse(stdout) });
+      } catch {
+        services.push({ name: svc.name, status: 'available', description: svc.desc, detail: 'Not tested' });
+      }
+    }
+
+    res.json({
+      account,
+      services,
+      credits: { total: 25000, note: 'AWS Activate credits' },
+    });
+  } catch (error) {
+    console.error('AWS services error:', error);
+    res.status(500).json({ error: 'Failed to load AWS services' });
+  }
+});
+
+app.get('/api/aws/bedrock-models', async (req, res) => {
+  try {
+    const util = require('util');
+    const execPromise = util.promisify(require('child_process').exec);
+    const { stdout } = await execPromise('aws bedrock list-foundation-models --query "modelSummaries[?modelLifecycle.status==\'ACTIVE\'].{modelId:modelId,modelName:modelName,provider:providerName,input:inputModalities,output:outputModalities}" --output json 2>/dev/null', { timeout: 10000 });
+    const models = JSON.parse(stdout || '[]');
+    res.json(models.map(m => ({
+      modelId: m.modelId,
+      modelName: m.modelName,
+      provider: m.provider,
+      status: 'ACTIVE',
+      inputModalities: m.input,
+      outputModalities: m.output,
+    })));
+  } catch (error) {
+    console.error('Bedrock models error:', error);
+    res.status(500).json({ error: 'Failed to load Bedrock models' });
+  }
+});
+
+app.get('/api/models', async (req, res) => {
+  // List available models from Bedrock
+  res.json([
+    { id: 'us.anthropic.claude-opus-4-6-v1', name: 'Claude Opus 4.6' },
+    { id: 'us.anthropic.claude-sonnet-4-20250514-v1:0', name: 'Claude Sonnet 4' },
+    { id: 'us.anthropic.claude-haiku-4-5-20251001-v1:0', name: 'Claude Haiku 4.5' }
+  ]);
+});
+
+// Switch agent model via gateway config
+app.post('/api/model', async (req, res) => {
+  try {
+    const { model } = req.body;
+    if (!model) return res.status(400).json({ error: 'model required' });
+
+    // Read current config, update model, write back
+    const configPath = require('os').homedir() + '/.openclaw/openclaw.json';
+    const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+
+    // Set the default model
+    if (!config.agents) config.agents = {};
+    if (!config.agents.defaults) config.agents.defaults = {};
+    if (!config.agents.defaults.model) config.agents.defaults.model = {};
+    config.agents.defaults.model.default = model;
+
+    fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+
+    // Signal gateway to reload config
+    const util = require('util');
+    const execPromise = util.promisify(require('child_process').exec);
+    try {
+      await execPromise('kill -USR1 $(pgrep -f openclaw-gateway)', { timeout: 5000 });
+    } catch {}
+
+    res.json({ ok: true, model, message: `Model switched to ${model}` });
+  } catch (error) {
+    console.error('Model switch error:', error);
+    res.status(500).json({ error: 'Failed to switch model' });
+  }
+});
+
+// Generate image via Bedrock
+app.post('/api/aws/generate-image', async (req, res) => {
+  try {
+    const { modelId, prompt } = req.body;
+    if (!prompt) return res.status(400).json({ error: 'prompt required' });
+
+    const util = require('util');
+    const execPromise = util.promisify(require('child_process').exec);
+    const timestamp = Date.now();
+    const outPath = `/tmp/mc-image-${timestamp}.png`;
+
+    // Use AWS CLI to invoke Bedrock image model
+    const payload = JSON.stringify({
+      textToImageParams: { text: prompt },
+      imageGenerationConfig: { numberOfImages: 1, height: 1024, width: 1024 }
+    });
+
+    const { stdout } = await execPromise(
+      `aws bedrock-runtime invoke-model --model-id "${modelId}" --content-type "application/json" --accept "application/json" --body '${payload.replace(/'/g, "\\'")}' ${outPath} 2>&1`,
+      { timeout: 30000 }
+    );
+
+    res.json({ ok: true, message: `Image generated! Saved to ${outPath}`, path: outPath });
+  } catch (error) {
+    console.error('Image gen error:', error);
+    res.status(500).json({ error: 'Image generation failed — try via Zinbot chat instead' });
+  }
+});
+
 // SPA catch-all: serve index.html for all non-API routes
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'frontend/dist/index.html'));

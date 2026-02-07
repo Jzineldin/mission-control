@@ -9,6 +9,9 @@ import Cron from './pages/Cron'
 import Scout from './pages/Scout'
 import Docs from './pages/Docs'
 import Agents from './pages/Agents'
+import Settings from './pages/Settings'
+import Skills from './pages/Skills'
+import AWS from './pages/AWS'
 
 export default function App() {
   const location = useLocation()
@@ -28,6 +31,9 @@ export default function App() {
               <Route path="/scout" element={<Scout />} />
               <Route path="/docs" element={<Docs />} />
               <Route path="/agents" element={<Agents />} />
+              <Route path="/settings" element={<Settings />} />
+              <Route path="/skills" element={<Skills />} />
+              <Route path="/aws" element={<AWS />} />
             </Routes>
           </AnimatePresence>
         </div>

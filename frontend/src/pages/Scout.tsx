@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { Radar, SortDesc, Send, ExternalLink, X, Rocket, Shield, Code, Briefcase, GraduationCap, DollarSign } from 'lucide-react'
+import { Radar, SortDesc, X, Rocket, Shield, Code, Briefcase, GraduationCap, DollarSign } from 'lucide-react'
 import PageTransition from '../components/PageTransition'
 import GlassCard from '../components/GlassCard'
 import { useApi, timeAgo } from '../lib/hooks'
