@@ -76,6 +76,7 @@ export default function AWS() {
   const [ttsText, setTtsText] = useState('')
   const [testingService, setTestingService] = useState<string | null>(null)
   const { data: galleryData } = useApi<{ images: { id: string; url: string; created: string; size: number }[] }>('/api/aws/gallery', 10000)
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null)
   const [testResults, setTestResults] = useState<Record<string, string>>({})
 
   if (awsLoading) {
@@ -168,6 +169,7 @@ export default function AWS() {
   }
 
   return (
+    <>
     <PageTransition>
       <div style={{ maxWidth: 1280, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 24 }}>
         {/* Header */}
@@ -258,6 +260,40 @@ export default function AWS() {
             </div>
           </GlassCard>
         </div>
+
+        {/* Image Gallery */}
+        {galleryData && galleryData.images.length > 0 && (
+          <GlassCard delay={0.22} noPad>
+            <div style={{ padding: '20px 24px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                <h2 style={{ fontSize: 15, fontWeight: 600, color: 'rgba(255,255,255,0.92)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <Image size={16} style={{ color: '#BF5AF2' }} /> Generated Images ({galleryData.images.length})
+                </h2>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 12 }}>
+                {galleryData.images.map((img) => (
+                  <motion.div
+                    key={img.id}
+                    whileHover={{ scale: 1.03 }}
+                    style={{
+                      borderRadius: 12, overflow: 'hidden', cursor: 'pointer',
+                      border: '1px solid rgba(255,255,255,0.08)',
+                      background: 'rgba(255,255,255,0.03)',
+                    }}
+                    onClick={() => setLightboxUrl(img.url)}
+                  >
+                    <img src={img.url} alt="" style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', display: 'block' }} />
+                    <div style={{ padding: '8px 10px' }}>
+                      <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)' }}>
+                        {new Date(img.created).toLocaleString()}
+                      </p>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            </div>
+          </GlassCard>
+        )}
 
         {/* Bedrock Models Section */}
         <GlassCard delay={0.25} noPad>
@@ -354,40 +390,6 @@ export default function AWS() {
           </div>
         </GlassCard>
 
-        {/* Image Gallery */}
-        {galleryData && galleryData.images.length > 0 && (
-          <GlassCard delay={0.3} noPad>
-            <div style={{ padding: '20px 24px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                <h2 style={{ fontSize: 15, fontWeight: 600, color: 'rgba(255,255,255,0.92)', display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <Image size={16} style={{ color: '#BF5AF2' }} /> Generated Images ({galleryData.images.length})
-                </h2>
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 12 }}>
-                {galleryData.images.map((img) => (
-                  <motion.div
-                    key={img.id}
-                    whileHover={{ scale: 1.03 }}
-                    style={{
-                      borderRadius: 12, overflow: 'hidden', cursor: 'pointer',
-                      border: '1px solid rgba(255,255,255,0.08)',
-                      background: 'rgba(255,255,255,0.03)',
-                    }}
-                    onClick={() => window.open(img.url, '_blank')}
-                  >
-                    <img src={img.url} alt="" style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', display: 'block' }} />
-                    <div style={{ padding: '8px 10px' }}>
-                      <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)' }}>
-                        {new Date(img.created).toLocaleString()} · {(img.size / 1024).toFixed(0)}KB
-                      </p>
-                    </div>
-                  </motion.div>
-                ))}
-              </div>
-            </div>
-          </GlassCard>
-        )}
-
         {/* Model Action Modal */}
         <AnimatePresence>
           {selectedModel && (() => {
@@ -402,10 +404,11 @@ export default function AWS() {
                   initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
                   onClick={(e) => e.stopPropagation()}
                   style={{
-                    width: 480, maxHeight: '80vh', borderRadius: 16, padding: 28,
+                    width: 520, maxHeight: '85vh', borderRadius: 16, padding: 28,
                     background: 'rgba(30,30,40,0.95)', border: '1px solid rgba(255,255,255,0.1)',
                     backdropFilter: 'blur(60px) saturate(200%)',
                     boxShadow: '0 20px 60px rgba(0,0,0,0.5)',
+                    overflowY: 'auto',
                   }}
                 >
                   {/* Modal Header */}
@@ -494,7 +497,6 @@ export default function AWS() {
                             <img src={generatedImageUrl} alt="Generated" style={{ width: '100%', display: 'block' }} />
                           </div>
                         )}
-                        </button>
                       </div>
                     )}
 
@@ -546,5 +548,32 @@ export default function AWS() {
         </AnimatePresence>
       </div>
     </PageTransition>
+
+    {/* Lightbox — outside PageTransition to avoid transform context breaking fixed positioning */}
+    {lightboxUrl && (
+      <div
+        onClick={() => setLightboxUrl(null)}
+        style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999,
+          background: 'rgba(0,0,0,0.9)', backdropFilter: 'blur(12px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          cursor: 'zoom-out', padding: 40,
+        }}
+      >
+        <img
+          src={lightboxUrl} alt="Generated"
+          style={{ maxWidth: '90vw', maxHeight: '90vh', borderRadius: 16, boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }}
+          onClick={(e) => e.stopPropagation()}
+        />
+        <button onClick={() => setLightboxUrl(null)} style={{
+          position: 'fixed', top: 24, right: 24, background: 'rgba(255,255,255,0.15)',
+          border: '1px solid rgba(255,255,255,0.2)', borderRadius: 10, padding: '8px 16px',
+          color: '#fff', cursor: 'pointer', fontSize: 13, display: 'flex', alignItems: 'center', gap: 6,
+        }}>
+          <X size={14} /> Close
+        </button>
+      </div>
+    )}
+    </>
   )
 }

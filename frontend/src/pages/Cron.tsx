@@ -100,7 +100,7 @@ export default function Cron() {
               <div>
                 {job.nextRun ? (
                   <>
-                    <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.65)' }}>{timeAgo(job.nextRun).replace('ago', 'from now')}</p>
+                    <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.65)' }}>{timeAgo(job.nextRun)}</p>
                     <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.45)' }}>{formatDate(job.nextRun)}</p>
                   </>
                 ) : (

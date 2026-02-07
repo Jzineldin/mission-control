@@ -23,11 +23,13 @@ export default function Settings() {
   const [saving, setSaving] = useState(false)
   const [saveStatus, setSaveStatus] = useState<'idle' | 'success' | 'error'>('idle')
 
-  const availableModels = [
-    { id: 'anthropic.claude-3-opus-20240229-v1:0', name: 'Claude Opus 4.6', description: 'Most capable model' },
-    { id: 'anthropic.claude-3-5-sonnet-20241022-v2:0', name: 'Claude Sonnet 4', description: 'Balanced performance' },
-    { id: 'anthropic.claude-3-5-haiku-20250102-v1:0', name: 'Claude Haiku', description: 'Fast and efficient' }
-  ]
+  const { data: modelsData } = useApi<{ id: string; name: string }[]>('/api/models')
+
+  const availableModels = (modelsData || []).map(m => ({
+    id: m.id,
+    name: m.name,
+    description: m.name.includes('Opus') ? 'Most capable model' : m.name.includes('Sonnet') ? 'Balanced performance' : 'Fast and efficient',
+  }))
 
   useEffect(() => {
     if (configData?.model) {
@@ -65,8 +67,16 @@ export default function Settings() {
   }
 
   const getCurrentModelName = () => {
+    if (!selectedModel) return 'Select Model'
     const model = availableModels.find(m => m.id === selectedModel)
-    return model?.name || 'Select Model'
+    if (model) return model.name
+    // Fallback: extract a readable name from the model ID
+    const cleaned = selectedModel
+      .replace(/^(us\.)?anthropic\./, '')
+      .replace(/-v\d.*$/, '')
+      .replace(/-/g, ' ')
+      .replace(/\b\w/g, c => c.toUpperCase())
+    return cleaned || selectedModel
   }
 
   return (

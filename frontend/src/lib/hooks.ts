@@ -31,7 +31,19 @@ export function useApi<T>(url: string, interval?: number) {
 }
 
 export function timeAgo(dateStr: string): string {
+  if (!dateStr) return '—'
   const diff = Date.now() - new Date(dateStr).getTime()
+  if (diff < 0) {
+    // Future date
+    const absDiff = -diff
+    const mins = Math.floor(absDiff / 60000)
+    if (mins < 1) return 'in <1m'
+    if (mins < 60) return `in ${mins}m`
+    const hrs = Math.floor(mins / 60)
+    if (hrs < 24) return `in ${hrs}h`
+    const days = Math.floor(hrs / 24)
+    return `in ${days}d`
+  }
   const mins = Math.floor(diff / 60000)
   if (mins < 1) return 'just now'
   if (mins < 60) return `${mins}m ago`

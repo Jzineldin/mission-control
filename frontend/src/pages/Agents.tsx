@@ -69,13 +69,13 @@ export default function Agents() {
                   <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', marginBottom: 16, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', lineHeight: 1.5 }}>{agent.description}</p>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 16, fontSize: 11, color: 'rgba(255,255,255,0.45)' }}>
                     <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                      <BarChart3 size={11} style={{ color: 'rgba(255,255,255,0.4)' }} /> {agent.tasksCompleted} tasks
+                      <BarChart3 size={11} style={{ color: 'rgba(255,255,255,0.4)' }} /> {((agent.totalTokens || 0) / 1000).toFixed(0)}k tokens
                     </span>
                     <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                      <Activity size={11} style={{ color: 'rgba(255,255,255,0.4)' }} /> {agent.uptime} uptime
+                      <Activity size={11} style={{ color: 'rgba(255,255,255,0.4)' }} /> {agent.lastActive ? timeAgo(agent.lastActive) : 'n/a'}
                     </span>
                     <span style={{ marginLeft: 'auto' }}>
-                      {timeAgo(agent.lastActive)}
+                      {agent.role}
                     </span>
                   </div>
                 </motion.div>
@@ -116,8 +116,8 @@ export default function Agents() {
                       </div>
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
                         {[
-                          { label: 'Tasks Done', value: <AnimatedCounter end={selected.tasksCompleted} /> },
-                          { label: 'Uptime', value: selected.uptime },
+                          { label: 'Tokens', value: <><AnimatedCounter end={Math.round((selected.totalTokens || 0) / 1000)} /><span style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)' }}>k</span></> },
+                          { label: 'Last Active', value: selected.lastActive ? timeAgo(selected.lastActive) : '—' },
                           { label: 'Model', value: selected.model },
                           { label: 'Status', value: <StatusBadge status={selected.status} size="md" /> },
                         ].map((item, idx) => (

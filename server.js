@@ -1000,7 +1000,10 @@ app.post('/api/model', async (req, res) => {
   }
 });
 
-// Generate image via Bedrock
+// Generate image via Bedrock → save to S3
+const S3_BUCKET = 'zinbot-resources-239541130189';
+const S3_PREFIX = 'images/mc-generated';
+
 app.post('/api/aws/generate-image', async (req, res) => {
   try {
     const { modelId, prompt } = req.body;
@@ -1047,15 +1050,23 @@ app.post('/api/aws/generate-image', async (req, res) => {
       return res.status(500).json({ error: 'No image in response', keys: Object.keys(result) });
     }
 
-    const imgPath = `/tmp/mc-image-${timestamp}.png`;
-    fs.writeFileSync(imgPath, Buffer.from(imageB64, 'base64'));
+    // Save locally first, then upload to S3
+    const slug = prompt.replace(/[^a-zA-Z0-9]+/g, '-').substring(0, 40).toLowerCase();
+    const filename = `${timestamp}-${slug}.png`;
+    const localPath = `/tmp/mc-image-${timestamp}.png`;
+    fs.writeFileSync(localPath, Buffer.from(imageB64, 'base64'));
 
-    // Serve the image
+    const s3Key = `${S3_PREFIX}/${filename}`;
+    await execPromise(`aws s3 cp "${localPath}" "s3://${S3_BUCKET}/${s3Key}" --content-type image/png`, { timeout: 30000 });
+
+    // Clean up local temp files
+    try { fs.unlinkSync(outFile); } catch {}
+
     res.json({
       ok: true,
-      message: `Image generated with ${modelId}!`,
+      message: `Image generated and saved to S3!`,
       imageUrl: `/api/aws/image/${timestamp}`,
-      path: imgPath,
+      s3: `s3://${S3_BUCKET}/${s3Key}`,
     });
   } catch (error) {
     console.error('Image gen error:', error);
@@ -1063,35 +1074,67 @@ app.post('/api/aws/generate-image', async (req, res) => {
   }
 });
 
-// Serve generated images
+// Serve generated images (local cache)
 app.get('/api/aws/image/:id', (req, res) => {
   const imgPath = `/tmp/mc-image-${req.params.id}.png`;
   if (fs.existsSync(imgPath)) {
     res.type('png').sendFile(imgPath);
   } else {
-    res.status(404).json({ error: 'Image not found' });
+    res.status(404).json({ error: 'Image not found locally — check S3' });
   }
 });
 
-// List all generated images
-app.get('/api/aws/gallery', (req, res) => {
+// List all generated images from S3
+app.get('/api/aws/gallery', async (req, res) => {
   try {
-    const files = fs.readdirSync('/tmp')
-      .filter(f => f.startsWith('mc-image-') && f.endsWith('.png'))
-      .map(f => {
-        const id = f.replace('mc-image-', '').replace('.png', '');
-        const stat = fs.statSync(`/tmp/${f}`);
+    const util = require('util');
+    const execPromise = util.promisify(require('child_process').exec);
+    const { stdout } = await execPromise(`aws s3api list-objects-v2 --bucket ${S3_BUCKET} --prefix "${S3_PREFIX}/" --output json 2>/dev/null`, { timeout: 10000 });
+    const data = JSON.parse(stdout);
+    const images = (data.Contents || [])
+      .filter(o => o.Key.endsWith('.png'))
+      .map(o => {
+        const filename = o.Key.split('/').pop();
+        const id = filename.split('-')[0];
         return {
           id,
-          url: `/api/aws/image/${id}`,
-          created: stat.mtime.toISOString(),
-          size: stat.size,
+          url: `/api/aws/s3-image/${encodeURIComponent(o.Key)}`,
+          created: o.LastModified,
+          size: o.Size,
+          s3Key: o.Key,
         };
       })
       .sort((a, b) => new Date(b.created).getTime() - new Date(a.created).getTime());
-    res.json({ images: files });
+    res.json({ images });
   } catch (error) {
-    res.json({ images: [] });
+    // Fallback to local /tmp
+    try {
+      const files = fs.readdirSync('/tmp')
+        .filter(f => f.startsWith('mc-image-') && f.endsWith('.png'))
+        .map(f => {
+          const id = f.replace('mc-image-', '').replace('.png', '');
+          const stat = fs.statSync(`/tmp/${f}`);
+          return { id, url: `/api/aws/image/${id}`, created: stat.mtime.toISOString(), size: stat.size };
+        })
+        .sort((a, b) => new Date(b.created).getTime() - new Date(a.created).getTime());
+      res.json({ images: files });
+    } catch { res.json({ images: [] }); }
+  }
+});
+
+// Proxy S3 images
+app.get('/api/aws/s3-image/:key(*)', async (req, res) => {
+  try {
+    const key = decodeURIComponent(req.params.key);
+    const localCache = `/tmp/s3-cache-${key.replace(/\//g, '_')}`;
+    if (!fs.existsSync(localCache)) {
+      const util = require('util');
+      const execPromise = util.promisify(require('child_process').exec);
+      await execPromise(`aws s3 cp "s3://${S3_BUCKET}/${key}" "${localCache}"`, { timeout: 15000 });
+    }
+    res.type('png').sendFile(localCache);
+  } catch (error) {
+    res.status(404).json({ error: 'Image not found' });
   }
 });
 
