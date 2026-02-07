@@ -83,7 +83,7 @@ export default function Chat() {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const abortRef = useRef<AbortController | null>(null)
-  const [filter, setFilter] = useState<'all' | 'discord' | 'subagent' | 'dashboard'>('all')
+  const [filter, setFilter] = useState<'active' | 'all'>('active')
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -93,12 +93,8 @@ export default function Chat() {
 
   const sessions = (sessionsData?.sessions || sessionsData || [])
     .filter((s: any) => {
-      if (filter === 'all') return true
-      const cat = sessionCategory(s).toLowerCase()
-      if (filter === 'discord') return cat === 'discord'
-      if (filter === 'subagent') return cat === 'sub-agent'
-      if (filter === 'dashboard') return cat === 'dashboard'
-      return true
+      if (filter === 'active') return s.isActive
+      return true // 'all'
     })
     .sort((a: any, b: any) => new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime())
 
@@ -390,12 +386,11 @@ export default function Chat() {
   }
 
   // Sessions list view (default)
+  const allSessions = (sessionsData?.sessions || sessionsData || []);
   const filters = [
-    { id: 'all', label: 'All', count: (sessionsData?.sessions || sessionsData || []).length },
-    { id: 'discord', label: 'Discord', count: (sessionsData?.sessions || sessionsData || []).filter((s: any) => sessionCategory(s) === 'Discord').length },
-    { id: 'subagent', label: 'Sub-Agents', count: (sessionsData?.sessions || sessionsData || []).filter((s: any) => sessionCategory(s) === 'Sub-Agent').length },
-    { id: 'dashboard', label: 'Dashboard', count: (sessionsData?.sessions || sessionsData || []).filter((s: any) => sessionCategory(s) === 'Dashboard').length },
-  ]
+    { id: 'active', label: 'Active', count: allSessions.filter((s: any) => s.isActive).length },
+    { id: 'all', label: 'All', count: allSessions.length },
+  ];
 
   return (
     <PageTransition>
@@ -452,9 +447,9 @@ export default function Chat() {
         {/* Session list */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: m ? 8 : 10 }}>
           {sessions.map((s: any, i: number) => {
-            const Icon = sessionIcon(s)
-            const cat = sessionCategory(s)
             const name = sessionName(s)
+            const typeLabel = sessionTypeLabel(s)
+            const icon = sessionIcon(s)
             return (
               <motion.div
                 key={s.key}
@@ -466,28 +461,66 @@ export default function Chat() {
                 onClick={() => openSession(s)}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                  <div style={{ width: m ? 36 : 40, height: m ? 36 : 40, borderRadius: 10, background: cat === 'Sub-Agent' ? 'rgba(255,149,0,0.12)' : cat === 'Discord' ? 'rgba(114,137,218,0.15)' : 'rgba(0,122,255,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <Icon size={m ? 16 : 18} style={{ color: cat === 'Sub-Agent' ? '#FF9500' : cat === 'Discord' ? '#7289DA' : '#007AFF' }} />
+                  <div style={{ 
+                    width: m ? 40 : 44, 
+                    height: m ? 40 : 44, 
+                    borderRadius: 12, 
+                    background: 'rgba(255,255,255,0.06)', 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center', 
+                    flexShrink: 0,
+                    fontSize: m ? 18 : 20,
+                  }}>
+                    {icon}
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <h3 style={{ fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.92)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
+                      <h3 style={{ 
+                        fontSize: 13, 
+                        fontWeight: 600, 
+                        color: 'rgba(255,255,255,0.92)', 
+                        overflow: 'hidden', 
+                        textOverflow: 'ellipsis', 
+                        whiteSpace: 'nowrap', 
+                        flex: 1 
+                      }}>
                         {name}
                       </h3>
-                      <StatusBadge status="active" />
+                      {s.isActive && <StatusBadge status="active" />}
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 3 }}>
-                      <span style={{ fontSize: 11, color: '#BF5AF2', fontWeight: 600 }}>{modelShort(s.model)}</span>
-                      <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)' }}>·</span>
-                      <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', fontVariantNumeric: 'tabular-nums' }}>{((s.totalTokens || 0) / 1000).toFixed(0)}k tokens</span>
+                      <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>
+                        {typeLabel}
+                      </span>
+                      <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.25)' }}>·</span>
+                      <span style={{ 
+                        fontSize: 10, 
+                        padding: '2px 6px', 
+                        borderRadius: 4, 
+                        background: 'rgba(255,255,255,0.08)', 
+                        color: 'rgba(255,255,255,0.6)',
+                        fontVariantNumeric: 'tabular-nums'
+                      }}>
+                        {((s.totalTokens || 0) / 1000).toFixed(0)}k tokens
+                      </span>
                     </div>
                   </div>
                   <div style={{ textAlign: 'right', flexShrink: 0 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 4, justifyContent: 'flex-end' }}>
                       <Clock size={10} style={{ color: 'rgba(255,255,255,0.3)' }} />
-                      <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>{s.updatedAt ? timeAgo(s.updatedAt) : '—'}</span>
+                      <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>
+                        {s.updatedAt ? timeAgo(s.updatedAt) : '—'}
+                      </span>
                     </div>
-                    <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)', marginTop: 2, display: 'block' }}>{cat}</span>
+                    <span style={{ 
+                      fontSize: 10, 
+                      color: 'rgba(255,255,255,0.3)', 
+                      marginTop: 2, 
+                      display: 'block' 
+                    }}>
+                      {modelShort(s.model)}
+                    </span>
                   </div>
                 </div>
               </motion.div>
