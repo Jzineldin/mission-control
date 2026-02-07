@@ -86,7 +86,7 @@ export default function Skills() {
           <h1 className="text-title" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <Puzzle size={22} style={{ color: '#BF5AF2' }} /> Skills Manager
           </h1>
-          <p className="text-body" style={{ marginTop: 4 }}>Install and manage agent skills & plugins</p>
+          <p className="text-body" style={{ marginTop: 4 }}>Installed skills that extend your agent's capabilities</p>
         </div>
 
         {/* Stats Cards */}

@@ -35,7 +35,7 @@ export default function Cron() {
           <h1 className="text-title" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <Clock size={m ? 18 : 22} style={{ color: '#007AFF' }} /> Cron Monitor
           </h1>
-          <p className="text-body" style={{ marginTop: 4 }}>Scheduled jobs and automation</p>
+          <p className="text-body" style={{ marginTop: 4 }}>Scheduled jobs that run automatically</p>
         </div>
 
         {/* Summary Cards */}

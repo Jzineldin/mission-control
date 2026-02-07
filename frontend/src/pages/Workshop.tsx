@@ -236,7 +236,7 @@ export default function Workshop() {
         <div style={{ display: 'flex', alignItems: m ? 'flex-start' : 'center', justifyContent: 'space-between', flexDirection: m ? 'column' : 'row', gap: m ? 12 : 0 }}>
           <div>
             <h1 className="text-title">Workshop</h1>
-            <p className="text-body" style={{ marginTop: 4 }}>Task execution & project tracking</p>
+            <p className="text-body" style={{ marginTop: 4 }}>Create tasks, let your agent research & execute them</p>
           </div>
           <button
             onClick={() => setShowAddModal(true)}

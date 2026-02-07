@@ -1076,6 +1076,41 @@ app.post('/api/scout/dismiss', (req, res) => {
   }
 });
 
+// Scout: Start scan
+let scoutScanRunning = false;
+app.post('/api/scout/scan', (req, res) => {
+  try {
+    if (scoutScanRunning) {
+      return res.json({ status: 'already_scanning', message: 'Scout scan is already running' });
+    }
+
+    scoutScanRunning = true;
+    const { execFile } = require('child_process');
+    
+    execFile('node', [path.join(__dirname, 'scout-engine.js')], { timeout: 300000 }, (error, stdout, stderr) => {
+      scoutScanRunning = false;
+      if (error) {
+        console.error('[Scout scan]', error.message);
+      } else {
+        console.log('[Scout scan] Completed successfully');
+      }
+    });
+
+    res.json({ status: 'scanning', message: 'Scout scan started in background' });
+  } catch (e) {
+    scoutScanRunning = false;
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Scout: Check scan status
+app.get('/api/scout/status', (req, res) => {
+  res.json({ 
+    scanning: scoutScanRunning,
+    status: scoutScanRunning ? 'scanning' : 'idle'
+  });
+});
+
 // ========== API: Agents — Real from gateway sessions + custom agents ==========
 app.get('/api/agents', async (req, res) => {
   try {

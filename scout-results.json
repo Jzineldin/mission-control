@@ -1,5 +1,117 @@
 {
-  "results": [],
-  "lastScan": null,
-  "queries": 3
+  "generatedAt": "2026-02-07T21:34:14.023Z",
+  "totalQueries": 3,
+  "totalResults": 10,
+  "opportunities": [
+    {
+      "title": "Researchers Find 341 Malicious ClawHub Skills Stealing Data from OpenClaw Users",
+      "url": "https://thehackernews.com/2026/02/researchers-find-341-malicious-clawhub.html",
+      "description": "In addition, the cybersecurity company said it identified skills that hide reverse shell backdoors inside functional code (e.g., better-polymarket and polymarket-all-in-one), or exfiltrate bot credentials present in &quot;~/.clawdbot/.env&quot; to a webhook[.]site (e.g., rankaj). The development coincides with a report from OpenSourceMalware, which also flagged the same ClawHavoc campaign targeting OpenClaw users. &quot;The skills masquerade as cryptocurrency trading automation tools and deliver information-stealing malware to macOS and Windows systems,&quot; security researcher Paul McCarty, who goes by the online alias 6mile, said.",
+      "published": "2026-02-04T05:15:36",
+      "query": "clawhub.com skill OR \"new skill\" OR automation",
+      "category": "openclaw-skills",
+      "source": "web",
+      "score": 91,
+      "scannedAt": "2026-02-07T21:34:11.803Z"
+    },
+    {
+      "title": "Exploring the OpenClaw Extension Ecosystem: 50+ Official Integrations Make AI Assistants All-Powerful - Apiyi.com Blog",
+      "url": "https://help.apiyi.com/en/openclaw-extensions-ecosystem-guide-en.html",
+      "description": "Powerful Automation: <strong>Cron Jobs + Webhooks enable event-driven workflows and scheduled task automation</strong>. The OpenClaw extension ecosystem is growing fast, with new skills released every week.",
+      "published": "2026-02-01T13:22:44",
+      "query": "clawhub.com skill OR \"new skill\" OR automation",
+      "category": "openclaw-skills",
+      "source": "web",
+      "score": 91,
+      "scannedAt": "2026-02-07T21:34:11.803Z"
+    },
+    {
+      "title": "Malicious OpenClaw ‘skill’ targets crypto users on ClawHub — 14 malicious skills were uploaded to ClawHub last month | Tom's Hardware",
+      "url": "https://www.tomshardware.com/tech-industry/cyber-security/malicious-moltbot-skill-targets-crypto-users-on-clawhub",
+      "description": "Security researchers are warning that the growing ecosystem around ‘OpenClaw,&#x27; the self-hosted AI assistant formerly known as both Clawdbot and Moltbot, has already become a target for malware distribution. According to a report published by OpenSourceMalware, at least 14 malicious “skills” were uploaded to ClawHub between January 27 and 29. These masquerade as crypto trading or wallet automation tools while attempting to deliver malware to users’ systems.",
+      "published": "2026-02-01T12:00:00",
+      "query": "clawhub.com skill OR \"new skill\" OR automation",
+      "category": "openclaw-skills",
+      "source": "web",
+      "score": 91,
+      "scannedAt": "2026-02-07T21:34:11.803Z"
+    },
+    {
+      "title": "OpenClaw's 230 Malicious Skills: What Agentic AI Supply Chains Teach Us About the Need to Evolve Identity Security",
+      "url": "https://www.authmind.com/post/openclaw-malicious-skills-agentic-ai-supply-chain",
+      "description": "The malicious skills proliferation on ClawHub offers valuable lessons about agentic AI supply chain security. We&#x27;re seeing familiar patterns from software supply chains (package abandonment, typosquatting, malicious updates) but with a new dimension: compromised components have direct credential access and autonomous execution capability.",
+      "published": "2026-02-02T21:36:20",
+      "query": "clawhub.com skill OR \"new skill\" OR automation",
+      "category": "openclaw-skills",
+      "source": "web",
+      "score": 84,
+      "scannedAt": "2026-02-07T21:34:11.803Z"
+    },
+    {
+      "title": "[Bug]: Skills show enabled but are actually disabled · Issue #9469 · openclaw/openclaw",
+      "url": "https://github.com/openclaw/openclaw/issues/9469",
+      "description": "enabled under skills tab but not enabled under Config. this breaks the skill · Clawdbot version: latest · OS: debian 13 · Install method (pnpm/npx/docker/etc): openclaw script · Paste relevant logs or add screenshots (redact secrets). Reactions are currently unavailable ·",
+      "published": "2026-02-05T07:49:40",
+      "query": "site:github.com openclaw skill OR plugin",
+      "category": "openclaw-github",
+      "source": "github",
+      "score": 81,
+      "scannedAt": "2026-02-07T21:34:10.311Z"
+    },
+    {
+      "title": "Duplicate slash commands registered when skill exists in both workspace and bundled locations · Issue #5636 · openclaw/openclaw",
+      "url": "https://github.com/openclaw/openclaw/issues/5636",
+      "description": "Description When a skill exists in both the user&#x27;s workspace (~/clawd/skills/) and the bundled OpenClaw skills (/opt/homebrew/lib/node_modules/openclaw/skills/), both copies get registered as Discord slash commands. The second one gets a...",
+      "published": "2026-01-31T19:22:57",
+      "query": "site:github.com openclaw skill OR plugin",
+      "category": "openclaw-github",
+      "source": "github",
+      "score": 81,
+      "scannedAt": "2026-02-07T21:34:10.312Z"
+    },
+    {
+      "title": "MoltBot Skills exploited to distribute 400+ malware packages in days",
+      "url": "https://securityaffairs.com/187562/malware/moltbot-skills-exploited-to-distribute-400-malware-packages-in-days.html",
+      "description": "<strong>OpenClaw is an open-source personal AI assistant platform that lets users extend its capabilities by installing community-created “skills.”</strong> Formerly known as MoltBot and ClawdBot, it integrates with tools like Claude Code and often runs ...",
+      "published": "2026-02-02T21:29:33",
+      "query": "clawhub.com skill OR \"new skill\" OR automation",
+      "category": "openclaw-skills",
+      "source": "web",
+      "score": 81,
+      "scannedAt": "2026-02-07T21:34:11.803Z"
+    },
+    {
+      "title": "Feature Request: Add Agent Lifecycle Hook Events (agent:response, message:sent, tool:complete) · Issue #5279 · openclaw/openclaw",
+      "url": "https://github.com/openclaw/openclaw/issues/5279",
+      "description": "Pattern detection - Analyze repeated workflows to suggest optimizations or create new skills",
+      "published": "2026-01-31T08:24:37",
+      "query": "site:github.com openclaw skill OR plugin",
+      "category": "openclaw-github",
+      "source": "github",
+      "score": 79,
+      "scannedAt": "2026-02-07T21:34:10.312Z"
+    },
+    {
+      "title": "Context Management: Skills, Compression, Caching, and RAG · Issue #2 · JnBrymn/openclaw",
+      "url": "https://github.com/JnBrymn/openclaw/issues/2",
+      "description": "OpenClaw uses a multi-layered approach to context management: Skills: Metadata-only injection with on-demand reading (details)",
+      "published": "2026-01-31T04:41:46",
+      "query": "site:github.com openclaw skill OR plugin",
+      "category": "openclaw-github",
+      "source": "github",
+      "score": 69,
+      "scannedAt": "2026-02-07T21:34:10.312Z"
+    },
+    {
+      "title": "openclaw/openclaw",
+      "url": "https://github.com/openclaw/openclaw/issues/6291",
+      "description": "Your own personal AI assistant. Any OS. Any Platform. The lobster way. 🦞 - openclaw/openclaw",
+      "published": "2026-02-01T13:55:16",
+      "query": "site:github.com openclaw skill OR plugin",
+      "category": "openclaw-github",
+      "source": "github",
+      "score": 57,
+      "scannedAt": "2026-02-07T21:34:10.312Z"
+    }
+  ]
 }

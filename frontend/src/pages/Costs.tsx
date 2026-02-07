@@ -131,7 +131,7 @@ export default function Costs() {
             marginTop: '4px', 
             margin: '4px 0 0 0' 
           }}>
-            AWS spending & token analytics
+            Track AI spending, token usage & optimize costs
           </p>
         </div>
 

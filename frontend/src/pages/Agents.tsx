@@ -114,7 +114,7 @@ export default function Agents() {
             <h1 className="text-title" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <Bot size={m ? 18 : 22} style={{ color: '#BF5AF2' }} /> Agent Hub
             </h1>
-            <p className="text-body" style={{ marginTop: 4 }}>Multi-agent orchestration</p>
+            <p className="text-body" style={{ marginTop: 4 }}>Your AI agents — active sessions, sub-agents & more</p>
           </div>
           <motion.button
             whileHover={m ? undefined : { scale: 1.02 }}
@@ -242,6 +242,185 @@ export default function Agents() {
                 </motion.div>
               )}
             </AnimatePresence>
+          </div>
+
+          {/* Recommended Agents Section */}
+          <div style={{ marginTop: 40 }}>
+            <h2 style={{ 
+              fontSize: 18, 
+              fontWeight: 700, 
+              color: 'rgba(255,255,255,0.92)', 
+              marginBottom: 16,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 10
+            }}>
+              Recommended Agents
+            </h2>
+            <div style={{ display: 'grid', gridTemplateColumns: m ? '1fr' : 'repeat(2, 1fr)', gap: m ? 12 : 16 }}>
+              {[
+                {
+                  name: 'Research Assistant',
+                  description: 'Searches the web, summarizes findings, writes reports',
+                  model: 'Claude Sonnet 4',
+                  modelId: 'us.anthropic.claude-sonnet-4-20250514-v1:0',
+                  systemPrompt: 'You are a thorough research assistant. Search the web comprehensively, analyze findings from multiple sources, and create detailed reports with citations. Focus on accuracy, credibility, and providing balanced perspectives.',
+                  skills: ['web_search', 'web_fetch', 'write']
+                },
+                {
+                  name: 'Code Reviewer',
+                  description: 'Reviews PRs, finds bugs, suggests improvements',
+                  model: 'Claude Opus 4',
+                  modelId: 'us.anthropic.claude-opus-4-6-v1',
+                  systemPrompt: 'You are an expert code reviewer. Analyze code for bugs, security vulnerabilities, performance issues, and adherence to best practices. Provide detailed, actionable feedback with specific suggestions for improvement.',
+                  skills: ['read', 'write', 'edit', 'exec']
+                },
+                {
+                  name: 'Content Writer',
+                  description: 'Drafts blog posts, social media, marketing copy',
+                  model: 'Claude Sonnet 4',
+                  modelId: 'us.anthropic.claude-sonnet-4-20250514-v1:0',
+                  systemPrompt: 'You are a skilled content writer specializing in engaging copy for blogs, social media, and marketing. Create compelling narratives that resonate with target audiences while maintaining brand voice and achieving clear objectives.',
+                  skills: ['web_search', 'image', 'write']
+                },
+                {
+                  name: 'Security Scanner',
+                  description: 'Monitors bug bounties, scans for vulnerabilities',
+                  model: 'Claude Haiku 4',
+                  modelId: 'us.anthropic.claude-haiku-4-5-20251001-v1:0',
+                  systemPrompt: 'You are a security researcher focused on finding vulnerabilities and monitoring bug bounty programs. Analyze targets methodically, identify potential security weaknesses, and track new opportunities efficiently.',
+                  skills: ['web_search', 'exec', 'read']
+                }
+              ].map((template, i) => (
+                <motion.div
+                  key={template.name}
+                  initial={{ opacity: 0, y: 12, scale: 0.98 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  transition={{ delay: 0.6 + i * 0.08 }}
+                  whileHover={{ y: -2, scale: 1.01 }}
+                  style={{
+                    borderRadius: m ? 12 : 16, 
+                    padding: m ? 14 : 20,
+                    background: 'rgba(255,255,255,0.03)',
+                    backdropFilter: 'blur(20px)',
+                    WebkitBackdropFilter: 'blur(20px)',
+                    border: '1px dashed rgba(255,255,255,0.15)',
+                    opacity: 0.75,
+                    cursor: 'pointer',
+                    transition: 'all 0.3s ease'
+                  }}
+                  onClick={() => {
+                    setCreateForm({
+                      name: template.name,
+                      description: template.description,
+                      model: template.modelId,
+                      systemPrompt: template.systemPrompt,
+                      skills: template.skills
+                    })
+                    setShowCreateModal(true)
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, marginBottom: 16 }}>
+                    <div style={{ 
+                      width: 48, 
+                      height: 48, 
+                      borderRadius: 14, 
+                      background: 'rgba(255,255,255,0.05)', 
+                      border: '1px dashed rgba(255,255,255,0.2)', 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      justifyContent: 'center', 
+                      fontSize: 18, 
+                      flexShrink: 0 
+                    }}>
+                      ⚙️
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <h3 style={{ fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.8)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{template.name}</h3>
+                        <span style={{
+                          fontSize: 9,
+                          fontWeight: 600,
+                          color: 'rgba(255,255,255,0.4)',
+                          background: 'rgba(255,255,255,0.06)',
+                          padding: '2px 6px',
+                          borderRadius: 4,
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.1em'
+                        }}>
+                          Template
+                        </span>
+                      </div>
+                      <p style={{ fontSize: 10, color: '#BF5AF2', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: 2 }}>
+                        {template.model}
+                      </p>
+                    </div>
+                  </div>
+                  <p style={{ 
+                    fontSize: 12, 
+                    color: 'rgba(255,255,255,0.35)', 
+                    marginBottom: 16, 
+                    display: '-webkit-box', 
+                    WebkitLineClamp: 2, 
+                    WebkitBoxOrient: 'vertical', 
+                    overflow: 'hidden', 
+                    lineHeight: 1.5 
+                  }}>
+                    {template.description}
+                  </p>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div style={{ display: 'flex', gap: 4 }}>
+                      {template.skills.slice(0, 3).map(skill => (
+                        <span 
+                          key={skill}
+                          style={{
+                            fontSize: 9,
+                            color: 'rgba(255,255,255,0.35)',
+                            background: 'rgba(255,255,255,0.04)',
+                            padding: '2px 6px',
+                            borderRadius: 4,
+                            border: '1px solid rgba(255,255,255,0.08)'
+                          }}
+                        >
+                          {skill}
+                        </span>
+                      ))}
+                      {template.skills.length > 3 && (
+                        <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.25)' }}>
+                          +{template.skills.length - 3}
+                        </span>
+                      )}
+                    </div>
+                    <button
+                      style={{
+                        background: 'rgba(0,122,255,0.15)',
+                        border: '1px solid rgba(0,122,255,0.3)',
+                        borderRadius: 6,
+                        color: '#007AFF',
+                        fontSize: 11,
+                        fontWeight: 600,
+                        padding: '4px 10px',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s ease'
+                      }}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setCreateForm({
+                          name: template.name,
+                          description: template.description,
+                          model: template.modelId,
+                          systemPrompt: template.systemPrompt,
+                          skills: template.skills
+                        })
+                        setShowCreateModal(true)
+                      }}
+                    >
+                      Add
+                    </button>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
           </div>
         </div>
 

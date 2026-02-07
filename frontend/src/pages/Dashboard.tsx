@@ -67,7 +67,7 @@ export default function Dashboard() {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div>
             <h1 className="text-title">Dashboard</h1>
-            <p className="text-body" style={{ marginTop: 4 }}>System overview</p>
+            <p className="text-body" style={{ marginTop: 4 }}>Your agent at a glance — status, activity & channels</p>
           </div>
           <StatusBadge status="active" pulse label="Live" />
         </div>

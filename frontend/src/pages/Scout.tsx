@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { Radar, SortDesc, X, Rocket, Shield, Code, Briefcase, GraduationCap, DollarSign } from 'lucide-react'
+import { Radar, SortDesc, X, Rocket, Shield, Code, Briefcase, GraduationCap, DollarSign, Search } from 'lucide-react'
 import PageTransition from '../components/PageTransition'
 import { useIsMobile } from '../lib/useIsMobile'
 import GlassCard from '../components/GlassCard'
@@ -27,6 +27,7 @@ export default function Scout() {
   const { data, loading } = useApi<any>('/api/scout', 60000)
   const [sortBy, setSortBy] = useState<'score' | 'date'>('score')
   const [filter, setFilter] = useState('all')
+  const [scanning, setScanning] = useState(false)
 
   if (loading || !data) {
     return (
@@ -64,6 +65,38 @@ export default function Scout() {
     } catch {}
   }
 
+  const handleRunScan = async () => {
+    try {
+      setScanning(true)
+      const response = await fetch('/api/scout/scan', { method: 'POST' })
+      const result = await response.json()
+      
+      if (result.status === 'scanning') {
+        // Poll for completion
+        const checkStatus = async () => {
+          try {
+            const statusResponse = await fetch('/api/scout/status')
+            const status = await statusResponse.json()
+            
+            if (!status.scanning) {
+              setScanning(false)
+              window.location.reload() // Reload to show new results
+            } else {
+              setTimeout(checkStatus, 3000) // Check again in 3 seconds
+            }
+          } catch {
+            setScanning(false)
+          }
+        }
+        setTimeout(checkStatus, 3000)
+      } else {
+        setScanning(false)
+      }
+    } catch {
+      setScanning(false)
+    }
+  }
+
   return (
     <PageTransition>
       <div style={{ maxWidth: 1280, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: m ? 12 : 24 }}>
@@ -74,17 +107,43 @@ export default function Scout() {
               <Radar size={m ? 18 : 22} style={{ color: '#BF5AF2' }} /> Scout
             </h1>
             <p className="text-body" style={{ marginTop: 4, fontSize: m ? 11 : 13 }}>
-              Last scan: {data.lastScan ? timeAgo(data.lastScan) : 'never'}
+              Find opportunities across the web — skills, jobs, grants & more
+            </p>
+            <p className="text-body" style={{ marginTop: 2, fontSize: m ? 10 : 12, opacity: 0.6 }}>
+              Last scan: {data?.lastScan ? timeAgo(data.lastScan) : 'never'}
             </p>
           </div>
-          <button
-            onClick={() => setSortBy(sortBy === 'score' ? 'date' : 'score')}
-            className="macos-button"
-            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', fontSize: 12 }}
-          >
-            <SortDesc size={13} />
-            {sortBy === 'score' ? 'Score' : 'Date'}
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <button
+              onClick={handleRunScan}
+              disabled={scanning}
+              className="macos-button"
+              style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: 6, 
+                padding: '8px 14px', 
+                fontSize: 12,
+                backgroundColor: scanning ? 'rgba(255,255,255,0.05)' : 'rgba(0,122,255,0.15)',
+                borderColor: scanning ? 'rgba(255,255,255,0.1)' : 'rgba(0,122,255,0.4)',
+                color: scanning ? 'rgba(255,255,255,0.5)' : '#007AFF',
+                cursor: scanning ? 'not-allowed' : 'pointer'
+              }}
+            >
+              <Search size={13} style={{ 
+                animation: scanning ? 'spin 1s linear infinite' : 'none' 
+              }} />
+              {scanning ? 'Scanning...' : 'Run Scan'}
+            </button>
+            <button
+              onClick={() => setSortBy(sortBy === 'score' ? 'date' : 'score')}
+              className="macos-button"
+              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', fontSize: 12 }}
+            >
+              <SortDesc size={13} />
+              {sortBy === 'score' ? 'Score' : 'Date'}
+            </button>
+          </div>
         </div>
 
         {/* Filter Tabs — horizontal scroll on mobile */}

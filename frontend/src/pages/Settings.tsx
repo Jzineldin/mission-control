@@ -89,7 +89,7 @@ export default function Settings() {
           <h1 className="text-title" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <Settings2 size={22} style={{ color: '#007AFF' }} /> Settings
           </h1>
-          <p className="text-body" style={{ marginTop: 4 }}>Configuration & system management</p>
+          <p className="text-body" style={{ marginTop: 4 }}>Gateway configuration, model routing & preferences</p>
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: isMobile ? 16 : 20 }}>

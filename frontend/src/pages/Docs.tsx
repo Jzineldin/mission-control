@@ -74,7 +74,7 @@ export default function Docs() {
           <h1 className="text-title" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <FileText size={m ? 18 : 22} style={{ color: '#818cf8' }} /> Doc Digest
           </h1>
-          <p className="text-body" style={{ marginTop: 4 }}>Documents & knowledge base</p>
+          <p className="text-body" style={{ marginTop: 4 }}>Your workspace files — SOUL.md, MEMORY.md & more</p>
         </div>
 
         {/* Stats */}
