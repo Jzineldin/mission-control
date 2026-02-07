@@ -1736,6 +1736,9 @@ app.get('/api/setup', async (req, res) => {
         detectedConfig.model = openclawConfig.agents?.defaults?.model?.primary || '';
         detectedConfig.workspacePath = openclawConfig.agents?.defaults?.workspace || '';
         
+        // Extract gateway auth token
+        detectedConfig.gatewayToken = openclawConfig.gateway?.auth?.token || openclawConfig.gateway?.http?.auth?.token || '';
+        
         // Extract enabled channels
         if (openclawConfig.channels) {
           detectedConfig.channels = Object.keys(openclawConfig.channels).filter(channel => 
@@ -1743,8 +1746,16 @@ app.get('/api/setup', async (req, res) => {
           );
         }
         
-        // Try to detect agent name from workspace or default to "Assistant"
-        detectedConfig.agentName = 'OpenClaw Agent';
+        // Try to detect agent name from IDENTITY.md or SOUL.md
+        const ws = detectedConfig.workspacePath || process.env.HOME;
+        try {
+          const identity = fs.readFileSync(path.join(ws, 'IDENTITY.md'), 'utf8');
+          const nameMatch = identity.match(/\*\*Name:\*\*\s*(.+)/);
+          if (nameMatch) detectedConfig.agentName = nameMatch[1].trim();
+          else detectedConfig.agentName = 'OpenClaw Agent';
+        } catch {
+          detectedConfig.agentName = 'OpenClaw Agent';
+        }
       }
     } catch (e) {
       console.warn('Could not read OpenClaw config:', e.message);

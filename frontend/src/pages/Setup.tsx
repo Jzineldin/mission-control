@@ -99,6 +99,10 @@ export default function Setup() {
       if (data.detectedConfig?.agentName) {
         setSetupData(prev => ({ ...prev, dashboardName: data.detectedConfig.agentName + ' Control' }))
       }
+      // Pre-fill gateway token if detected
+      if (data.detectedConfig?.gatewayToken) {
+        setSetupData(prev => ({ ...prev, gateway: { ...prev.gateway, token: data.detectedConfig.gatewayToken } }))
+      }
     } catch (error) {
       console.error('Failed to fetch setup status:', error)
     } finally {
