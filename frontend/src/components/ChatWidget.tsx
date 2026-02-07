@@ -31,6 +31,28 @@ export default function ChatWidget() {
   useEffect(() => { scrollToBottom() }, [messages, scrollToBottom])
   useEffect(() => { if (open) { setUnread(0); inputRef.current?.focus() } }, [open])
 
+  // Listen for external "open-chat" events (from Workshop "Discuss" button)
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail
+      if (detail?.message) {
+        setInput(detail.message)
+        setOpen(true)
+        // Auto-send if requested
+        if (detail.autoSend) {
+          setTimeout(() => {
+            const btn = document.querySelector('[data-chat-send]') as HTMLButtonElement
+            btn?.click()
+          }, 100)
+        }
+      } else {
+        setOpen(true)
+      }
+    }
+    window.addEventListener('open-chat', handler)
+    return () => window.removeEventListener('open-chat', handler)
+  }, [])
+
   const sendMessage = async () => {
     const text = input.trim()
     if (!text || isStreaming) return
@@ -248,7 +270,7 @@ export default function ChatWidget() {
                   style={{ flex: 1, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, padding: '9px 12px', color: 'rgba(255,255,255,0.9)', fontSize: 13, resize: 'none', outline: 'none', fontFamily: 'inherit', maxHeight: 80, lineHeight: 1.4 }}
                   onInput={(e) => { const t = e.currentTarget; t.style.height = 'auto'; t.style.height = Math.min(t.scrollHeight, 80) + 'px' }}
                 />
-                <button type="submit" disabled={!input.trim() || isStreaming} style={{ width: 34, height: 34, borderRadius: 9, border: 'none', background: input.trim() && !isStreaming ? '#007AFF' : 'rgba(255,255,255,0.06)', color: input.trim() && !isStreaming ? '#fff' : 'rgba(255,255,255,0.2)', cursor: input.trim() && !isStreaming ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <button type="submit" data-chat-send disabled={!input.trim() || isStreaming} style={{ width: 34, height: 34, borderRadius: 9, border: 'none', background: input.trim() && !isStreaming ? '#007AFF' : 'rgba(255,255,255,0.06)', color: input.trim() && !isStreaming ? '#fff' : 'rgba(255,255,255,0.2)', cursor: input.trim() && !isStreaming ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                   {isStreaming ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Send size={14} />}
                 </button>
               </form>

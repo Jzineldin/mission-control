@@ -22,8 +22,8 @@ export default function App() {
   const isMobile = useIsMobile()
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
-  // Hide global chat widget on pages that have their own chat
-  const hideChatWidget = isMobile && (location.pathname === '/workshop' || location.pathname === '/conversations')
+  // Hide global chat widget on Conversations page (has its own chat)
+  const hideChatWidget = isMobile && location.pathname === '/conversations'
 
   const closeSidebar = () => setSidebarOpen(false)
 
