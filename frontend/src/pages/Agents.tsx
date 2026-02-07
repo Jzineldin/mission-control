@@ -9,7 +9,7 @@ import AnimatedCounter from '../components/AnimatedCounter'
 import { useApi, timeAgo } from '../lib/hooks'
 
 export default function Agents() {
-  const isMobile = useIsMobile()
+  const m = useIsMobile()
   const { data, loading } = useApi<any>('/api/agents', 30000)
   const { data: modelsData } = useApi<any>('/api/models', 0)
   const { data: skillsData } = useApi<any>('/api/skills', 0)
@@ -106,32 +106,34 @@ export default function Agents() {
 
   return (
     <PageTransition>
-      <div style={{ maxWidth: 1280, margin: '0 auto', padding: isMobile ? '16px' : '0', display: 'flex', flexDirection: 'column', gap: isMobile ? 20 : 28 }}>
+      <div style={{ maxWidth: 1280, margin: '0 auto', padding: m ? '16px' : '0', display: 'flex', flexDirection: 'column', gap: m ? 20 : 28 }}>
         {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', alignItems: m ? 'flex-start' : 'center', justifyContent: 'space-between', flexDirection: m ? 'column' : 'row', gap: m ? 12 : 0 }}>
           <div>
-            <h1 className="text-title" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <Bot size={22} style={{ color: '#BF5AF2' }} /> Agent Hub
+            <h1 className="text-title" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <Bot size={m ? 18 : 22} style={{ color: '#BF5AF2' }} /> Agent Hub
             </h1>
-            <p className="text-body" style={{ marginTop: 4 }}>Multi-agent orchestration & communication</p>
+            <p className="text-body" style={{ marginTop: 4 }}>Multi-agent orchestration</p>
           </div>
           <motion.button
-            whileHover={{ scale: 1.02 }}
+            whileHover={m ? undefined : { scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             onClick={() => setShowCreateModal(true)}
             style={{
               background: 'linear-gradient(135deg, #BF5AF2 0%, #9C3AE8 100%)',
               border: 'none',
-              borderRadius: 12,
-              padding: '12px 20px',
+              borderRadius: 10,
+              padding: m ? '10px 16px' : '12px 20px',
               color: 'white',
-              fontSize: 14,
+              fontSize: m ? 13 : 14,
               fontWeight: 600,
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
               gap: 8,
-              boxShadow: '0 4px 12px rgba(191,90,242,0.3)'
+              boxShadow: '0 4px 12px rgba(191,90,242,0.3)',
+              width: m ? '100%' : undefined,
+              justifyContent: m ? 'center' : undefined,
             }}
           >
             <Plus size={16} />
@@ -139,10 +141,10 @@ export default function Agents() {
           </motion.button>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '2fr 1fr', gap: isMobile ? 16 : 24 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: m ? '1fr' : '2fr 1fr', gap: m ? 16 : 24 }}>
           {/* Agent Grid */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 16 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: m ? '1fr' : 'repeat(2, 1fr)', gap: m ? 12 : 16 }}>
               {agents.map((agent: any, i: number) => (
                 <motion.div
                   key={agent.id}
@@ -153,7 +155,7 @@ export default function Agents() {
                   onClick={() => setSelectedAgent(selectedAgent === agent.id ? null : agent.id)}
                   className="macos-panel"
                   style={{
-                    borderRadius: 16, padding: 20, cursor: 'pointer',
+                    borderRadius: m ? 12 : 16, padding: m ? 14 : 20, cursor: 'pointer',
                     borderColor: selectedAgent === agent.id ? 'rgba(191,90,242,0.4)' : undefined,
                     background: selectedAgent === agent.id ? 'rgba(191,90,242,0.08)' : undefined,
                   }}
@@ -200,7 +202,7 @@ export default function Agents() {
                   style={{ overflow: 'hidden' }}
                 >
                   <GlassCard hover={false} noPad>
-                    <div style={{ padding: isMobile ? 16 : 24 }}>
+                    <div style={{ padding: m ? 16 : 24 }}>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
                           <div style={{ width: 56, height: 56, borderRadius: 14, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24 }}>
@@ -221,7 +223,7 @@ export default function Agents() {
                           <X size={16} style={{ color: 'rgba(255,255,255,0.6)' }} />
                         </motion.button>
                       </div>
-                      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', gap: 16 }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: m ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', gap: 16 }}>
                         {[
                           { label: 'Tokens', value: <><AnimatedCounter end={Math.round((selected.totalTokens || 0) / 1000)} /><span style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)' }}>k</span></> },
                           { label: 'Last Active', value: selected.lastActive ? timeAgo(selected.lastActive) : '—' },
@@ -243,7 +245,7 @@ export default function Agents() {
 
           {/* Chat Feed */}
           <GlassCard delay={0.15} hover={false} noPad>
-            <div style={{ padding: isMobile ? 16 : 24 }}>
+            <div style={{ padding: m ? 16 : 24 }}>
               <h3 style={{ fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.65)', marginBottom: 20, display: 'flex', alignItems: 'center', gap: 8 }}>
                 <MessageSquare size={14} style={{ color: '#BF5AF2' }} /> Inter-Agent Chat
               </h3>
@@ -315,10 +317,10 @@ export default function Agents() {
                   background: 'rgba(28, 28, 30, 0.95)',
                   backdropFilter: 'blur(20px)',
                   border: '1px solid rgba(255,255,255,0.1)',
-                  borderRadius: 16,
-                  padding: 32,
+                  borderRadius: m ? 12 : 16,
+                  padding: m ? 20 : 32,
                   width: '100%',
-                  maxWidth: 600,
+                  maxWidth: m ? '95vw' : 600,
                   maxHeight: '90vh',
                   overflowY: 'auto'
                 }}
@@ -349,7 +351,7 @@ export default function Agents() {
                 {/* Agent Templates */}
                 <div style={{ marginBottom: 32 }}>
                   <h3 style={{ fontSize: 14, fontWeight: 600, color: 'rgba(255,255,255,0.65)', marginBottom: 12 }}>Quick Start Templates</h3>
-                  <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)', gap: 12 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: m ? '1fr' : 'repeat(3, 1fr)', gap: 12 }}>
                     {templates.map((template, i) => (
                       <motion.div
                         key={template.name}
@@ -375,7 +377,7 @@ export default function Agents() {
                 </div>
 
                 {/* Form Fields */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: isMobile ? 16 : 20 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: m ? 16 : 20 }}>
                   {/* Name */}
                   <div>
                     <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.65)', marginBottom: 8 }}>

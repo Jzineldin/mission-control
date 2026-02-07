@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const http = require('http');
 const { execSync } = require('child_process');
+const multer = require('multer');
 
 // ========== CONFIG: Load mc-config.json (or create from defaults) ==========
 const MC_CONFIG_PATH = path.join(__dirname, 'mc-config.json');
@@ -1325,6 +1326,46 @@ app.get('/api/aws/costs', async (req, res) => {
   } catch (error) {
     console.error('AWS costs error:', error);
     res.status(500).json({ error: 'Failed to load cost data' });
+  }
+});
+
+// === Document Management ===
+const docsDir = path.join(__dirname, 'documents');
+if (!fs.existsSync(docsDir)) fs.mkdirSync(docsDir, { recursive: true });
+
+const upload = multer({ dest: path.join(docsDir, '.tmp'), limits: { fileSize: 10 * 1024 * 1024 } });
+
+app.get('/api/docs', (req, res) => {
+  try {
+    const files = fs.readdirSync(docsDir).filter(f => !f.startsWith('.'));
+    const documents = files.map(f => {
+      const stat = fs.statSync(path.join(docsDir, f));
+      const ext = path.extname(f).replace('.', '');
+      const sizeBytes = stat.size;
+      const size = sizeBytes > 1024 * 1024 ? `${(sizeBytes / (1024 * 1024)).toFixed(1)} MB` 
+        : sizeBytes > 1024 ? `${(sizeBytes / 1024).toFixed(1)} KB` 
+        : `${sizeBytes} B`;
+      // Rough chunk estimate: ~500 chars per chunk
+      const chunks = Math.max(1, Math.round(sizeBytes / 500));
+      return { id: f, name: f, type: ext, size, sizeBytes, chunks, modified: stat.mtime.toISOString() };
+    });
+    res.json({ documents, total: documents.length });
+  } catch (err) {
+    res.json({ documents: [], total: 0 });
+  }
+});
+
+app.post('/api/docs/upload', upload.array('files', 20), (req, res) => {
+  try {
+    const uploaded = [];
+    for (const file of (req.files || [])) {
+      const dest = path.join(docsDir, file.originalname);
+      fs.renameSync(file.path, dest);
+      uploaded.push(file.originalname);
+    }
+    res.json({ ok: true, uploaded });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 
