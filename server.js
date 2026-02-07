@@ -503,6 +503,87 @@ app.post('/api/tasks/:taskId/execute', async (req, res) => {
     const gwToken = cfg.gateway?.auth?.token || 'mc-zinbot-2026';
     const gwPort = cfg.gateway?.port || 18789;
     
+    // Build smart prompt based on task source/content
+    const title = task.title || '';
+    const desc = task.description || '';
+    const fullText = `${title} ${desc}`.toLowerCase();
+    
+    let taskPrompt;
+    
+    if (task.source === 'scout' && (fullText.includes('skill') || fullText.includes('plugin'))) {
+      // Scout found a new skill/plugin → research & recommend
+      taskPrompt = `RESEARCH TASK: A new OpenClaw skill/plugin was found by the Scout engine.
+
+Title: ${task.title}
+Details: ${task.description}
+
+Your job:
+1. Visit the URL mentioned and read about this skill
+2. Summarize what it does, who made it, and key features
+3. Check if it's compatible with our setup (OpenClaw on AWS EC2, Ubuntu)
+4. Give a clear recommendation: INSTALL (with instructions) or SKIP (with reason)
+5. Rate usefulness 1-10 for our use case
+
+Be thorough but concise. This report will be shown to the user.`;
+    } else if (task.source === 'scout' && (fullText.includes('bounty') || fullText.includes('hackerone') || fullText.includes('bugcrowd'))) {
+      // Bug bounty opportunity
+      taskPrompt = `BUG BOUNTY RESEARCH: The Scout engine found a potential bounty opportunity.
+
+Title: ${task.title}
+Details: ${task.description}
+
+Your job:
+1. Research this program/target — what's the scope, payout range, platform
+2. Check if it's a new program or new scope addition
+3. Identify the most promising attack surfaces
+4. Estimate difficulty and potential payout
+5. Give a GO/SKIP recommendation with reasoning
+
+Be specific and actionable.`;
+    } else if (task.source === 'scout' && (fullText.includes('freelance') || fullText.includes('job') || fullText.includes('hiring') || fullText.includes('looking for'))) {
+      // Freelance/job opportunity
+      taskPrompt = `JOB/FREELANCE RESEARCH: The Scout engine found a potential opportunity.
+
+Title: ${task.title}
+Details: ${task.description}
+
+Your job:
+1. Research this opportunity — who's hiring, what they need, compensation
+2. Check if it matches our skills (React, Next.js, Supabase, AI/ML, Python)
+3. Draft a brief pitch/response if it's a good fit
+4. Give an APPLY/SKIP recommendation
+
+Be practical — focus on fit and potential earnings.`;
+    } else if (task.source === 'scout' && (fullText.includes('grant') || fullText.includes('funding') || fullText.includes('competition'))) {
+      // Grant/funding
+      taskPrompt = `FUNDING RESEARCH: The Scout engine found a potential grant/funding opportunity.
+
+Title: ${task.title}
+Details: ${task.description}
+
+Your job:
+1. Research eligibility, deadlines, and requirements
+2. Check if Tale Forge / Kevin El-Zarka qualifies
+3. Summarize the application process
+4. Give an APPLY/SKIP recommendation with deadline
+
+Be specific about requirements and timeline.`;
+    } else {
+      // Generic task — give it a thorough prompt
+      taskPrompt = `TASK EXECUTION:
+
+Title: ${task.title}
+Description: ${task.description}
+
+Your job:
+1. Analyze what needs to be done
+2. Do the work — research, write, code, whatever is needed
+3. If the task requires external actions (sending emails, deploying code), describe exactly what should be done but don't do it without explicit permission
+4. Provide a clear, detailed summary of results and any next steps
+
+Be thorough. Your output will be shown directly to the user as the task result.`;
+    }
+    
     // Fire and forget — sub-agent runs in background
     fetch(`http://127.0.0.1:${gwPort}/tools/invoke`, {
       method: 'POST',
@@ -510,7 +591,7 @@ app.post('/api/tasks/:taskId/execute', async (req, res) => {
       body: JSON.stringify({
         tool: 'sessions_spawn',
         input: {
-          task: `Execute this task:\n\nTitle: ${task.title}\nDescription: ${task.description}\n\nDo the work described. When done, summarize what you accomplished.`,
+          task: taskPrompt,
           model: 'sonnet',
           runTimeoutSeconds: 300,
           label: `workshop-${taskId}`
