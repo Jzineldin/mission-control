@@ -1430,7 +1430,7 @@ app.post('/api/scout/deploy', async (req, res) => {
     fs.writeFileSync(scoutFile, JSON.stringify(scoutData, null, 2));
 
     // Generate AI-enhanced task description
-    let enhancedDescription = `${opp.summary}\n\nSource: ${opp.source} | Score: ${opp.score}\nURL: ${opp.url}`;
+    let enhancedDescription = `${opp.description || opp.title}\n\nSource: ${opp.source || opp.category || 'web'} | Score: ${opp.score}\nURL: ${opp.url}`;
     
     try {
       const chatResponse = await fetch(`${GATEWAY_URL}/v1/chat/completions`, {
@@ -1439,7 +1439,7 @@ app.post('/api/scout/deploy', async (req, res) => {
         body: JSON.stringify({
           messages: [{
             role: 'user',
-            content: `Create a concise action plan for this opportunity:\n\n**${opp.title}**\n${opp.summary}\n\nCategory: ${opp.category}\nURL: ${opp.url}\n\nProvide 3-5 specific next steps I should take. Keep it under 200 words.`
+            content: `Create a concise action plan for this opportunity:\n\n**${opp.title}**\n${opp.description || ''}\n\nCategory: ${opp.category || 'general'}\nURL: ${opp.url}\n\nProvide 3-5 specific next steps I should take. Keep it under 200 words.`
           }],
           stream: false,
           model: SUB_AGENT_MODEL
@@ -1451,7 +1451,7 @@ app.post('/api/scout/deploy', async (req, res) => {
         const data = await chatResponse.json();
         const actionPlan = data.choices?.[0]?.message?.content?.trim();
         if (actionPlan) {
-          enhancedDescription = `${opp.title}\n\n🎯 **Action Plan:**\n${actionPlan}\n\n📊 **Details:**\n${opp.summary}\n\nSource: ${opp.source} | Score: ${opp.score}\nURL: ${opp.url}`;
+          enhancedDescription = `${opp.title}\n\n🎯 **Action Plan:**\n${actionPlan}\n\n📊 **Details:**\n${opp.description || 'No description'}\n\nSource: ${opp.source || opp.category || 'web'} | Score: ${opp.score}\nURL: ${opp.url}`;
         }
       }
     } catch (aiError) {
