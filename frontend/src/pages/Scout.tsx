@@ -352,7 +352,7 @@ export default function Scout() {
             {scoutConfig.queryCount > 0 && (
               <div style={{ marginTop: 12, padding: '8px 12px', borderRadius: 8, background: 'rgba(255,255,255,0.04)' }}>
                 <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)' }}>
-                  📊 {scoutConfig.queryCount} search queries across {Object.values(scoutConfig.templateStats || {}).filter(v => v > 0).length} categories
+                  📊 {scoutConfig.queryCount} search queries across {Object.values(scoutConfig.templateStats || {}).filter((v: any) => (v as number) > 0).length} categories
                   {scoutConfig.hasApiKey ? ' • Brave Search API connected' : ' • ⚠️ No API key configured'}
                 </span>
               </div>

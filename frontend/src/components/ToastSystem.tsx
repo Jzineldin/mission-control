@@ -1,4 +1,4 @@
-import { useState, useEffect, ReactNode } from 'react'
+import { useState, useEffect, type ReactNode } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { CheckCircle, AlertTriangle, XCircle, Info, X } from 'lucide-react'
 

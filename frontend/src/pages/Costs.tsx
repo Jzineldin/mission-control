@@ -28,6 +28,12 @@ interface SessionData {
   totalTokens: number
   updatedAt: string | null
   displayName?: string
+  usage?: {
+    input?: number
+    output?: number
+    cacheRead?: number
+    cacheWrite?: number
+  }
 }
 
 interface ConfigData {

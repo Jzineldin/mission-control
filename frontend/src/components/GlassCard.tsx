@@ -8,9 +8,10 @@ interface Props {
   hover?: boolean
   delay?: number
   noPad?: boolean
+  style?: React.CSSProperties
 }
 
-export default function GlassCard({ children, className = '', hover = true, delay = 0, noPad = false }: Props) {
+export default function GlassCard({ children, className = '', hover = true, delay = 0, noPad = false, style }: Props) {
   const isMobile = useIsMobile()
   
   return (
@@ -23,7 +24,7 @@ export default function GlassCard({ children, className = '', hover = true, dela
         transition: { duration: 0.15, ease: [0.4, 0, 0.2, 1] }
       } : undefined}
       className={`macos-panel ${className}`}
-      style={{ overflow: 'hidden' }}
+      style={{ overflow: 'hidden', ...style }}
     >
       <div style={noPad ? undefined : { padding: isMobile ? 16 : 24 }}>
         {children}

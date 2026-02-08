@@ -53,8 +53,6 @@ export default function HelpTooltip({ content, position = 'top', size = 'sm' }: 
     <>
       <div
         ref={triggerRef}
-        onMouseEnter={() => setIsVisible(true)}
-        onMouseLeave={() => setIsVisible(false)}
         style={{
           display: 'inline-flex',
           alignItems: 'center',

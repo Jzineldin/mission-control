@@ -67,7 +67,7 @@ export default function NotificationSystem({ maxVisible = 5 }: NotificationSyste
 
   // Auto-remove notifications after duration
   useEffect(() => {
-    const timers: NodeJS.Timeout[] = []
+    const timers: ReturnType<typeof setTimeout>[] = []
     
     notifications.forEach(notification => {
       if (notification.duration > 0) {
