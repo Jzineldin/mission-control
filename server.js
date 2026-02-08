@@ -1775,12 +1775,11 @@ app.post('/api/agents/create', (req, res) => {
 
     const agentId = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-+$/, '');
 
-    // 1. Save to local agents-custom.json for MC display
+    // Save to local agents-custom.json (MC-only, does NOT touch gateway config)
     const agentsFile = path.join(__dirname, 'agents-custom.json');
     let agents = [];
     try { agents = JSON.parse(fs.readFileSync(agentsFile, 'utf8')); } catch {}
 
-    // Don't add duplicates
     if (agents.some(a => a.id === agentId)) {
       return res.status(409).json({ error: `Agent "${agentId}" already exists` });
     }
@@ -1799,43 +1798,45 @@ app.post('/api/agents/create', (req, res) => {
     agents.push(agent);
     fs.writeFileSync(agentsFile, JSON.stringify(agents, null, 2));
 
-    // 2. Create agent workspace directory
-    const agentDir = path.join(process.env.HOME || '/home/ubuntu', '.openclaw', 'agents', agentId, 'agent');
-    if (!fs.existsSync(agentDir)) {
-      fs.mkdirSync(agentDir, { recursive: true });
-      // Write AGENTS.md (system prompt)
-      const agentsMd = `# ${name}\n\n${description || ''}\n\n## Instructions\n\n${systemPrompt || `You are ${name}. ${description || ''}`}\n`;
-      fs.writeFileSync(path.join(agentDir, 'AGENTS.md'), agentsMd);
-    }
-
-    // 3. Register in OpenClaw config
-    const configPath = path.join(require('os').homedir(), '.openclaw/openclaw.json');
-    if (fs.existsSync(configPath)) {
-      const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-
-      // Add agent definition
-      if (!config.agents) config.agents = {};
-      config.agents[agentId] = {
-        model: model,
-        description: description || name
-      };
-
-      // Add to main agent's spawnAllowlist
-      if (config.spawnAllowlist) {
-        if (!config.spawnAllowlist.includes(agentId)) {
-          config.spawnAllowlist.push(agentId);
-        }
-      } else {
-        config.spawnAllowlist = [agentId];
-      }
-
-      fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
-    }
-
-    res.json({ ok: true, agent, message: `Agent "${name}" created and registered in OpenClaw. Restart gateway to activate.` });
+    res.json({ ok: true, agent, message: `Agent "${name}" created. Use "Run" to spawn a session.` });
   } catch (error) {
     console.error('[Create Agent]', error.message);
     res.status(500).json({ error: error.message });
+  }
+});
+
+// Run/spawn a custom agent
+app.post('/api/agents/:id/run', async (req, res) => {
+  try {
+    const agentsFile = path.join(__dirname, 'agents-custom.json');
+    let agents = [];
+    try { agents = JSON.parse(fs.readFileSync(agentsFile, 'utf8')); } catch {}
+    const agent = agents.find(a => a.id === req.params.id);
+    if (!agent) return res.status(404).json({ error: 'Agent not found' });
+
+    const { task } = req.body;
+    const prompt = task || `You are ${agent.name}. ${agent.systemPrompt || agent.description}. Introduce yourself and explain what you can do.`;
+
+    const spawnRes = await fetch(`http://127.0.0.1:${GATEWAY_PORT}/v1/sessions/spawn`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${GATEWAY_TOKEN}` },
+      body: JSON.stringify({
+        task: `[System: ${agent.systemPrompt || agent.description}]\n\n${prompt}`,
+        label: `agent-${agent.id}`,
+        model: agent.model ? `amazon-bedrock/${agent.model}` : undefined,
+        runTimeoutSeconds: 300,
+      }),
+      signal: AbortSignal.timeout(10000)
+    });
+
+    if (spawnRes.ok) {
+      const data = await spawnRes.json();
+      res.json({ ok: true, sessionKey: data.sessionKey });
+    } else {
+      res.json({ ok: true, message: 'Spawned (fire-and-forget)' });
+    }
+  } catch (e) {
+    res.status(500).json({ error: e.message });
   }
 });
 
