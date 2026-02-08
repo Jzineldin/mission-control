@@ -19,7 +19,8 @@ try {
   } else {
     mcConfig = {
       name: 'Mission Control',
-      subtitle: 'Mission Control',
+      subtitle: 'OpenClaw Dashboard',
+      agentName: 'Agent',
       modules: { dashboard: true, chat: true, workshop: true, costs: true, cron: true, agents: true, settings: true, skills: true },
       gateway: { port: 18789, token: '' },
       aws: { enabled: false, bucket: '', region: 'us-east-1' },
@@ -671,6 +672,39 @@ app.delete('/api/cron/:id', async (req, res) => {
   } catch (error) {
     console.error('[Cron delete]', error.message);
     res.status(500).json({ error: error.message });
+  }
+});
+
+// GET: Cron job run history
+app.get('/api/cron/:id/runs', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const response = await fetch(`http://127.0.0.1:${GATEWAY_PORT}/tools/invoke`, {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json', 
+        'Authorization': `Bearer ${GATEWAY_TOKEN}` 
+      },
+      body: JSON.stringify({ 
+        tool: 'cron', 
+        args: { 
+          action: 'runs', 
+          jobId: id 
+        } 
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`Gateway error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    const result = typeof data.result === 'string' ? JSON.parse(data.result) : data.result;
+    res.json(result || []);
+  } catch (error) {
+    console.error('[Cron runs]', error.message);
+    res.json([]);
   }
 });
 
@@ -1380,8 +1414,8 @@ app.get('/api/agents', async (req, res) => {
 
     // Primary agent
     agents.push({
-      id: 'zinbot',
-      name: agentName || 'Agent',
+      id: 'primary-agent',
+      name: mcConfig.agentName || 'Agent',
       role: 'Commander',
       avatar: '🤖',
       status: 'active',
@@ -1478,7 +1512,7 @@ app.get('/api/agents', async (req, res) => {
     console.error('[Agents API]', e.message);
     res.json({
       agents: [
-        { id: 'zinbot', name: agentName || 'Agent', role: 'Commander', avatar: '🤖', status: 'active', model: 'Claude Opus 4.6', description: 'Primary agent (session data unavailable)', lastActive: new Date().toISOString(), totalTokens: 0 }
+        { id: 'primary-agent', name: mcConfig.agentName || 'Agent', role: 'Commander', avatar: '🤖', status: 'active', model: 'Claude Opus 4.6', description: 'Primary agent (session data unavailable)', lastActive: new Date().toISOString(), totalTokens: 0 }
       ],
       conversations: [],
       error: e.message
@@ -2058,12 +2092,17 @@ app.get('/api/setup', async (req, res) => {
 // POST: Update setup configuration
 app.post('/api/setup', (req, res) => {
   try {
-    const { dashboardName, gateway, modules, scout } = req.body;
-    
+    const { dashboardName, agentName, gateway, modules, scout } = req.body;
+
     // Update dashboard name
     if (dashboardName) {
       mcConfig.name = dashboardName;
       mcConfig.subtitle = dashboardName;
+    }
+
+    // Update agent name
+    if (agentName) {
+      mcConfig.agentName = agentName;
     }
     
     // Update gateway config

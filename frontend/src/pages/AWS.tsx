@@ -490,7 +490,7 @@ export default function AWS() {
                     {action.type === 'agent' && (
                       <div>
                         <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', marginBottom: 12 }}>
-                          Switch Zinbot's active model to this. Takes effect on next message.
+                          Switch agent's active model to this. Takes effect on next message.
                         </p>
                         <button
                           onClick={() => handleSetAgentModel(selectedModel.modelId)}

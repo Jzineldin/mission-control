@@ -1,17 +1,38 @@
+# Dependencies
 node_modules/
 frontend/node_modules/
+
+# Build outputs
 frontend/dist/
-mc-config.json
-*.log
-.DS_Store
-documents/
-scout-results.json
-tasks.jsondocuments/
-node_modules/
-hidden-sessions.json
-mc-config.kevin-backup.json
 public/
+
+# Configuration (user-specific)
+mc-config.json
+
+# Runtime data
+*.log
+scout-results.json
 tasks.json
 agents-custom.json
-scout-results.json
-SPEC.md
+hidden-sessions.json
+
+# User data
+documents/
+
+# System files
+.DS_Store
+.env
+.env.local
+
+# Backup files
+*.backup
+*.backup.json
+*-backup.json
+
+# IDE
+.vscode/
+.idea/
+
+# Temporary files
+*.tmp
+*.swp

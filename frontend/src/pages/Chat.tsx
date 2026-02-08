@@ -233,7 +233,7 @@ export default function Chat() {
 
   const openMainChat = () => {
     setActiveSession('main-chat')
-    setActiveSessionName('Zinbot')
+    setActiveSessionName('Agent')
     setMessages([])
     setHistoryMessages([])
   }
@@ -356,7 +356,7 @@ export default function Chat() {
             </button>
             <Sparkles size={18} style={{ color: '#007AFF' }} />
             <div style={{ flex: 1 }}>
-              <h2 style={{ fontSize: 15, fontWeight: 600, color: 'rgba(255,255,255,0.92)' }}>Chat with Zinbot</h2>
+              <h2 style={{ fontSize: 15, fontWeight: 600, color: 'rgba(255,255,255,0.92)' }}>Chat with Agent</h2>
               <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)' }}>Full memory & tools</p>
             </div>
             {messages.length > 0 && (
@@ -385,7 +385,7 @@ export default function Chat() {
                         </div>
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-                            <span style={{ fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.85)' }}>{msg.role === 'assistant' ? 'Zinbot' : 'You'}</span>
+                            <span style={{ fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.85)' }}>{msg.role === 'assistant' ? 'Agent' : 'You'}</span>
                             {msg.streaming && <Loader2 size={10} style={{ color: '#007AFF', animation: 'spin 1s linear infinite' }} />}
                           </div>
                           <div style={{ fontSize: 13, lineHeight: 1.6, color: 'rgba(255,255,255,0.82)', wordBreak: 'break-word' }} dangerouslySetInnerHTML={{ __html: renderContent(msg.content || '...') }} />
@@ -405,7 +405,7 @@ export default function Chat() {
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
-                  placeholder="Message Zinbot..."
+                  placeholder="Message Agent..."
                   disabled={isStreaming}
                   rows={1}
                   autoFocus

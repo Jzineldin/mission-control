@@ -1,6 +1,7 @@
 {
   "name": "Mission Control",
-  "subtitle": "Mission Control",
+  "subtitle": "OpenClaw Dashboard",
+  "agentName": "Agent",
   "modules": {
     "dashboard": true,
     "chat": true,
@@ -16,50 +17,34 @@
   },
   "gateway": {
     "port": 18789,
-    "token": ""
+    "token": "",
+    "_comment": "Token for authenticating with OpenClaw gateway. Will be auto-detected if possible."
   },
   "aws": {
     "enabled": false,
     "bucket": "",
-    "region": "us-east-1"
+    "region": "us-east-1",
+    "_comment": "AWS configuration for S3 storage and Bedrock models (optional)"
   },
   "notion": {
     "enabled": false,
     "dbId": "",
-    "token": ""
+    "token": "",
+    "_comment": "Notion integration for Workshop tasks (optional)"
   },
   "scout": {
     "enabled": false,
     "braveApiKey": "",
-    "queries": [
-      {
-        "q": "\"looking for\" \"web developer\" OR \"website developer\" remote 2026",
-        "category": "freelance",
-        "source": "web",
-        "weight": 1.0
-      },
-      {
-        "q": "site:x.com \"hiring\" OR \"looking for\" \"react developer\" OR \"frontend developer\" remote",
-        "category": "twitter-jobs",
-        "source": "twitter",
-        "weight": 0.9
-      },
-      {
-        "q": "site:reddit.com/r/forhire \"looking for\" react developer",
-        "category": "reddit-gigs",
-        "source": "reddit",
-        "weight": 0.8
-      },
-      {
-        "q": "\"startup grant\" OR \"startup competition\" 2026 application deadline",
-        "category": "funding",
-        "source": "web",
-        "weight": 0.95
-      }
-    ],
-    "schedule": "daily"
+    "queries": [],
+    "schedule": "daily",
+    "_comment": "Scout Engine for opportunity discovery. Add your Brave Search API key and custom queries."
   },
   "workspace": "",
   "skillsPath": "",
-  "memoryPath": ""
+  "memoryPath": "",
+  "_comments": {
+    "workspace": "Path to OpenClaw workspace. Auto-detected if not specified.",
+    "skillsPath": "Path to skills directory. Auto-detected from workspace if not specified.",
+    "memoryPath": "Path to memory directory. Auto-detected from workspace if not specified."
+  }
 }

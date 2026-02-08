@@ -214,4 +214,4 @@ If it's useful to you, consider:
 
 ---
 
-Built with 🤖 by [Zinbot](https://github.com/Jzineldin) + Kevin — powered by [OpenClaw](https://openclaw.ai)
+Built with 🤖 by the [OpenClaw](https://openclaw.ai) community

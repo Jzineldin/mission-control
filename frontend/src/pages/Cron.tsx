@@ -522,6 +522,26 @@ export default function Cron() {
   }
 
   const [toast, setToast] = useState<string | null>(null)
+  const [expandedJob, setExpandedJob] = useState<string | null>(null)
+  const [jobRuns, setJobRuns] = useState<any[]>([])
+  const [runsLoading, setRunsLoading] = useState(false)
+
+  const handleExpand = async (jobId: string) => {
+    if (expandedJob === jobId) {
+      setExpandedJob(null)
+      return
+    }
+    setExpandedJob(jobId)
+    setRunsLoading(true)
+    try {
+      const res = await fetch(`/api/cron/${jobId}/runs`)
+      const data = await res.json()
+      setJobRuns(Array.isArray(data) ? data.slice(0, 5) : [])
+    } catch {
+      setJobRuns([])
+    }
+    setRunsLoading(false)
+  }
 
   const handleRun = async (jobId: string) => {
     setActionLoading(`run-${jobId}`)
@@ -791,9 +811,12 @@ export default function Cron() {
                   onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.02)' }}
                   onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent' }}
                 >
-                  <div style={{ overflow: 'hidden' }}>
-                    <p style={{ fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.92)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', margin: 0 }}>{job.name}</p>
-                    <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.45)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'monospace', margin: '2px 0 0' }}>{job.id}</p>
+                  <div style={{ overflow: 'hidden', cursor: 'pointer' }} onClick={() => handleExpand(job.id)}>
+                    <p style={{ fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.92)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', margin: 0 }}>
+                      <span style={{ display: 'inline-block', transform: expandedJob === job.id ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.15s', marginRight: 6, fontSize: 10, color: 'rgba(255,255,255,0.4)' }}>▶</span>
+                      {job.name}
+                    </p>
+                    <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.45)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'monospace', margin: '2px 0 0', paddingLeft: 18 }}>{job.id}</p>
                   </div>
                   <div>
                     <code style={{ fontSize: 12, color: '#BF5AF2', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)', padding: '4px 8px', borderRadius: 6, fontFamily: 'monospace' }}>{job.schedule}</code>
@@ -890,6 +913,30 @@ export default function Cron() {
                       <Trash2 size={14} />
                     </button>
                   </div>
+                  {/* Expanded: Run history */}
+                  {expandedJob === job.id && (
+                    <div style={{ gridColumn: '1 / -1', padding: '12px 0 4px', borderTop: '1px solid rgba(255,255,255,0.06)', marginTop: 8 }}>
+                      <p style={{ fontSize: 10, fontWeight: 600, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 8px' }}>Recent Runs</p>
+                      {runsLoading ? (
+                        <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', margin: 0 }}>Loading...</p>
+                      ) : jobRuns.length === 0 ? (
+                        <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', margin: 0 }}>No run history available</p>
+                      ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                          {jobRuns.map((run: any, ri: number) => (
+                            <div key={ri} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '6px 10px', background: 'rgba(255,255,255,0.03)', borderRadius: 6, fontSize: 12 }}>
+                              <span style={{ color: run.status === 'ok' || run.status === 'completed' ? '#32D74B' : run.status === 'error' ? '#FF453A' : '#FF9500', fontWeight: 600 }}>
+                                {run.status === 'ok' || run.status === 'completed' ? '✓' : run.status === 'error' ? '✗' : '●'} {run.status || 'unknown'}
+                              </span>
+                              <span style={{ color: 'rgba(255,255,255,0.5)' }}>{run.startedAt ? timeAgo(run.startedAt) : run.timestamp ? timeAgo(run.timestamp) : '—'}</span>
+                              {run.durationMs && <span style={{ color: 'rgba(255,255,255,0.4)' }}>{run.durationMs}ms</span>}
+                              {run.summary && <span style={{ color: 'rgba(255,255,255,0.6)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{run.summary}</span>}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </motion.div>
               ))}
             </GlassCard>

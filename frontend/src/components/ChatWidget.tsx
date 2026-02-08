@@ -216,7 +216,7 @@ export default function ChatWidget() {
                   <Bot size={16} style={{ color: '#007AFF' }} />
                 </div>
                 <div>
-                  <h3 style={{ fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.92)' }}>Zinbot</h3>
+                  <h3 style={{ fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.92)' }}>Agent</h3>
                   <p style={{ fontSize: 10, color: '#32D74B' }}>Online</p>
                 </div>
               </div>
@@ -249,7 +249,7 @@ export default function ChatWidget() {
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 3 }}>
-                          <span style={{ fontSize: 10, fontWeight: 600, color: 'rgba(255,255,255,0.75)' }}>{msg.role === 'assistant' ? 'Zinbot' : 'You'}</span>
+                          <span style={{ fontSize: 10, fontWeight: 600, color: 'rgba(255,255,255,0.75)' }}>{msg.role === 'assistant' ? 'Agent' : 'You'}</span>
                           {msg.streaming && <Loader2 size={9} style={{ color: '#007AFF', animation: 'spin 1s linear infinite' }} />}
                         </div>
                         <div style={{ fontSize: 12.5, lineHeight: 1.5, color: 'rgba(255,255,255,0.78)', wordBreak: 'break-word' }} dangerouslySetInnerHTML={{ __html: renderContent(msg.content || '...') }} />

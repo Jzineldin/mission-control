@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /**
- * Scout Engine — Searches for opportunities matching Kevin's goals
- * Uses Brave Search API to find leads across Twitter, LinkedIn, Reddit
- * 
+ * Scout Engine — Searches for opportunities based on configured queries
+ * Uses Brave Search API to find leads across various sources
+ *
  * Usage: node scout-engine.js [--dry-run]
  * Output: writes to scout-results.json
  */
@@ -27,12 +27,11 @@ const RESULTS_FILE = path.join(__dirname, 'scout-results.json');
 const MAX_RESULTS_PER_QUERY = 5;
 const MAX_TOTAL = 50;
 
-// Kevin's goals and skills for scoring
+// Default goals for scoring (can be overridden in mc-config.json)
 const GOALS = {
-  primary: ['website', 'webbutveckling', 'hemsida', 'webbdesign', 'web developer', 'react developer'],
-  secondary: ['edtech', 'ai storytelling', 'children education', 'empathy', 'startup funding', 'swedish grant'],
-  freelance: ['freelance developer', 'react job', 'supabase', 'typescript developer', 'nextjs developer'],
-  local: ['småland', 'kronoberg', 'växjö', 'åseda', 'alvesta', 'lenhovda'],
+  primary: ['developer', 'development', 'programming', 'software', 'engineer'],
+  secondary: ['ai', 'machine learning', 'automation', 'startup', 'innovation'],
+  freelance: ['freelance', 'contract', 'remote', 'consultant', 'project'],
   openclaw: ['openclaw', 'clawd', 'mission control', 'ai agent', 'skill', 'sub-agent', 'heartbeat', 'cron job', 'gateway'],
 };
 

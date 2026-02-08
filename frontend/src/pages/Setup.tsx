@@ -6,6 +6,7 @@ import { useIsMobile } from '../lib/useIsMobile'
 
 interface SetupData {
   dashboardName: string
+  agentName: string
   gateway: {
     port: number
     token: string
@@ -62,6 +63,7 @@ export default function Setup() {
   const [status, setStatus] = useState<SetupStatus | null>(null)
   const [setupData, setSetupData] = useState<SetupData>({
     dashboardName: 'Mission Control',
+    agentName: 'Agent',
     gateway: { port: 18789, token: '' },
     modules: {
       dashboard: true,
@@ -97,7 +99,11 @@ export default function Setup() {
       
       // Pre-populate form with detected values
       if (data.detectedConfig?.agentName) {
-        setSetupData(prev => ({ ...prev, dashboardName: data.detectedConfig.agentName + ' Control' }))
+        setSetupData(prev => ({
+          ...prev,
+          dashboardName: data.detectedConfig.agentName + ' Dashboard',
+          agentName: data.detectedConfig.agentName
+        }))
       }
       // Pre-fill gateway token if detected
       if (data.detectedConfig?.gatewayToken) {
@@ -379,11 +385,32 @@ export default function Setup() {
             </div>
 
             <div style={{ marginBottom: 24 }}>
-              <label style={{ 
-                display: 'block', 
-                color: 'rgba(255, 255, 255, 0.9)', 
-                fontWeight: 500, 
-                marginBottom: 8 
+              <label style={{
+                display: 'block',
+                color: 'rgba(255, 255, 255, 0.9)',
+                fontWeight: 500,
+                marginBottom: 8
+              }}>
+                Agent Name
+              </label>
+              <input
+                style={inputStyle}
+                type="text"
+                value={setupData.agentName}
+                onChange={(e) => setSetupData(prev => ({ ...prev, agentName: e.target.value }))}
+                placeholder="Agent"
+              />
+              <p style={{ fontSize: 12, color: 'rgba(255, 255, 255, 0.6)', marginTop: 4 }}>
+                The name displayed for your primary OpenClaw agent in the dashboard.
+              </p>
+            </div>
+
+            <div style={{ marginBottom: 24 }}>
+              <label style={{
+                display: 'block',
+                color: 'rgba(255, 255, 255, 0.9)',
+                fontWeight: 500,
+                marginBottom: 8
               }}>
                 Gateway Token
               </label>
