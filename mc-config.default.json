@@ -10,6 +10,7 @@
     "cron": true,
     "scout": false,
     "docs": false,
+    "memory": true,
     "agents": true,
     "settings": true,
     "skills": true,

@@ -1,22 +1,33 @@
 import { Routes, Route, useLocation, useNavigate } from 'react-router-dom'
 import { AnimatePresence } from 'framer-motion'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, lazy, Suspense } from 'react'
 import { Menu, X } from 'lucide-react'
 import { useIsMobile } from './lib/useIsMobile'
 import Sidebar from './components/Sidebar'
 import ChatWidget from './components/ChatWidget'
-import Dashboard from './pages/Dashboard'
-import Chat from './pages/Chat'
-import Workshop from './pages/Workshop'
-import Costs from './pages/Costs'
-import Cron from './pages/Cron'
-import Scout from './pages/Scout'
-// Doc Digest removed — may return as Memory Explorer
-import Agents from './pages/Agents'
-import Settings from './pages/Settings'
-import Skills from './pages/Skills'
-import AWS from './pages/AWS'
-import Setup from './pages/Setup'
+import CommandPalette from './components/CommandPalette'
+import KeyboardShortcuts from './components/KeyboardShortcuts'
+import NotificationSystem from './components/NotificationSystem'
+import ErrorBoundary from './components/ErrorBoundary'
+import ToastProvider from './components/ToastProvider'
+import { ToastContainer } from './components/ToastSystem'
+
+// Lazy load all pages
+const Dashboard = lazy(() => import('./pages/Dashboard'))
+const QuickStart = lazy(() => import('./pages/QuickStart'))
+const Chat = lazy(() => import('./pages/Chat'))
+const Workshop = lazy(() => import('./pages/Workshop'))
+const Costs = lazy(() => import('./pages/Costs'))
+const Cron = lazy(() => import('./pages/Cron'))
+const Scout = lazy(() => import('./pages/Scout'))
+const Memory = lazy(() => import('./pages/Memory'))
+const Agents = lazy(() => import('./pages/Agents'))
+const Settings = lazy(() => import('./pages/Settings'))
+const Skills = lazy(() => import('./pages/Skills'))
+const AWS = lazy(() => import('./pages/AWS'))
+const Docs = lazy(() => import('./pages/Docs'))
+const Setup = lazy(() => import('./pages/Setup'))
+const NotFound = lazy(() => import('./pages/NotFound'))
 
 export default function App() {
   const location = useLocation()
@@ -38,6 +49,41 @@ export default function App() {
 
   // Hide global chat widget on Conversations page (has its own chat)
   const hideChatWidget = isMobile && location.pathname === '/conversations'
+  
+  // G-key navigation: press G then a letter to navigate
+  useEffect(() => {
+    let gPressed = false
+    let gTimeout: any = null
+    
+    const handler = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement)?.tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
+      
+      if (e.key === 'g' && !e.metaKey && !e.ctrlKey) {
+        if (gPressed) return
+        gPressed = true
+        gTimeout = setTimeout(() => { gPressed = false }, 1500)
+        return
+      }
+      
+      if (gPressed) {
+        gPressed = false
+        clearTimeout(gTimeout)
+        const routes: Record<string, string> = {
+          d: '/', q: '/quick-start', c: '/conversations', w: '/workshop', s: '/scout',
+          m: '/memory', e: '/settings', a: '/agents', k: '/skills',
+          o: '/costs', r: '/cron',
+        }
+        const route = routes[e.key.toLowerCase()]
+        if (route) {
+          e.preventDefault()
+          navigate(route)
+        }
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [navigate])
   
   // Hide sidebar and chat widget on setup page
   const isSetupPage = location.pathname === '/setup'
@@ -99,27 +145,44 @@ export default function App() {
           maxWidth: '100%',
           overflowX: 'hidden',
         }}>
-          <AnimatePresence mode="wait">
-            <Routes location={location} key={location.pathname}>
-              <Route path="/setup" element={<Setup />} />
-              <Route path="/" element={<Dashboard />} />
-              <Route path="/conversations" element={<Chat />} />
-              <Route path="/workshop" element={<Workshop />} />
-              <Route path="/costs" element={<Costs />} />
-              <Route path="/cron" element={<Cron />} />
-              <Route path="/scout" element={<Scout />} />
-              {/* Doc Digest removed */}
-              <Route path="/agents" element={<Agents />} />
-              <Route path="/settings" element={<Settings />} />
-              <Route path="/skills" element={<Skills />} />
-              <Route path="/aws" element={<AWS />} />
-            </Routes>
-          </AnimatePresence>
+          <Suspense fallback={
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '50vh' }}>
+              <div style={{ width: 24, height: 24, border: '2px solid #007AFF', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+            </div>
+          }>
+            <AnimatePresence mode="wait">
+              <Routes location={location} key={location.pathname}>
+                <Route path="/setup" element={<ErrorBoundary><Setup /></ErrorBoundary>} />
+                <Route path="/quick-start" element={<ErrorBoundary><QuickStart /></ErrorBoundary>} />
+                <Route path="/" element={<ErrorBoundary><Dashboard /></ErrorBoundary>} />
+                <Route path="/conversations" element={<ErrorBoundary><Chat /></ErrorBoundary>} />
+                <Route path="/workshop" element={<ErrorBoundary><Workshop /></ErrorBoundary>} />
+                <Route path="/costs" element={<ErrorBoundary><Costs /></ErrorBoundary>} />
+                <Route path="/cron" element={<ErrorBoundary><Cron /></ErrorBoundary>} />
+                <Route path="/scout" element={<ErrorBoundary><Scout /></ErrorBoundary>} />
+                <Route path="/memory" element={<ErrorBoundary><Memory /></ErrorBoundary>} />
+                <Route path="/agents" element={<ErrorBoundary><Agents /></ErrorBoundary>} />
+                <Route path="/settings" element={<ErrorBoundary><Settings /></ErrorBoundary>} />
+                <Route path="/skills" element={<ErrorBoundary><Skills /></ErrorBoundary>} />
+                <Route path="/aws" element={<ErrorBoundary><AWS /></ErrorBoundary>} />
+                <Route path="/docs" element={<ErrorBoundary><Docs /></ErrorBoundary>} />
+                <Route path="*" element={<ErrorBoundary><NotFound /></ErrorBoundary>} />
+              </Routes>
+            </AnimatePresence>
+          </Suspense>
         </div>
       </main>
 
       {/* Global chat widget — hidden on pages with built-in chat (mobile) and setup page */}
       {!hideChatWidget && !isSetupPage && <ChatWidget />}
+
+      {/* Command Palette — available everywhere except setup */}
+      {!isSetupPage && <CommandPalette />}
+      {!isSetupPage && <KeyboardShortcuts />}
+      <NotificationSystem />
+
+      {/* Toast Notifications */}
+      <ToastContainer />
     </div>
   )
 }

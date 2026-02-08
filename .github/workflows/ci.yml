@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  push:
+    branches: [main, 'feature/*']
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [18, 20, 22]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+
+      - name: Install backend dependencies
+        run: npm install
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm install
+
+      - name: Build frontend
+        working-directory: frontend
+        run: npm run build
+        env:
+          NODE_OPTIONS: '--max-old-space-size=512'
+
+      - name: Start server
+        run: |
+          node server.js &
+          sleep 3
+
+      - name: Run API tests
+        run: npm test
+
+      - name: Check bundle size
+        working-directory: frontend
+        run: |
+          MAIN_SIZE=$(stat -c%s dist/assets/index-*.js 2>/dev/null || echo 0)
+          echo "Main bundle: ${MAIN_SIZE} bytes ($(( MAIN_SIZE / 1024 ))KB)"
+          if [ "$MAIN_SIZE" -gt 300000 ]; then
+            echo "::warning::Main bundle exceeds 300KB budget"
+          fi

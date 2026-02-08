@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { MessageCircle, X, Send, Bot, User, Loader2, Minimize2 } from 'lucide-react'
 import { useIsMobile } from '../lib/useIsMobile'
+import { renderMarkdownWidget } from '../lib/markdown'
 
 interface Message {
   id: string
@@ -30,6 +31,26 @@ export default function ChatWidget() {
 
   useEffect(() => { scrollToBottom() }, [messages, scrollToBottom])
   useEffect(() => { if (open) { setUnread(0); inputRef.current?.focus() } }, [open])
+
+  // Keyboard shortcut: / to open chat, Escape to close
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      // Don't trigger in input fields
+      const tag = (e.target as HTMLElement)?.tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (e.target as HTMLElement)?.isContentEditable) return
+
+      if (e.key === '/' && !e.metaKey && !e.ctrlKey) {
+        e.preventDefault()
+        setOpen(true)
+        setTimeout(() => inputRef.current?.focus(), 100)
+      }
+      if (e.key === 'Escape' && open) {
+        setOpen(false)
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [open])
 
   // Listen for external "open-chat" events (from Workshop "Discuss" button)
   useEffect(() => {
@@ -119,13 +140,6 @@ export default function ChatWidget() {
     }
   }
 
-  const renderContent = (text: string) => {
-    return text
-      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-      .replace(/`([^`]+)`/g, '<code style="background:rgba(255,255,255,0.08);padding:1px 4px;border-radius:3px;font-size:11px;">$1</code>')
-      .replace(/\n/g, '<br/>')
-  }
-
   return (
     <>
       {/* Floating chat button */}
@@ -177,6 +191,7 @@ export default function ChatWidget() {
       <AnimatePresence>
         {open && (
           <motion.div
+            data-chat-widget-open
             initial={m ? { y: '100%' } : { opacity: 0, y: 20, scale: 0.95 }}
             animate={m ? { y: 0 } : { opacity: 1, y: 0, scale: 1 }}
             exit={m ? { y: '100%' } : { opacity: 0, y: 20, scale: 0.95 }}
@@ -252,7 +267,7 @@ export default function ChatWidget() {
                           <span style={{ fontSize: 10, fontWeight: 600, color: 'rgba(255,255,255,0.75)' }}>{msg.role === 'assistant' ? 'Agent' : 'You'}</span>
                           {msg.streaming && <Loader2 size={9} style={{ color: '#007AFF', animation: 'spin 1s linear infinite' }} />}
                         </div>
-                        <div style={{ fontSize: 12.5, lineHeight: 1.5, color: 'rgba(255,255,255,0.78)', wordBreak: 'break-word' }} dangerouslySetInnerHTML={{ __html: renderContent(msg.content || '...') }} />
+                        <div style={{ fontSize: 12.5, lineHeight: 1.5, color: 'rgba(255,255,255,0.78)', wordBreak: 'break-word' }} dangerouslySetInnerHTML={{ __html: renderMarkdownWidget(msg.content || '...') }} />
                       </div>
                     </div>
                   ))}
@@ -271,8 +286,8 @@ export default function ChatWidget() {
                   onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
                   placeholder="Message..."
                   disabled={isStreaming}
-                  rows={3}
-                  style={{ flex: 1, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, padding: '10px 14px', color: 'rgba(255,255,255,0.9)', fontSize: 14, resize: 'vertical', outline: 'none', fontFamily: 'inherit', minHeight: 60, maxHeight: 150, lineHeight: 1.5 }}
+                  rows={1}
+                  style={{ flex: 1, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, padding: '10px 14px', color: 'rgba(255,255,255,0.9)', fontSize: 14, resize: 'vertical', outline: 'none', fontFamily: 'inherit', minHeight: 36, maxHeight: 150, lineHeight: 1.5 }}
                   onInput={(e) => { const t = e.currentTarget; t.style.height = 'auto'; t.style.height = Math.min(t.scrollHeight, 150) + 'px' }}
                 />
                 <button type="submit" data-chat-send disabled={!input.trim() || isStreaming} style={{ width: 34, height: 34, borderRadius: 9, border: 'none', background: input.trim() && !isStreaming ? '#007AFF' : 'rgba(255,255,255,0.06)', color: input.trim() && !isStreaming ? '#fff' : 'rgba(255,255,255,0.2)', cursor: input.trim() && !isStreaming ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>

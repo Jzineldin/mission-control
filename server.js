@@ -54,6 +54,7 @@ const S3_REGION = mcConfig.aws?.region || 'us-east-1';
 
 const app = express();
 const PORT = 3333;
+const SERVER_STARTED_AT = new Date().toISOString();
 
 app.use(express.json());
 
@@ -382,6 +383,23 @@ setTimeout(async () => {
   } catch {}
 }, 3000);
 
+// Health check — lightweight, no gateway dependency
+app.get('/api/health', (req, res) => {
+  const uptime = process.uptime();
+  const mem = process.memoryUsage();
+  res.json({
+    status: 'ok',
+    uptime: Math.round(uptime),
+    version: (() => { try { return require('./package.json').version; } catch { return '?'; } })(),
+    memory: {
+      rss: Math.round(mem.rss / 1024 / 1024),
+      heapUsed: Math.round(mem.heapUsed / 1024 / 1024),
+      heapTotal: Math.round(mem.heapTotal / 1024 / 1024),
+    },
+    timestamp: new Date().toISOString(),
+  });
+});
+
 app.get('/api/status', async (req, res) => {
   try {
     // If cache is stale, refresh in background but serve cached data immediately
@@ -416,7 +434,16 @@ app.get('/api/status', async (req, res) => {
       },
       heartbeat: hb,
       recentActivity: recentActivity || [],
-      tokenUsage: tokenUsage || { used: 0, limit: 1000000, percentage: 0 }
+      tokenUsage: tokenUsage || { used: 0, limit: 1000000, percentage: 0 },
+      system: (() => {
+        const os = require('os');
+        let openclawVersion = '—';
+        try { const p = '/usr/lib/node_modules/openclaw/package.json'; if (fs.existsSync(p)) openclawVersion = 'v' + JSON.parse(fs.readFileSync(p, 'utf8')).version; } catch {}
+        let mcVersion = '—';
+        try { mcVersion = 'v' + JSON.parse(fs.readFileSync(path.join(__dirname, 'package.json'), 'utf8')).version; } catch {}
+        return { missionControlVersion: mcVersion, openClawVersion: openclawVersion, nodeVersion: process.version, platform: `${os.type()} ${os.arch()}` };
+      })(),
+      startedAt: SERVER_STARTED_AT
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -1011,6 +1038,24 @@ Your job:
 Be thorough. Your output will be shown directly to the user as the task result.`;
     }
     
+    // Determine model for execution — use configured sub-agent model, or user's choice
+    const requestedModel = req.body.model || null;
+    let execModel = requestedModel || 'sonnet'; // default fallback
+    try {
+      // Try to read model routing from mc-config or openclaw config
+      if (mcConfig.modelRouting?.subagent) {
+        execModel = mcConfig.modelRouting.subagent;
+      } else {
+        const cfgPath = path.join(require('os').homedir(), '.openclaw/openclaw.json');
+        if (fs.existsSync(cfgPath)) {
+          const ocCfg = JSON.parse(fs.readFileSync(cfgPath, 'utf8'));
+          const aliases = ocCfg.agents?.defaults?.model?.aliases || {};
+          // Use 'sonnet' alias if available, otherwise first non-default model
+          execModel = aliases.sonnet || aliases.haiku || 'sonnet';
+        }
+      }
+    } catch {}
+    
     // Fire and forget — sub-agent runs in background
     const spawnRes = await fetch(`http://127.0.0.1:${gwPort}/tools/invoke`, {
       method: 'POST',
@@ -1019,7 +1064,7 @@ Be thorough. Your output will be shown directly to the user as the task result.`
         tool: 'sessions_spawn',
         args: {
           task: taskPrompt,
-          model: 'sonnet',
+          model: execModel,
           runTimeoutSeconds: 300,
           label: `workshop-${taskId}`
         }
@@ -1156,6 +1201,59 @@ Be thorough. Your output will be shown directly to the user as the task result.`
   }
 });
 
+// POST: Move task between columns
+app.post('/api/tasks/:taskId/move', (req, res) => {
+  try {
+    const { taskId } = req.params;
+    const { toColumn } = req.body;
+    
+    if (!toColumn || !['queue', 'inProgress', 'done'].includes(toColumn)) {
+      return res.status(400).json({ error: 'Invalid toColumn. Must be queue, inProgress, or done.' });
+    }
+    
+    const tasks = JSON.parse(fs.readFileSync(TASKS_FILE, 'utf8'));
+    
+    // Find task in any column
+    let task = null;
+    let fromCol = null;
+    for (const [col, items] of Object.entries(tasks.columns)) {
+      const idx = items.findIndex(t => t.id === taskId);
+      if (idx >= 0) {
+        task = items[idx];
+        fromCol = col;
+        items.splice(idx, 1);
+        break;
+      }
+    }
+    
+    if (!task) return res.status(404).json({ error: 'Task not found' });
+    
+    // Update task status based on destination
+    if (toColumn === 'inProgress' && fromCol === 'queue') {
+      task.startedAt = new Date().toISOString();
+      task.status = 'executing';
+    } else if (toColumn === 'done' && fromCol !== 'done') {
+      task.completed = new Date().toISOString();
+      task.status = 'completed';
+    } else if (toColumn === 'queue') {
+      // Moving back to queue - reset status
+      delete task.startedAt;
+      delete task.completed;
+      delete task.status;
+    }
+    
+    // Add to destination column
+    tasks.columns[toColumn].unshift(task);
+    
+    // Save to file
+    fs.writeFileSync(TASKS_FILE, JSON.stringify(tasks, null, 2));
+    
+    res.json({ ok: true, message: `Task moved from ${fromCol} to ${toColumn}`, taskId });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ========== API: Costs — Real token usage from sessions ==========
 app.get('/api/costs', async (req, res) => {
   try {
@@ -1285,8 +1383,13 @@ app.get('/api/scout', (req, res) => {
       console.log('[Scout] No scout-results.json yet — run: node scout-engine.js');
     }
 
-    // Filter out junk (score < 15)
-    const opportunities = (scoutData.opportunities || []).filter(o => o.score >= 15);
+    // Filter out junk (score < 15) and ensure every opportunity has an ID
+    const opportunities = (scoutData.opportunities || [])
+      .filter(o => o.score >= 15)
+      .map((o, i) => ({
+        ...o,
+        id: o.id || `scout-legacy-${i}-${(o.url || '').replace(/\W+/g, '-').substring(0, 30)}`,
+      }));
 
     res.json({
       opportunities,
@@ -1294,7 +1397,7 @@ app.get('/api/scout', (req, res) => {
       queryCount: scoutData.queryCount || 0,
       stats: {
         total: opportunities.length,
-        new: opportunities.filter(o => o.status === 'new').length,
+        new: opportunities.filter(o => !o.status || o.status === 'new').length,
         deployed: opportunities.filter(o => o.status === 'deployed').length,
         dismissed: opportunities.filter(o => o.status === 'dismissed').length,
         avgScore: opportunities.length ? Math.round(opportunities.reduce((a, o) => a + o.score, 0) / opportunities.length) : 0,
@@ -1307,35 +1410,100 @@ app.get('/api/scout', (req, res) => {
 });
 
 // Scout: Deploy opportunity → adds to Workshop tasks
-app.post('/api/scout/deploy', (req, res) => {
+app.post('/api/scout/deploy', async (req, res) => {
   try {
-    const { opportunityId } = req.body;
+    const { opportunityId, executeImmediately } = req.body;
     if (!opportunityId) return res.status(400).json({ error: 'Missing opportunityId' });
 
     // Update scout results status
     const scoutFile = path.join(__dirname, 'scout-results.json');
     const scoutData = JSON.parse(fs.readFileSync(scoutFile, 'utf8'));
+    // Ensure opportunities have IDs (same logic as GET /api/scout)
+    scoutData.opportunities = (scoutData.opportunities || []).map((o, i) => ({
+      ...o,
+      id: o.id || `scout-legacy-${i}-${(o.url || '').replace(/\W+/g, '-').substring(0, 30)}`,
+    }));
     const opp = scoutData.opportunities.find(o => o.id === opportunityId);
     if (!opp) return res.status(404).json({ error: 'Opportunity not found' });
     
     opp.status = 'deployed';
     fs.writeFileSync(scoutFile, JSON.stringify(scoutData, null, 2));
 
+    // Generate AI-enhanced task description
+    let enhancedDescription = `${opp.summary}\n\nSource: ${opp.source} | Score: ${opp.score}\nURL: ${opp.url}`;
+    
+    try {
+      const chatResponse = await fetch(`${GATEWAY_URL}/v1/chat/completions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${GATEWAY_TOKEN}` },
+        body: JSON.stringify({
+          messages: [{
+            role: 'user',
+            content: `Create a concise action plan for this opportunity:\n\n**${opp.title}**\n${opp.summary}\n\nCategory: ${opp.category}\nURL: ${opp.url}\n\nProvide 3-5 specific next steps I should take. Keep it under 200 words.`
+          }],
+          stream: false,
+          model: SUB_AGENT_MODEL
+        }),
+        signal: AbortSignal.timeout(15000)
+      });
+
+      if (chatResponse.ok) {
+        const data = await chatResponse.json();
+        const actionPlan = data.choices?.[0]?.message?.content?.trim();
+        if (actionPlan) {
+          enhancedDescription = `${opp.title}\n\n🎯 **Action Plan:**\n${actionPlan}\n\n📊 **Details:**\n${opp.summary}\n\nSource: ${opp.source} | Score: ${opp.score}\nURL: ${opp.url}`;
+        }
+      }
+    } catch (aiError) {
+      console.log('[Scout deploy] AI enhancement failed, using basic description:', aiError.message);
+    }
+
     // Add to tasks.json queue
     const tasksFile = path.join(__dirname, 'tasks.json');
     const tasks = JSON.parse(fs.readFileSync(tasksFile, 'utf8'));
-    tasks.columns.queue.unshift({
+    const newTask = {
       id: `scout-${Date.now()}`,
       title: opp.title.substring(0, 80),
-      description: `${opp.summary}\n\nSource: ${opp.source} | Score: ${opp.score}\nURL: ${opp.url}`,
+      description: enhancedDescription,
       priority: opp.score >= 80 ? 'high' : opp.score >= 50 ? 'medium' : 'low',
       created: new Date().toISOString(),
       tags: opp.tags || [opp.category],
       source: 'scout',
-    });
+    };
+
+    if (executeImmediately) {
+      // Move directly to inProgress and execute with sub-agent
+      tasks.columns.inProgress.unshift(newTask);
+      
+      // Fire-and-forget sub-agent execution
+      setImmediate(async () => {
+        try {
+          const executeResponse = await fetch(`${GATEWAY_URL}/v1/sessions/spawn`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${GATEWAY_TOKEN}` },
+            body: JSON.stringify({
+              task: `Research and analyze this opportunity thoroughly:\n\n${enhancedDescription}\n\nProvide a comprehensive analysis including feasibility, requirements, timeline, and specific next steps.`,
+              label: `Scout: ${opp.title.substring(0, 50)}`,
+              model: SUB_AGENT_MODEL,
+              cleanup: 'keep',
+              runTimeoutSeconds: 300 // 5 minutes
+            }),
+          });
+
+          if (executeResponse.ok) {
+            console.log(`[Scout execute] Started sub-agent for opportunity: ${opp.title}`);
+          }
+        } catch (execError) {
+          console.error('[Scout execute]', execError.message);
+        }
+      });
+    } else {
+      tasks.columns.queue.unshift(newTask);
+    }
+
     fs.writeFileSync(tasksFile, JSON.stringify(tasks, null, 2));
 
-    res.json({ ok: true, task: tasks.columns.queue[0] });
+    res.json({ ok: true, task: newTask, executed: !!executeImmediately });
   } catch (e) {
     console.error('[Scout deploy]', e.message);
     res.status(500).json({ error: e.message });
@@ -1348,6 +1516,11 @@ app.post('/api/scout/dismiss', (req, res) => {
     const { opportunityId } = req.body;
     const scoutFile = path.join(__dirname, 'scout-results.json');
     const scoutData = JSON.parse(fs.readFileSync(scoutFile, 'utf8'));
+    // Ensure IDs exist
+    scoutData.opportunities = (scoutData.opportunities || []).map((o, i) => ({
+      ...o,
+      id: o.id || `scout-legacy-${i}-${(o.url || '').replace(/\W+/g, '-').substring(0, 30)}`,
+    }));
     const opp = scoutData.opportunities.find(o => o.id === opportunityId);
     if (opp) {
       opp.status = 'dismissed';
@@ -1392,6 +1565,76 @@ app.get('/api/scout/status', (req, res) => {
     scanning: scoutScanRunning,
     status: scoutScanRunning ? 'scanning' : 'idle'
   });
+});
+
+// Scout: Get configuration (queries, goals, schedule)
+app.get('/api/scout/config', (req, res) => {
+  try {
+    const config = mcConfig.scout || {};
+    const queries = config.queries || [];
+    const schedule = config.schedule || 'daily';
+    const braveApiKey = config.braveApiKey ? '●●●●●●●●' : '';
+    
+    // Load goals from scout-engine if available
+    let goals = {};
+    try {
+      const engine = require('./scout-engine.js');
+      goals = engine.GOALS || {};
+    } catch {}
+    
+    // Get template categorization
+    const templateStats = {
+      openclaw: queries.filter(q => q.category?.startsWith('openclaw')).length,
+      freelance: queries.filter(q => ['freelance', 'twitter-jobs', 'linkedin-jobs', 'reddit-gigs', 'upwork'].includes(q.category)).length,
+      bounty: queries.filter(q => q.category === 'bounty').length,
+      edtech: queries.filter(q => q.category === 'edtech').length,
+      grants: queries.filter(q => ['funding', 'swedish-grants'].includes(q.category)).length,
+      custom: queries.filter(q => q.category === 'custom').length,
+    };
+    
+    res.json({
+      queries,
+      queryCount: queries.length,
+      schedule,
+      hasApiKey: !!config.braveApiKey,
+      braveApiKey,
+      goals,
+      templateStats,
+      scoring: {
+        explanation: 'Score = Base(30) + Keyword matches(+10-18 each) + Actionable signals(+10-15) + Source weight(×0.7-1.0) + Freshness bonus(+5-15)',
+        thresholds: { minimum: 15, good: 50, excellent: 85 },
+      }
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Scout: Update configuration
+app.put('/api/scout/config', (req, res) => {
+  try {
+    const { queries, braveApiKey, schedule, goals } = req.body;
+    
+    // Read current config
+    const configPath = path.join(__dirname, 'mc-config.json');
+    const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    
+    if (!config.scout) config.scout = {};
+    
+    if (queries !== undefined) config.scout.queries = queries;
+    if (braveApiKey !== undefined && braveApiKey !== '●●●●●●●●') config.scout.braveApiKey = braveApiKey;
+    if (schedule !== undefined) config.scout.schedule = schedule;
+    if (queries?.length > 0) config.scout.enabled = true;
+    
+    fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+    
+    // Reload config
+    Object.assign(mcConfig, config);
+    
+    res.json({ ok: true, queryCount: (config.scout.queries || []).length });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
 // ========== API: Agents — Real from gateway sessions + custom agents ==========
@@ -1555,6 +1798,37 @@ app.post('/api/agents/create', (req, res) => {
   } catch (error) {
     console.error('[Create Agent]', error.message);
     res.status(500).json({ error: error.message });
+  }
+});
+
+// System info endpoint — real version numbers
+app.get('/api/system-info', async (req, res) => {
+  try {
+    const os = require('os');
+    // Get OpenClaw version
+    let openclawVersion = '—';
+    try {
+      const pkgPath = '/usr/lib/node_modules/openclaw/package.json';
+      if (fs.existsSync(pkgPath)) {
+        openclawVersion = 'v' + JSON.parse(fs.readFileSync(pkgPath, 'utf8')).version;
+      }
+    } catch {}
+    // Get Mission Control version from our package.json
+    let mcVersion = '—';
+    try {
+      const mcPkg = JSON.parse(fs.readFileSync(path.join(__dirname, 'package.json'), 'utf8'));
+      mcVersion = 'v' + (mcPkg.version || '—');
+    } catch {}
+    res.json({
+      mcVersion,
+      openclawVersion,
+      nodeVersion: process.version,
+      platform: `${os.type()} ${os.arch()}`,
+      hostname: os.hostname(),
+      uptime: Math.round(process.uptime()),
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 
@@ -1861,11 +2135,87 @@ app.get('/api/aws/bedrock-models', async (req, res) => {
 });
 
 app.get('/api/models', async (req, res) => {
-  // List available models from Bedrock
+  // List available models — try to read from OpenClaw config, fallback to common models
+  try {
+    const configPath = path.join(require('os').homedir(), '.openclaw/openclaw.json');
+    if (fs.existsSync(configPath)) {
+      const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+      const models = [];
+      
+      // Check for configured models/aliases
+      const aliases = config.agents?.defaults?.model?.aliases || {};
+      const defaultModel = config.agents?.defaults?.model?.default || config.agents?.defaults?.model?.primary || '';
+      const fallbacks = config.agents?.defaults?.model?.fallbacks || [];
+      
+      // Collect all unique models
+      const modelSet = new Set();
+      if (defaultModel) modelSet.add(defaultModel);
+      Object.values(aliases).forEach(m => modelSet.add(m));
+      fallbacks.forEach(m => modelSet.add(m));
+      
+      // Format into friendly names
+      for (const modelId of modelSet) {
+        const id = String(modelId);
+        let name = id;
+        // Find alias if exists
+        const alias = Object.entries(aliases).find(([_, v]) => v === id)?.[0] || '';
+        
+        // Generate friendly name
+        if (id.includes('opus-4')) name = 'Claude Opus 4';
+        else if (id.includes('sonnet-4')) name = 'Claude Sonnet 4';
+        else if (id.includes('haiku-4')) name = 'Claude Haiku 4.5';
+        else if (id.includes('opus-3')) name = 'Claude Opus 3.5';
+        else if (id.includes('sonnet-3')) name = 'Claude Sonnet 3.5';
+        else if (id.includes('haiku-3')) name = 'Claude Haiku 3.5';
+        else if (id.includes('gpt-4o-mini')) name = 'GPT-4o Mini';
+        else if (id.includes('gpt-4o')) name = 'GPT-4o';
+        else if (id.includes('gpt-4-turbo')) name = 'GPT-4 Turbo';
+        else if (id.includes('gpt-4')) name = 'GPT-4';
+        else if (id.includes('gpt-3.5')) name = 'GPT-3.5 Turbo';
+        else if (id.includes('gemini-2')) name = 'Gemini 2.0';
+        else if (id.includes('gemini-1.5-pro')) name = 'Gemini 1.5 Pro';
+        else if (id.includes('gemini-1.5-flash')) name = 'Gemini 1.5 Flash';
+        else if (id.includes('gemini')) name = 'Gemini';
+        else if (id.includes('mistral-large')) name = 'Mistral Large';
+        else if (id.includes('mistral-medium')) name = 'Mistral Medium';
+        else if (id.includes('mistral')) name = 'Mistral';
+        else if (id.includes('llama-3.1')) name = 'Llama 3.1';
+        else if (id.includes('llama-3')) name = 'Llama 3';
+        else if (id.includes('llama')) name = 'Llama';
+        else if (id.includes('deepseek')) name = 'DeepSeek';
+        else name = id.replace(/^(amazon-bedrock\/|us\.|openai\/|google\/|anthropic\/)/, '').replace(/-v\d.*$/, '').replace(/[-_]/g, ' ');
+        
+        // Determine provider
+        let provider = 'unknown';
+        if (id.includes('anthropic') || id.includes('claude')) provider = 'anthropic';
+        else if (id.includes('openai') || id.includes('gpt')) provider = 'openai';
+        else if (id.includes('google') || id.includes('gemini')) provider = 'google';
+        else if (id.includes('mistral')) provider = 'mistral';
+        else if (id.includes('meta') || id.includes('llama')) provider = 'meta';
+        else if (id.includes('bedrock')) provider = 'aws-bedrock';
+        
+        models.push({ 
+          id, 
+          name: name.trim(),
+          alias: alias || null,
+          provider,
+          isDefault: id === defaultModel,
+        });
+      }
+      
+      if (models.length > 0) {
+        return res.json(models);
+      }
+    }
+  } catch (e) {
+    console.error('[Models API]', e.message);
+  }
+  
+  // Fallback: common models
   res.json([
-    { id: 'us.anthropic.claude-opus-4-6-v1', name: 'Claude Opus 4.6' },
-    { id: 'us.anthropic.claude-sonnet-4-20250514-v1:0', name: 'Claude Sonnet 4' },
-    { id: 'us.anthropic.claude-haiku-4-5-20251001-v1:0', name: 'Claude Haiku 4.5' }
+    { id: 'us.anthropic.claude-opus-4-6-v1', name: 'Claude Opus 4.6', alias: 'opus', provider: 'anthropic', isDefault: true },
+    { id: 'us.anthropic.claude-sonnet-4-20250514-v1:0', name: 'Claude Sonnet 4', alias: 'sonnet', provider: 'anthropic', isDefault: false },
+    { id: 'us.anthropic.claude-haiku-4-5-20251001-v1:0', name: 'Claude Haiku 4.5', alias: 'haiku', provider: 'anthropic', isDefault: false },
   ]);
 });
 
@@ -2426,21 +2776,100 @@ const upload = multer({ dest: path.join(docsDir, '.tmp'), limits: { fileSize: 10
 
 app.get('/api/docs', (req, res) => {
   try {
-    const files = fs.readdirSync(docsDir).filter(f => !f.startsWith('.'));
-    const documents = files.map(f => {
-      const stat = fs.statSync(path.join(docsDir, f));
-      const ext = path.extname(f).replace('.', '');
-      const sizeBytes = stat.size;
-      const size = sizeBytes > 1024 * 1024 ? `${(sizeBytes / (1024 * 1024)).toFixed(1)} MB` 
-        : sizeBytes > 1024 ? `${(sizeBytes / 1024).toFixed(1)} KB` 
-        : `${sizeBytes} B`;
-      // Rough chunk estimate: ~500 chars per chunk
-      const chunks = Math.max(1, Math.round(sizeBytes / 500));
-      return { id: f, name: f, type: ext, size, sizeBytes, chunks, modified: stat.mtime.toISOString() };
-    });
-    res.json({ documents, total: documents.length });
+    // Read workspace root .md files + memory/*.md
+    const workspacePath = mcConfig.workspace || process.cwd();
+    const memoryPath = mcConfig.memoryPath || path.join(workspacePath, 'memory');
+    const files = [];
+    
+    // Root .md files
+    try {
+      const rootFiles = fs.readdirSync(workspacePath)
+        .filter(f => f.endsWith('.md'))
+        .map(f => {
+          const stat = fs.statSync(path.join(workspacePath, f));
+          return { name: f, path: f, size: stat.size, lastModified: stat.mtime.toISOString(), type: 'root' };
+        });
+      files.push(...rootFiles);
+    } catch {}
+    
+    // Memory files
+    try {
+      const memFiles = fs.readdirSync(memoryPath)
+        .filter(f => f.endsWith('.md') || f.endsWith('.json'))
+        .map(f => {
+          const stat = fs.statSync(path.join(memoryPath, f));
+          return { name: f, path: `memory/${f}`, size: stat.size, lastModified: stat.mtime.toISOString(), type: 'memory' };
+        });
+      files.push(...memFiles);
+    } catch {}
+    
+    res.json({ documents: files, totalSize: files.reduce((a, f) => a + f.size, 0) });
   } catch (err) {
-    res.json({ documents: [], total: 0 });
+    res.json({ documents: [], totalSize: 0 });
+  }
+});
+
+// GET /api/memory — list all memory files
+app.get('/api/memory', (req, res) => {
+  try {
+    const memoryDir = mcConfig.memoryPath || path.join(WORKSPACE_PATH, 'memory');
+    const files = [];
+    
+    // Get workspace-level memory files
+    const workspaceFiles = ['SOUL.md', 'MEMORY.md', 'IDENTITY.md', 'USER.md', 'HEARTBEAT.md', 'AGENTS.md', 'TOOLS.md'];
+    for (const f of workspaceFiles) {
+      const fp = path.join(WORKSPACE_PATH, f);
+      if (fs.existsSync(fp)) {
+        const stat = fs.statSync(fp);
+        files.push({ name: f, path: f, sizeBytes: stat.size, modified: stat.mtime.toISOString() });
+      }
+    }
+    
+    // Get memory/ directory files
+    if (fs.existsSync(memoryDir)) {
+      const memFiles = fs.readdirSync(memoryDir);
+      for (const f of memFiles) {
+        const fp = path.join(memoryDir, f);
+        const stat = fs.statSync(fp);
+        if (stat.isFile()) {
+          files.push({ name: f, path: `memory/${f}`, sizeBytes: stat.size, modified: stat.mtime.toISOString() });
+        }
+      }
+    }
+    
+    res.json({ files, count: files.length });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/api/memory/:filepath(*)', (req, res) => {
+  const workspacePath = mcConfig.workspace || process.cwd();
+  const filePath = path.join(workspacePath, req.params.filepath);
+  // Security: ensure path is within workspace
+  if (!filePath.startsWith(workspacePath)) return res.status(403).json({ error: 'Access denied' });
+  try {
+    const content = fs.readFileSync(filePath, 'utf8');
+    res.json({ content, size: content.length });
+  } catch (err) {
+    res.status(404).json({ error: 'File not found' });
+  }
+});
+
+// PUT /api/memory/:filepath — save memory file content
+app.put('/api/memory/:filepath(*)', (req, res) => {
+  const workspacePath = mcConfig.workspace || process.cwd();
+  const filePath = path.join(workspacePath, req.params.filepath);
+  // Security: ensure path is within workspace and is .md or .json
+  if (!filePath.startsWith(workspacePath)) return res.status(403).json({ error: 'Access denied' });
+  if (!filePath.endsWith('.md') && !filePath.endsWith('.json')) return res.status(400).json({ error: 'Only .md and .json files can be edited' });
+  try {
+    const { content } = req.body;
+    if (typeof content !== 'string') return res.status(400).json({ error: 'Content must be a string' });
+    fs.writeFileSync(filePath, content, 'utf8');
+    res.json({ ok: true, size: content.length });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 

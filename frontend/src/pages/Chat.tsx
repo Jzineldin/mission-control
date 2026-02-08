@@ -9,6 +9,7 @@ import GlassCard from '../components/GlassCard'
 import StatusBadge from '../components/StatusBadge'
 import { useApi, timeAgo } from '../lib/hooks'
 import { useIsMobile } from '../lib/useIsMobile'
+import { renderMarkdown } from '../lib/markdown'
 
 interface Message {
   id: string
@@ -256,13 +257,6 @@ export default function Chat() {
     }
   }
 
-  const renderContent = (text: string) => {
-    return text
-      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-      .replace(/`([^`]+)`/g, '<code style="background:rgba(255,255,255,0.08);padding:2px 6px;border-radius:4px;font-size:12px;">$1</code>')
-      .replace(/\n/g, '<br/>')
-  }
-
   // Session history view (read-only)
   if (activeSession && activeSession !== 'main-chat') {
     return (
@@ -388,7 +382,7 @@ export default function Chat() {
                             <span style={{ fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.85)' }}>{msg.role === 'assistant' ? 'Agent' : 'You'}</span>
                             {msg.streaming && <Loader2 size={10} style={{ color: '#007AFF', animation: 'spin 1s linear infinite' }} />}
                           </div>
-                          <div style={{ fontSize: 13, lineHeight: 1.6, color: 'rgba(255,255,255,0.82)', wordBreak: 'break-word' }} dangerouslySetInnerHTML={{ __html: renderContent(msg.content || '...') }} />
+                          <div style={{ fontSize: 13, lineHeight: 1.6, color: 'rgba(255,255,255,0.82)', wordBreak: 'break-word' }} dangerouslySetInnerHTML={{ __html: renderMarkdown(msg.content || '...') }} />
                         </div>
                       </motion.div>
                     ))}

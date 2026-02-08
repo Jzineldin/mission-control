@@ -187,7 +187,20 @@ export default function Agents() {
                 Active Sessions
               </h3>
               <div style={{ display: 'grid', gridTemplateColumns: m ? '1fr' : 'repeat(auto-fill, minmax(280px, 1fr))', gap: m ? 12 : 16 }}>
-                {Object.entries(sessionGroups).map(([key, group]: [string, any], i) => (
+                {(() => {
+                  const activeGroups = Object.entries(sessionGroups).filter(([_, group]: [string, any]) => group.sessions.length > 0)
+                  if (activeGroups.length === 0) {
+                    return (
+                      <div className="macos-panel" style={{ padding: '40px 24px', textAlign: 'center', gridColumn: '1 / -1' }}>
+                        <Activity size={36} style={{ color: 'rgba(255,255,255,0.15)', marginBottom: 12 }} />
+                        <h4 style={{ fontSize: 14, fontWeight: 600, color: 'rgba(255,255,255,0.65)', marginBottom: 8 }}>No active sessions</h4>
+                        <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', lineHeight: 1.6, maxWidth: 320, margin: '0 auto' }}>
+                          Your agent will appear here when it starts conversations, runs tasks, or connects to channels.
+                        </p>
+                      </div>
+                    )
+                  }
+                  return activeGroups.map(([key, group]: [string, any], i) => (
                   <motion.div
                     key={key}
                     initial={{ opacity: 0, y: 12, scale: 0.98 }}
@@ -198,7 +211,6 @@ export default function Agents() {
                     style={{
                       borderRadius: m ? 12 : 16, 
                       padding: m ? 14 : 20,
-                      opacity: group.sessions.length === 0 ? 0.4 : 1,
                       cursor: 'default'
                     }}
                   >
@@ -253,7 +265,8 @@ export default function Agents() {
                       </span>
                     </div>
                   </motion.div>
-                ))}
+                ))
+                })()}
               </div>
             </div>
 

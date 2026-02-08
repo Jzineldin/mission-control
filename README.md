@@ -6,7 +6,7 @@ Mission Control is a sleek, macOS-native-feel web dashboard for [OpenClaw](https
 
 > Built by an OpenClaw power user who got tired of SSHing into servers to check what his agent was doing.
 
-![Dashboard](screenshot.png)
+![Dashboard](screenshot.jpg)
 
 ---
 
@@ -15,12 +15,14 @@ Mission Control is a sleek, macOS-native-feel web dashboard for [OpenClaw](https
 OpenClaw agents are powerful — but they run headless. You're stuck checking logs, reading JSONL transcripts, and running CLI commands to know what's happening. Mission Control changes that:
 
 - **See everything at a glance** — sessions, tokens, channels, heartbeat status
-- **Talk to your agent** — streaming chat widget on every page (Intercom-style)
+- **Talk to your agent** — streaming chat widget on every page (press `/` to open)
+- **Get value immediately** — Quick Start page with one-click automation recipes
 - **Delegate work** — queue tasks, let sub-agents research, review reports
 - **Stay on budget** — track token usage and costs across all sessions
 - **Find opportunities** — Scout Engine auto-searches for gigs, grants, skills, and news
 - **Manage schedules** — create, toggle, run, and delete cron jobs visually
 - **One-click actions** — check emails, review calendar, run heartbeats
+- **Keyboard-first** — `?` for shortcuts, `G+D` for Dashboard, `⌘K` command palette
 
 ---
 
@@ -58,6 +60,7 @@ Browse installed and available skills. Enable, disable, or install new capabilit
 | Page | What it does |
 |------|-------------|
 | **Dashboard** | Agent status, quick actions (email/calendar/heartbeat), activity feed, channel status, token counter |
+| **Quick Start** | One-click automation recipes — email digest, budget review, tech news, system health |
 | **Conversations** | Browse all agent sessions with filters, view history, continue conversations |
 | **Workshop** | Kanban task board — Queue → In Progress → Done. Sub-agents do the research, you review |
 | **Cost Tracker** | Token-based cost estimation per model, daily breakdown chart, budget alerts |
@@ -96,6 +99,13 @@ node server.js
 ```
 
 Visit `http://localhost:3333` — the **Setup Wizard** will auto-detect your OpenClaw config and guide you through the rest.
+
+### Run Tests
+
+```bash
+npm test
+# Runs 19 API tests against all endpoints
+```
 
 ### Production (systemd)
 
@@ -141,6 +151,26 @@ mission-control/
 
 ---
 
+## ⌨️ Keyboard Shortcuts
+
+Press `?` anywhere to see all shortcuts.
+
+| Shortcut | Action |
+|----------|--------|
+| `/` | Open chat |
+| `?` | Show keyboard shortcuts |
+| `⌘K` | Command palette |
+| `G D` | Go to Dashboard |
+| `G Q` | Go to Quick Start |
+| `G C` | Go to Conversations |
+| `G W` | Go to Workshop |
+| `G S` | Go to Scout |
+| `G M` | Go to Memory |
+| `G E` | Go to Settings |
+| `Esc` | Close dialogs |
+
+---
+
 ## 📦 Modules
 
 Enable/disable in `mc-config.json`:
@@ -162,19 +192,31 @@ Enable/disable in `mc-config.json`:
 
 ## 🔮 Roadmap
 
+**Recently completed:**
+- [x] Quick Start page with one-click automation recipes
+- [x] API test suite (19 tests, zero dependencies)
+- [x] Health endpoint (`/api/health`) for monitoring
+- [x] CI pipeline (GitHub Actions, Node 18/20/22)
+- [x] `/` keyboard shortcut to open chat from anywhere
+- [x] Memory Explorer (browse and search agent memory files)
+- [x] Mobile PWA support (home screen install)
+- [x] Scout query configuration from UI
+- [x] Dynamic model detection (works with any provider)
+- [x] Getting Started onboarding checklist
+- [x] Gateway health monitoring with connection test
+
 **Coming soon:**
 - [ ] Dedicated chat sessions per topic (email, calendar, per-task)
 - [ ] Cron job output viewer (see what each run produced)
-- [ ] Model management page (visual table for all model slots)
-- [ ] Memory Explorer (browse and search agent memory files)
-- [ ] Mobile PWA support
+- [ ] Dark/Light theme toggle
+- [ ] Free Scout alternatives (GitHub API, RSS, DuckDuckGo)
 
 **Future:**
 - [ ] Skills marketplace (browse/install from ClawHub)
 - [ ] Multi-agent orchestration view
 - [ ] Custom dashboard widgets
-- [ ] Free Scout alternatives (GitHub API, RSS, DuckDuckGo)
 - [ ] Multi-user auth
+- [ ] WebSocket real-time updates
 
 Have a feature request? [Open an issue!](https://github.com/Jzineldin/mission-control/issues)
 

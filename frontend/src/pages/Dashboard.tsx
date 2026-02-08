@@ -2,15 +2,19 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Activity, Cpu, MessageSquare, Database, Radio, Heart,
-  BarChart3, Zap, Mail, Calendar, Code, CheckCircle, Search,
-  Clock, Loader2, Play, ArrowRight, Bell
+  BarChart3, Mail, Calendar, CheckCircle, Search,
+  Clock, Loader2, ArrowRight, Bell, Sun, Sunset, Moon, Timer,
+  WifiOff, RefreshCw, ExternalLink
 } from 'lucide-react'
 import PageTransition from '../components/PageTransition'
 import GlassCard from '../components/GlassCard'
 import AnimatedCounter from '../components/AnimatedCounter'
+import { SkeletonCard } from '../components/Skeleton'
 import StatusBadge from '../components/StatusBadge'
 import { useApi, timeAgo } from '../lib/hooks'
 import { useIsMobile } from '../lib/useIsMobile'
+import { toast } from '../components/ToastSystem'
+import OnboardingChecklist from '../components/OnboardingChecklist'
 
 const feedIcons: Record<string, any> = {
   check: CheckCircle,
@@ -27,14 +31,113 @@ const feedColors: Record<string, string> = {
   cron_run: '#8E8E93',
 }
 
-function QuickActionsBar() {
+function getGreeting(): { text: string; icon: any; color: string } {
+  const hour = new Date().getHours()
+  if (hour >= 5 && hour < 12) return { text: 'Good morning', icon: Sun, color: '#FFD60A' }
+  if (hour >= 12 && hour < 18) return { text: 'Good afternoon', icon: Sun, color: '#FF9500' }
+  if (hour >= 18 && hour < 22) return { text: 'Good evening', icon: Sunset, color: '#FF6B35' }
+  return { text: 'Good night', icon: Moon, color: '#BF5AF2' }
+}
+
+function formatUptime(startedAt: number | string | undefined): string {
+  if (!startedAt) return '—'
+  const start = typeof startedAt === 'number' ? startedAt * 1000 : new Date(startedAt).getTime()
+  const diff = Date.now() - start
+  if (diff < 0) return '—'
+  const days = Math.floor(diff / 86400000)
+  const hours = Math.floor((diff % 86400000) / 3600000)
+  const mins = Math.floor((diff % 3600000) / 60000)
+  if (days > 0) return `${days}d ${hours}h`
+  if (hours > 0) return `${hours}h ${mins}m`
+  return `${mins}m`
+}
+
+
+function GatewayPending() {
+  const m = useIsMobile()
+  const [elapsed, setElapsed] = useState(0)
+  
+  useEffect(() => {
+    const t = setInterval(() => setElapsed(e => e + 1), 1000)
+    return () => clearInterval(t)
+  }, [])
+  
+  // After 5 seconds, show the helpful offline card instead of just a spinner
+  if (elapsed >= 5) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '60vh', gap: 24, padding: '0 24px' }}>
+        <div style={{
+          width: 72, height: 72, borderRadius: 20,
+          background: 'rgba(255,149,0,0.12)', border: '1px solid rgba(255,149,0,0.25)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center'
+        }}>
+          <WifiOff size={32} style={{ color: '#FF9500' }} />
+        </div>
+        <div style={{ textAlign: 'center', maxWidth: 420 }}>
+          <h2 style={{ fontSize: m ? 18 : 22, fontWeight: 600, color: 'rgba(255,255,255,0.92)', marginBottom: 8 }}>
+            Connecting to OpenClaw…
+          </h2>
+          <p style={{ fontSize: m ? 13 : 14, color: 'rgba(255,255,255,0.55)', lineHeight: 1.6 }}>
+            {elapsed < 15
+              ? "The gateway is taking longer than usual to respond. This happens when OpenClaw is starting up or restarting."
+              : "Can't reach the OpenClaw gateway. Make sure it's running and the token in Settings matches your config."
+            }
+          </p>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%', maxWidth: 320 }}>
+          <div style={{
+            padding: '14px 18px', borderRadius: 10,
+            background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)',
+            fontSize: 12, color: 'rgba(255,255,255,0.65)', lineHeight: 1.6
+          }}>
+            <strong style={{ color: 'rgba(255,255,255,0.85)' }}>Quick checks:</strong><br/>
+            1. Is OpenClaw running? <code style={{ background: 'rgba(255,255,255,0.08)', padding: '1px 4px', borderRadius: 3 }}>openclaw status</code><br/>
+            2. Gateway port is 18789 by default<br/>
+            3. Check Settings → Gateway Token
+          </div>
+          <button
+            onClick={() => window.location.reload()}
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+              padding: '10px 20px', borderRadius: 8,
+              border: '1px solid rgba(0,122,255,0.4)', background: 'rgba(0,122,255,0.15)',
+              color: '#007AFF', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+            }}
+          >
+            <RefreshCw size={14} />
+            Retry Connection
+          </button>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8 }}>
+          <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#FF9500', animation: 'pulse 2s ease-in-out infinite' }} />
+          <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)' }}>Still trying… ({elapsed}s)</span>
+        </div>
+      </div>
+    )
+  }
+  
+  // First 5 seconds: simple spinner with helpful text
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '50vh', gap: 16 }}>
+      <div style={{ width: 24, height: 24, border: '2px solid #007AFF', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+      <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>Connecting to OpenClaw gateway…</span>
+    </div>
+  )
+}
+
+
+function StatusBriefing() {
   const m = useIsMobile()
   const [loading, setLoading] = useState<string | null>(null)
   const [result, setResult] = useState<string | null>(null)
+  const { data: configData } = useApi<any>('/api/config', 300000) // Cache config for 5min
+  const { data: activityData } = useApi<any>('/api/activity', 10000)
+  const { data: costsData } = useApi<any>('/api/costs', 60000)
+  const { data: statusData } = useApi<any>('/api/status', 30000)
 
   const handleQuickAction = async (endpoint: string, label: string) => {
     if (loading) return
-    
+
     // All quick actions: open chat widget with auto-send
     if (endpoint === '/quick/emails') {
       window.dispatchEvent(new CustomEvent('open-chat', { detail: { message: 'Check my unread emails and summarize anything important.', autoSend: true } }))
@@ -48,17 +151,17 @@ function QuickActionsBar() {
       window.dispatchEvent(new CustomEvent('open-chat', { detail: { message: 'Run a quick heartbeat check: emails, calendar, anything urgent I should know about?', autoSend: true } }))
       return
     }
-    
+
     setLoading(endpoint)
     setResult(null)
-    
+
     try {
-      const res = await fetch(`/api${endpoint}`, { 
-        method: 'POST', 
+      const res = await fetch(`/api${endpoint}`, {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' }
       })
       const data = await res.json()
-      
+
       if (data.status === 'triggered') {
         setResult('✅ Heartbeat triggered')
       } else if (data.status === 'error') {
@@ -66,7 +169,7 @@ function QuickActionsBar() {
       } else {
         setResult('✅ Action completed')
       }
-      
+
       // Clear result after 5 seconds
       setTimeout(() => setResult(null), 10000)
     } catch (e: any) {
@@ -77,23 +180,62 @@ function QuickActionsBar() {
     }
   }
 
+  // Time-based greeting
+  const getGreeting = () => {
+    const timezone = configData?.timezone || 'UTC'
+    const now = new Date()
+    const hour = now.toLocaleString('en-US', { hour: 'numeric', hour12: false, timeZone: timezone })
+    const hourNum = parseInt(hour)
+
+    if (hourNum < 12) return 'Good morning'
+    if (hourNum < 18) return 'Good afternoon'
+    return 'Good evening'
+  }
+
+  // Generate briefing text
+  const getBriefingText = () => {
+    const feed = activityData?.feed || []
+    const activeSessions = statusData?.sessions?.filter((s: any) => s.isActive).length || 0
+
+    // Count cron jobs today
+    const today = new Date().toDateString()
+    const cronRuns = feed.filter((item: any) =>
+      item.type === 'cron_run' && new Date(item.time).toDateString() === today
+    ).length
+
+    // Get today's cost
+    const todayCost = costsData?.breakdown?.today?.total || 0
+
+    const sessionText = activeSessions === 1 ? '1 active session' : `${activeSessions} active sessions`
+    const cronText = cronRuns === 1 ? '1 cron job ran today' : `${cronRuns} cron jobs ran today`
+    const costText = `$${todayCost.toFixed(2)} estimated cost today`
+
+    return `${sessionText} • ${cronText} • ${costText}`
+  }
+
   const actions = [
-    { endpoint: '/heartbeat/run', label: '▶ Run Heartbeat', icon: Heart },
-    { endpoint: '/quick/emails', label: '📧 Check Emails', icon: Mail },
-    { endpoint: '/quick/schedule', label: '📅 Today\'s Schedule', icon: Calendar },
+    { endpoint: '/heartbeat/run', label: 'Heartbeat', icon: Heart },
+    { endpoint: '/quick/emails', label: 'Emails', icon: Mail },
+    { endpoint: '/quick/schedule', label: 'Schedule', icon: Calendar },
   ]
 
   return (
     <GlassCard delay={0.08} noPad>
       <div style={{ padding: m ? 14 : 20 }}>
-        <h3 style={{ fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.92)', marginBottom: 12 }}>
-          Quick Actions
-        </h3>
-        
-        <div style={{ 
-          display: 'flex', 
-          flexDirection: m ? 'column' : 'row', 
-          gap: m ? 10 : 12 
+        <div style={{ marginBottom: 14 }}>
+          <h3 style={{ fontSize: 14, fontWeight: 600, color: 'rgba(255,255,255,0.92)', marginBottom: 6 }}>
+            {getGreeting()}
+          </h3>
+          <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.65)', lineHeight: 1.4 }}>
+            {getBriefingText()}
+          </p>
+        </div>
+
+        <div style={{
+          display: 'flex',
+          flexDirection: 'row',
+          gap: 8,
+          flexWrap: 'wrap'
         }}>
           {actions.map(action => (
             <button
@@ -101,21 +243,20 @@ function QuickActionsBar() {
               onClick={() => handleQuickAction(action.endpoint, action.label)}
               disabled={loading === action.endpoint}
               style={{
-                flex: m ? undefined : 1,
-                padding: '10px 16px',
-                borderRadius: 8,
+                padding: '6px 12px',
+                borderRadius: 6,
                 border: '1px solid rgba(0,122,255,0.3)',
-                background: loading === action.endpoint 
-                  ? 'rgba(0,122,255,0.2)' 
+                background: loading === action.endpoint
+                  ? 'rgba(0,122,255,0.2)'
                   : 'rgba(0,122,255,0.1)',
                 color: 'rgba(255,255,255,0.9)',
-                fontSize: 12,
+                fontSize: 11,
                 fontWeight: 500,
                 cursor: loading === action.endpoint ? 'not-allowed' : 'pointer',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                gap: 8,
+                gap: 6,
                 transition: 'all 0.15s',
                 opacity: loading === action.endpoint ? 0.7 : 1,
               }}
@@ -133,29 +274,29 @@ function QuickActionsBar() {
               }}
             >
               {loading === action.endpoint ? (
-                <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} />
+                <Loader2 size={12} style={{ animation: 'spin 1s linear infinite' }} />
               ) : (
-                <action.icon size={14} />
+                <action.icon size={12} />
               )}
               {action.label}
             </button>
           ))}
         </div>
-        
+
         {result && (
-          <div style={{ 
-            marginTop: 12, 
-            padding: '8px 12px', 
-            borderRadius: 6, 
-            background: result.startsWith('❌') 
-              ? 'rgba(255,69,58,0.1)' 
+          <div style={{
+            marginTop: 12,
+            padding: '8px 12px',
+            borderRadius: 6,
+            background: result.startsWith('❌')
+              ? 'rgba(255,69,58,0.1)'
               : 'rgba(50,215,75,0.1)',
-            border: `1px solid ${result.startsWith('❌') 
-              ? 'rgba(255,69,58,0.3)' 
+            border: `1px solid ${result.startsWith('❌')
+              ? 'rgba(255,69,58,0.3)'
               : 'rgba(50,215,75,0.3)'}`,
             fontSize: 11,
-            color: result.startsWith('❌') 
-              ? '#FF453A' 
+            color: result.startsWith('❌')
+              ? '#FF453A'
               : '#32D74B',
           }}>
             {result}
@@ -191,12 +332,51 @@ export default function Dashboard() {
     return () => clearInterval(interval)
   }, [data])
 
+  // Monitor for issues and show alerts
+  const { data: costsData } = useApi<any>('/api/costs', 60000)
+  useEffect(() => {
+    if (!costsData?.breakdown?.today?.total) return
+    const todayCost = costsData.breakdown.today.total
+    
+    // Get user's budget settings
+    let alertThreshold = 15 // default $15/day
+    let alertsEnabled = true
+    try {
+      const saved = localStorage.getItem('budget-settings')
+      if (saved) {
+        const settings = JSON.parse(saved)
+        alertThreshold = settings.budget || 15
+        alertsEnabled = settings.alertsEnabled !== false
+      }
+    } catch {}
+    
+    if (alertsEnabled && todayCost > alertThreshold) {
+      // Only show once per session by checking if we already showed this alert
+      const alertKey = `cost-alert-${Math.floor(todayCost)}`
+      if (!sessionStorage.getItem(alertKey)) {
+        toast.warning('Daily budget exceeded', `Today's estimated cost: $${todayCost.toFixed(2)} (limit: $${alertThreshold.toFixed(2)})`, { duration: 8000 })
+        sessionStorage.setItem(alertKey, 'shown')
+      }
+    }
+  }, [costsData])
+
+  // Monitor for channel disconnections
+  useEffect(() => {
+    if (!data?.agent?.channels) return
+    const disconnectedChannels = data.agent.channels.filter((ch: any) => ch.state !== 'OK')
+    disconnectedChannels.forEach((ch: any) => {
+      const alertKey = `channel-alert-${ch.name}`
+      if (!sessionStorage.getItem(alertKey)) {
+        toast.error('Channel disconnected', `${ch.name} is ${ch.state}`, { persistent: true })
+        sessionStorage.setItem(alertKey, 'shown')
+      }
+    })
+  }, [data])
+
   if (loading || !data) {
     return (
       <PageTransition>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '50vh' }}>
-          <div style={{ width: 24, height: 24, border: '2px solid #007AFF', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
-        </div>
+        <GatewayPending />
       </PageTransition>
     )
   }
@@ -207,10 +387,8 @@ export default function Dashboard() {
   const activeSessions = sessions.filter((s: any) => s.isActive).length
   const totalSessions = sessions.length
 
-  // Use detected agent name from OpenClaw if showing default "Mission Control"
-  const displayName = agent.name === 'Mission Control' 
-    ? 'Agent' // Default to detected name or fallback
-    : agent.name
+  // Use actual agent name or fallback to 'Agent'
+  const displayName = agent.name || 'Agent'
 
   return (
     <PageTransition>
@@ -218,11 +396,32 @@ export default function Dashboard() {
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div>
-            <h1 className="text-title">Dashboard</h1>
-            <p className="text-body" style={{ marginTop: 4 }}>Your agent at a glance — status, activity & channels</p>
+            <h1 className="text-title" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              {(() => { const g = getGreeting(); return <g.icon size={m ? 18 : 22} style={{ color: g.color }} /> })()}
+              {getGreeting().text}
+            </h1>
+            <p className="text-body" style={{ marginTop: 4 }}>
+              {activeSessions} active session{activeSessions !== 1 ? 's' : ''} · {feed.length} recent activit{feed.length !== 1 ? 'ies' : 'y'}
+            </p>
           </div>
-          <StatusBadge status="active" pulse label="Live" />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            {data?.startedAt && (
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4, justifyContent: 'flex-end' }}>
+                  <Timer size={11} style={{ color: 'rgba(255,255,255,0.35)' }} />
+                  <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', fontWeight: 500 }}>Uptime</span>
+                </div>
+                <span style={{ fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.65)', fontFamily: 'monospace' }}>
+                  {formatUptime(data.startedAt)}
+                </span>
+              </div>
+            )}
+            <StatusBadge status="active" pulse label="Live" />
+          </div>
         </div>
+
+        {/* Onboarding Checklist — appears for new users, dismissible */}
+        <OnboardingChecklist />
 
         {/* Hero Status Card */}
         <GlassCard delay={0.05} noPad>
@@ -235,6 +434,11 @@ export default function Dashboard() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <h2 style={{ fontSize: 14, fontWeight: 600, color: 'rgba(255,255,255,0.92)' }}>{displayName}</h2>
                   <StatusBadge status="active" pulse />
+                  {data?.startedAt && (
+                    <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', fontFamily: 'monospace' }}>
+                      {formatUptime(data.startedAt)}
+                    </span>
+                  )}
                 </div>
                 <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {m ? agent.heartbeatInterval : `${agent.model} · ${agent.heartbeatInterval} · ${agent.totalAgents} agents`}
@@ -284,8 +488,8 @@ export default function Dashboard() {
           </div>
         </GlassCard>
 
-        {/* Quick Actions Bar */}
-        <QuickActionsBar />
+        {/* Status Briefing */}
+        <StatusBriefing />
 
         {/* Stats Grid */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: m ? 10 : 20 }}>
@@ -325,10 +529,18 @@ export default function Dashboard() {
                   <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)' }}>{feed.length} items</span>
                 </div>
                 <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
-                  {feed.length === 0 ? (
-                    <div style={{ textAlign: 'center', padding: '40px 20px', color: 'rgba(255,255,255,0.3)' }}>
-                      <Bell size={28} style={{ marginBottom: 8, opacity: 0.3 }} />
-                      <p style={{ fontSize: 12 }}>No activity yet</p>
+                  {loading ? (
+                    <SkeletonCard count={3} />
+                  ) : feed.length === 0 ? (
+                    <div style={{ textAlign: 'center', padding: '50px 20px', color: 'rgba(255,255,255,0.4)' }}>
+                      <Bell size={32} style={{ marginBottom: 16, opacity: 0.4 }} />
+                      <h4 style={{ fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.6)', marginBottom: 8 }}>
+                        No activity yet
+                      </h4>
+                      <p style={{ fontSize: 11, lineHeight: 1.5, color: 'rgba(255,255,255,0.35)' }}>
+                        Your agent will log completed tasks, scout discoveries,<br />
+                        and cron runs here.
+                      </p>
                     </div>
                   ) : feed.map((item: any, i: number) => {
                     const Icon = feedIcons[item.icon] || Activity

@@ -1,19 +1,28 @@
 {
   "name": "@openclaw/mission-control",
-  "version": "1.0.0",
-  "description": "macOS-native dashboard for OpenClaw AI agents",
+  "version": "2.0.0",
+  "description": "macOS-native dashboard for OpenClaw AI agents — monitor, chat, manage tasks, track costs, and discover opportunities",
   "main": "server.js",
-  "author": "OpenClaw Community",
+  "author": "Kevin El-Zarka <kevin.elzarka@gmail.com>",
   "license": "BSL-1.1",
-  "keywords": ["openclaw", "dashboard", "ai", "agent", "mission-control"],
+  "keywords": ["openclaw", "dashboard", "ai", "agent", "mission-control", "monitoring", "automation"],
   "scripts": {
     "start": "node server.js",
-    "build": "cd frontend && npm run build"
+    "build": "cd frontend && npm run build",
+    "dev": "node server.js",
+    "test": "node test.js"
   },
   "engines": {
     "node": ">=18"
   },
-  "repository": "",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Jzineldin/mission-control"
+  },
+  "homepage": "https://github.com/Jzineldin/mission-control#readme",
+  "bugs": {
+    "url": "https://github.com/Jzineldin/mission-control/issues"
+  },
   "dependencies": {
     "express": "^4.22.1",
     "multer": "^2.0.2"

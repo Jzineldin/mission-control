@@ -37,20 +37,41 @@ interface ConfigData {
   }
 }
 
-// Estimate cost from tokens based on model
-function estimateCost(tokens: number, model?: string) {
-  // Approximate costs per 1M tokens (blended input/output)
+// Estimate cost from tokens based on model with precise Bedrock pricing
+function estimateCost(tokens: number, model?: string, usage?: any) {
+  // Real Bedrock pricing (per 1M tokens)
   const rates = {
-    'opus': 45,    // ~$15 input + $75 output, blended ~$45/M
-    'sonnet': 9,   // ~$3 input + $15 output, blended ~$9/M  
-    'haiku': 1,    // ~$0.25 input + $1.25 output, blended ~$1/M
+    'opus-input': 15.00,     // $15/M input 
+    'opus-output': 75.00,    // $75/M output
+    'opus-cache-read': 1.50,  // $1.50/M cache read
+    'opus-cache-write': 18.75, // $18.75/M cache write (25% of output)
+    'sonnet-input': 3.00,
+    'sonnet-output': 15.00, 
+    'sonnet-cache-read': 0.30,
+    'sonnet-cache-write': 3.75,
+    'haiku-input': 0.25,
+    'haiku-output': 1.25,
+    'haiku-cache-read': 0.03,
+    'haiku-cache-write': 0.31,
   };
-  const modelLower = (model || '').toLowerCase();
-  const rate = modelLower.includes('opus') ? rates.opus 
-    : modelLower.includes('sonnet') ? rates.sonnet 
-    : modelLower.includes('haiku') ? rates.haiku 
-    : rates.sonnet; // default to sonnet
-  return (tokens / 1000000) * rate;
+  
+  const modelType = (model || '').toLowerCase().includes('opus') ? 'opus' 
+    : (model || '').toLowerCase().includes('sonnet') ? 'sonnet' 
+    : 'haiku';
+  
+  // If we have usage breakdown, use precise calculation
+  if (usage) {
+    const input = (usage.input || 0) / 1000000 * rates[`${modelType}-input`];
+    const output = (usage.output || 0) / 1000000 * rates[`${modelType}-output`];
+    const cacheRead = (usage.cacheRead || 0) / 1000000 * rates[`${modelType}-cache-read`];
+    const cacheWrite = (usage.cacheWrite || 0) / 1000000 * rates[`${modelType}-cache-write`];
+    return input + output + cacheRead + cacheWrite;
+  }
+  
+  // Fallback: assume 50/50 input/output split (no cache)
+  const input = tokens * 0.5 / 1000000 * rates[`${modelType}-input`];
+  const output = tokens * 0.5 / 1000000 * rates[`${modelType}-output`];
+  return input + output;
 }
 
 // Format session name for better display
@@ -86,25 +107,33 @@ export default function Costs() {
   const [savingBudget, setSavingBudget] = useState(false)
 
   useEffect(() => {
-    Promise.all([
-      fetch('/api/aws/costs').then(r => r.json()).catch(() => null),
-      fetch('/api/costs').then(r => r.json()).catch(() => null),
-      fetch('/api/config').then(r => r.json()).catch(() => ({ modules: {} })),
-      fetch('/api/sessions').then(r => r.json()).catch(() => ({ sessions: [] }))
-    ])
-    .then(([aws, tokens, configData, sessionsData]) => {
-      setAwsCosts(aws)
-      setTokenData(tokens)
-      setConfig(configData)
-      setSessions(sessionsData.sessions || [])
-      setBudget(tokens?.budget?.monthly || 0)
-      setBudgetInput((tokens?.budget?.monthly || 0).toString())
-      setLoading(false)
-    })
-    .catch(err => {
-      setError(err.message)
-      setLoading(false)
-    })
+    const fetchData = () => {
+      Promise.all([
+        fetch('/api/aws/costs').then(r => r.json()).catch(() => null),
+        fetch('/api/costs').then(r => r.json()).catch(() => null),
+        fetch('/api/config').then(r => r.json()).catch(() => ({ modules: {} })),
+        fetch('/api/sessions').then(r => r.json()).catch(() => ({ sessions: [] }))
+      ])
+      .then(([aws, tokens, configData, sessionsData]) => {
+        setAwsCosts(aws)
+        setTokenData(tokens)
+        setConfig(configData)
+        setSessions(sessionsData.sessions || [])
+        setBudget(tokens?.budget?.monthly || 0)
+        setBudgetInput((tokens?.budget?.monthly || 0).toString())
+        setLoading(false)
+      })
+      .catch(err => {
+        setError(err.message)
+        setLoading(false)
+      })
+    }
+    
+    fetchData()
+    
+    // Auto-refresh every 5 minutes
+    const interval = setInterval(fetchData, 300000)
+    return () => clearInterval(interval)
   }, [])
 
   const saveBudget = async () => {
@@ -187,19 +216,43 @@ export default function Costs() {
     return '#32D74B'
   }
 
-  // Get top 5 sessions by token usage for display
+  // Get top 5 sessions by token usage for display with enhanced cost breakdown
   const topSessions = sessions
     .filter(s => s.totalTokens > 0)
     .sort((a, b) => b.totalTokens - a.totalTokens)
     .slice(0, 5)
-    .map(s => ({
-      sessionId: s.key,
-      sessionName: formatSessionName(s.key, s.displayName),
-      model: s.model?.replace('us.anthropic.', '')?.replace(/claude-(\w+)-[\d-]+.*/, 'Claude $1') || 'Unknown',
-      tokens: s.totalTokens,
-      cost: estimateCost(s.totalTokens, s.model),
-      timestamp: s.updatedAt ? new Date(s.updatedAt).getTime() / 1000 : Date.now() / 1000
-    }))
+    .map(s => {
+      // Try to parse usage data if available
+      let usage = null;
+      try {
+        if (s.usage && typeof s.usage === 'string') {
+          usage = JSON.parse(s.usage);
+        } else if (s.usage && typeof s.usage === 'object') {
+          usage = s.usage;
+        }
+      } catch (e) {
+        // Ignore parsing errors
+      }
+
+      const cost = estimateCost(s.totalTokens, s.model, usage);
+      
+      // Calculate cache hit ratio if cache data available
+      let cacheHitRatio = null;
+      if (usage && usage.cacheRead && usage.input) {
+        cacheHitRatio = (usage.cacheRead / (usage.input + usage.cacheRead)) * 100;
+      }
+
+      return {
+        sessionId: s.key,
+        sessionName: formatSessionName(s.key, s.displayName),
+        model: s.model?.replace('us.anthropic.', '')?.replace(/claude-(\w+)-[\d-]+.*/, 'Claude $1') || 'Unknown',
+        tokens: s.totalTokens,
+        cost,
+        timestamp: s.updatedAt ? new Date(s.updatedAt).getTime() / 1000 : Date.now() / 1000,
+        usage,
+        cacheHitRatio
+      };
+    })
 
   return (
     <PageTransition>

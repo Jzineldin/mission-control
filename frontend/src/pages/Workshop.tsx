@@ -1,10 +1,29 @@
 import { useState, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Plus, Clock, Zap, CheckCircle, Play, X, AlertCircle, Loader2, ArrowLeft, MessageSquare, ExternalLink } from 'lucide-react'
+import { Plus, Clock, Zap, CheckCircle, Play, X, AlertCircle, Loader2, ArrowLeft, MessageSquare, ExternalLink, GripVertical } from 'lucide-react'
 import PageTransition from '../components/PageTransition'
 import { useApi, timeAgo } from '../lib/hooks'
 import { useIsMobile } from '../lib/useIsMobile'
+import HelpTooltip from '../components/HelpTooltip'
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragOverlay,
+} from '@dnd-kit/core'
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable'
+import {
+  useSortable,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 
 const priorityConfig: Record<string, { color: string; label: string }> = {
   high: { color: '#FF453A', label: 'High' },
@@ -58,6 +77,15 @@ export default function Workshop() {
       }
     }
   }, [data, searchParams])
+
+  // Listen for external "open-add-task" events (from CommandPalette)
+  useEffect(() => {
+    const handler = () => {
+      setShowAddModal(true)
+    }
+    window.addEventListener('open-add-task', handler)
+    return () => window.removeEventListener('open-add-task', handler)
+  }, [])
 
   if (loading || !data) {
     return (
@@ -195,17 +223,22 @@ export default function Workshop() {
 
             {/* Execute for queue tasks */}
             {!viewTask.result && !isExecuting && (
-              <button
-                onClick={() => { handleExecute(viewTask.id); setViewTask({ ...viewTask, status: 'executing' }); }}
-                disabled={executing[viewTask.id]}
-                style={{
-                  flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                  padding: '12px 20px', borderRadius: 10, border: 'none', cursor: 'pointer',
-                  background: '#007AFF', color: '#fff', fontSize: 13, fontWeight: 600,
-                }}
-              >
-                <Play size={15} /> Execute Task
-              </button>
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <button
+                  onClick={() => { handleExecute(viewTask.id); setViewTask({ ...viewTask, status: 'executing' }); }}
+                  disabled={executing[viewTask.id]}
+                  style={{
+                    width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                    padding: '12px 20px', borderRadius: 10, border: 'none', cursor: 'pointer',
+                    background: '#007AFF', color: '#fff', fontSize: 13, fontWeight: 600,
+                  }}
+                >
+                  <Play size={15} /> Execute Task
+                </button>
+                <span style={{ textAlign: 'center', fontSize: 10, color: 'rgba(255,255,255,0.35)' }}>
+                  Spawns sub-agent (est. ~$0.05-0.50)
+                </span>
+              </div>
             )}
 
             {/* Re-execute */}
@@ -253,10 +286,14 @@ export default function Workshop() {
         {/* Header */}
         <div style={{ display: 'flex', alignItems: m ? 'flex-start' : 'center', justifyContent: 'space-between', flexDirection: m ? 'column' : 'row', gap: m ? 12 : 0 }}>
           <div>
-            <h1 className="text-title">Workshop</h1>
+            <h1 className="text-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              Workshop
+              <HelpTooltip content="Drag tasks between columns to change status. Click tasks to view details and results." />
+            </h1>
             <p className="text-body" style={{ marginTop: 4 }}>Create tasks, let your agent research & execute them</p>
           </div>
           <button
+            data-add-task
             onClick={() => setShowAddModal(true)}
             style={{
               display: 'flex', alignItems: 'center', gap: 8,

@@ -1,10 +1,12 @@
-import { useState } from 'react'
-import { motion } from 'framer-motion'
-import { Radar, SortDesc, X, Rocket, Shield, Code, Briefcase, GraduationCap, DollarSign, Search } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
+import { Radar, SortDesc, X, Rocket, Shield, Code, Briefcase, GraduationCap, DollarSign, Search, Settings2, HelpCircle, Info, Plus, Trash2, Save } from 'lucide-react'
 import PageTransition from '../components/PageTransition'
 import { useIsMobile } from '../lib/useIsMobile'
 import GlassCard from '../components/GlassCard'
 import { useApi, timeAgo } from '../lib/hooks'
+import { addNotification } from '../components/NotificationSystem'
+import SwipeableCard from '../components/SwipeableCard'
 
 const scoreColor = (score: number) => {
   if (score >= 85) return '#32D74B'
@@ -57,12 +59,54 @@ const FILTERS = [
 
 export default function Scout() {
   const m = useIsMobile()
-  const { data, loading } = useApi<any>('/api/scout', 60000)
-  const { data: cronData } = useApi<any>('/api/cron', 30000) // Add cron data for next scan time
+  const { data, loading, refetch } = useApi<any>('/api/scout', 60000)
+  const { data: cronData } = useApi<any>('/api/cron', 30000)
+  const { data: scoutConfig } = useApi<any>('/api/scout/config', 0) // Load once
   const [sortBy, setSortBy] = useState<'score' | 'date'>('score')
   const [filter, setFilter] = useState('all')
   const [scanning, setScanning] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
+  const [showScoring, setShowScoring] = useState(false)
+  const [showConfig, setShowConfig] = useState(false)
+  const [editQueries, setEditQueries] = useState<Array<{ q: string; category: string; source: string; weight: number }>>([])
+  const [savingConfig, setSavingConfig] = useState(false)
+
+  // Keyboard shortcuts for Scout power users — must be before early return
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement)?.tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (e.target as HTMLElement)?.isContentEditable) return
+      if (!data?.opportunities) return
+      
+      const newOpps = data.opportunities.filter((o: any) => o.status !== 'dismissed' && o.status !== 'deployed')
+      if (newOpps.length === 0) return
+
+      if (e.key === 'd' && !e.metaKey && !e.ctrlKey && !e.shiftKey) {
+        e.preventDefault()
+        // Inline deploy — can't reference handleDeploy since it's after early return
+        fetch('/api/scout/deploy', { 
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, 
+          body: JSON.stringify({ opportunityId: newOpps[0].id }) 
+        }).then(() => refetch())
+      }
+      if (e.key === 'D' && !e.metaKey && !e.ctrlKey) {
+        e.preventDefault()
+        fetch('/api/scout/deploy', { 
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, 
+          body: JSON.stringify({ opportunityId: newOpps[0].id, executeImmediately: true }) 
+        }).then(() => refetch())
+      }
+      if (e.key === 'x' && !e.metaKey && !e.ctrlKey) {
+        e.preventDefault()
+        fetch('/api/scout/dismiss', { 
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, 
+          body: JSON.stringify({ opportunityId: newOpps[0].id }) 
+        }).then(() => refetch())
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [data, refetch])
 
   if (loading || !data) {
     return (
@@ -86,17 +130,43 @@ export default function Scout() {
     counts[f.id] = f.id === 'all' ? allOpportunities.length : allOpportunities.filter(f.match || (() => true)).length
   }
 
-  const handleDeploy = async (oppId: string) => {
+  const handleDeploy = async (oppId: string, executeImmediately = false) => {
     try {
-      await fetch('/api/scout/deploy', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ opportunityId: oppId }) })
-      window.location.reload()
-    } catch {}
+      const opp = opportunities.find((o: any) => o.id === oppId)
+      await fetch('/api/scout/deploy', { 
+        method: 'POST', 
+        headers: { 'Content-Type': 'application/json' }, 
+        body: JSON.stringify({ opportunityId: oppId, executeImmediately }) 
+      })
+      refetch()
+      
+      if (executeImmediately) {
+        addNotification({
+          type: 'success',
+          title: 'Deploying & executing!',
+          message: `"${opp?.title || 'Opportunity'}" moved to Workshop and sub-agent started research`,
+          duration: 8000
+        })
+      } else {
+        addNotification({
+          type: 'success',
+          title: 'Opportunity deployed!',
+          message: `"${opp?.title || 'Opportunity'}" moved to Workshop with AI-generated action plan`
+        })
+      }
+    } catch (error) {
+      addNotification({
+        type: 'error', 
+        title: 'Deploy failed',
+        message: 'Could not deploy opportunity to Workshop'
+      })
+    }
   }
 
   const handleDismiss = async (oppId: string) => {
     try {
       await fetch('/api/scout/dismiss', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ opportunityId: oppId }) })
-      window.location.reload()
+      refetch()
     } catch {}
   }
 
@@ -118,7 +188,7 @@ export default function Scout() {
               setScanning(false)
               setToast('✅ Scan completed! Results refreshed.')
               setTimeout(() => setToast(null), 4000)
-              window.location.reload() // Reload to show new results
+              refetch() // Refetch to show new results
             } else {
               setTimeout(checkStatus, 3000) // Check again in 3 seconds
             }
@@ -169,10 +239,16 @@ export default function Scout() {
               <Radar size={m ? 18 : 22} style={{ color: '#BF5AF2' }} /> Scout
             </h1>
             <p className="text-body" style={{ marginTop: 4, fontSize: m ? 11 : 13 }}>
-              Find opportunities across the web — skills, jobs, grants & more
+              Find opportunities across the web — skills, jobs, grants & more • Press <code>d</code> to deploy, <code>D</code> to deploy & execute, <code>x</code> to dismiss
             </p>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginTop: 2, fontSize: m ? 10 : 12, opacity: 0.6 }}>
               <span>Last scan: {data?.lastScan ? timeAgo(data.lastScan) : 'never'}</span>
+              {scoutConfig?.queryCount > 0 && (
+                <>
+                  <span style={{ color: 'rgba(255,255,255,0.25)' }}>•</span>
+                  <span>{scoutConfig.queryCount} queries configured</span>
+                </>
+              )}
               {cronData?.jobs && getNextScanTime(cronData.jobs) && (
                 <>
                   <span style={{ color: 'rgba(255,255,255,0.25)' }}>•</span>
@@ -182,6 +258,31 @@ export default function Scout() {
             </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <button
+              onClick={() => {
+                if (!showConfig) {
+                  // Load queries from config
+                  setEditQueries(scoutConfig?.queries || [])
+                }
+                setShowConfig(!showConfig)
+                setShowScoring(false)
+              }}
+              className="macos-button"
+              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', fontSize: 12, color: showConfig ? '#007AFF' : 'rgba(255,255,255,0.6)' }}
+              title="Configure search queries"
+            >
+              <Settings2 size={13} />
+              {!m && 'Configure'}
+            </button>
+            <button
+              onClick={() => { setShowScoring(!showScoring); setShowConfig(false) }}
+              className="macos-button"
+              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', fontSize: 12, color: showScoring ? '#007AFF' : 'rgba(255,255,255,0.6)' }}
+              title="How scoring works"
+            >
+              <Info size={13} />
+              {!m && 'Scoring'}
+            </button>
             <button
               onClick={handleRunScan}
               disabled={scanning}
@@ -213,6 +314,221 @@ export default function Scout() {
             </button>
           </div>
         </div>
+
+        {/* Scoring Explanation Panel */}
+        {showScoring && scoutConfig?.scoring && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="macos-panel"
+            style={{ padding: m ? 14 : 20, overflow: 'hidden' }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+              <Info size={16} style={{ color: '#007AFF' }} />
+              <h3 style={{ fontSize: 14, fontWeight: 600, color: 'rgba(255,255,255,0.92)' }}>How Scoring Works</h3>
+            </div>
+            <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.65)', lineHeight: 1.6, marginBottom: 12 }}>
+              {scoutConfig.scoring.explanation}
+            </p>
+            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#32D74B' }} />
+                <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.55)' }}>85+ Excellent</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#007AFF' }} />
+                <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.55)' }}>70-84 Good</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#FF9500' }} />
+                <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.55)' }}>50-69 Fair</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#8E8E93' }} />
+                <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.55)' }}>&lt;50 Low</span>
+              </div>
+            </div>
+            {scoutConfig.queryCount > 0 && (
+              <div style={{ marginTop: 12, padding: '8px 12px', borderRadius: 8, background: 'rgba(255,255,255,0.04)' }}>
+                <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)' }}>
+                  📊 {scoutConfig.queryCount} search queries across {Object.values(scoutConfig.templateStats || {}).filter(v => v > 0).length} categories
+                  {scoutConfig.hasApiKey ? ' • Brave Search API connected' : ' • ⚠️ No API key configured'}
+                </span>
+              </div>
+            )}
+          </motion.div>
+        )}
+
+        {/* Configuration Panel */}
+        <AnimatePresence>
+          {showConfig && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              className="macos-panel"
+              style={{ padding: m ? 14 : 20, overflow: 'hidden' }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <Settings2 size={16} style={{ color: '#007AFF' }} />
+                  <h3 style={{ fontSize: 14, fontWeight: 600, color: 'rgba(255,255,255,0.92)' }}>Scout Configuration</h3>
+                </div>
+                <button
+                  onClick={async () => {
+                    setSavingConfig(true)
+                    try {
+                      await fetch('/api/scout/config', {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ queries: editQueries })
+                      })
+                      setToast('✅ Configuration saved!')
+                      setTimeout(() => setToast(null), 3000)
+                      refetch()
+                    } catch {
+                      setToast('❌ Failed to save configuration')
+                      setTimeout(() => setToast(null), 3000)
+                    } finally {
+                      setSavingConfig(false)
+                    }
+                  }}
+                  disabled={savingConfig}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    padding: '6px 12px',
+                    borderRadius: 6,
+                    border: 'none',
+                    background: savingConfig ? 'rgba(0,122,255,0.5)' : '#007AFF',
+                    color: '#fff',
+                    fontSize: 12,
+                    fontWeight: 600,
+                    cursor: savingConfig ? 'not-allowed' : 'pointer',
+                  }}
+                >
+                  <Save size={12} />
+                  {savingConfig ? 'Saving...' : 'Save'}
+                </button>
+              </div>
+
+              <div style={{ marginBottom: 16 }}>
+                <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.65)', lineHeight: 1.6 }}>
+                  Manage your search queries. Each query searches across the web and gets scored based on keywords, freshness, and source credibility.
+                </p>
+              </div>
+
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.8)' }}>
+                    Search Queries ({editQueries.length})
+                  </span>
+                  <button
+                    onClick={() => {
+                      setEditQueries([...editQueries, { q: '', category: 'custom', source: 'web', weight: 1.0 }])
+                    }}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 4,
+                      padding: '4px 8px',
+                      borderRadius: 4,
+                      border: '1px solid rgba(0,122,255,0.3)',
+                      background: 'rgba(0,122,255,0.1)',
+                      color: '#007AFF',
+                      fontSize: 11,
+                      fontWeight: 500,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <Plus size={10} />
+                    Add Query
+                  </button>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 300, overflowY: 'auto' }}>
+                  {editQueries.map((query, i) => (
+                    <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '8px 12px', borderRadius: 8, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                      <input
+                        type="text"
+                        value={query.q}
+                        onChange={(e) => {
+                          const newQueries = [...editQueries]
+                          newQueries[i].q = e.target.value
+                          setEditQueries(newQueries)
+                        }}
+                        placeholder="Search query..."
+                        style={{
+                          flex: 1,
+                          padding: '6px 8px',
+                          borderRadius: 4,
+                          border: '1px solid rgba(255,255,255,0.1)',
+                          background: 'rgba(0,0,0,0.2)',
+                          color: 'rgba(255,255,255,0.9)',
+                          fontSize: 11,
+                          outline: 'none',
+                        }}
+                      />
+                      <select
+                        value={query.category}
+                        onChange={(e) => {
+                          const newQueries = [...editQueries]
+                          newQueries[i].category = e.target.value
+                          setEditQueries(newQueries)
+                        }}
+                        style={{
+                          padding: '6px 8px',
+                          borderRadius: 4,
+                          border: '1px solid rgba(255,255,255,0.1)',
+                          background: 'rgba(0,0,0,0.2)',
+                          color: 'rgba(255,255,255,0.9)',
+                          fontSize: 11,
+                          outline: 'none',
+                          minWidth: 80,
+                        }}
+                      >
+                        <option value="openclaw">OpenClaw</option>
+                        <option value="freelance">Freelance</option>
+                        <option value="bounty">Bounty</option>
+                        <option value="edtech">EdTech</option>
+                        <option value="grants">Grants</option>
+                        <option value="custom">Custom</option>
+                      </select>
+                      <button
+                        onClick={() => {
+                          setEditQueries(editQueries.filter((_, idx) => idx !== i))
+                        }}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          width: 24,
+                          height: 24,
+                          borderRadius: 4,
+                          border: '1px solid rgba(255,69,58,0.3)',
+                          background: 'rgba(255,69,58,0.1)',
+                          color: '#FF453A',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        <Trash2 size={10} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {editQueries.length === 0 && (
+                <div style={{ textAlign: 'center', padding: '20px 0', color: 'rgba(255,255,255,0.45)' }}>
+                  <p style={{ fontSize: 12, marginBottom: 8 }}>No search queries configured</p>
+                  <p style={{ fontSize: 11 }}>Add queries to discover opportunities across the web</p>
+                </div>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Filter Tabs — horizontal scroll on mobile */}
         <div style={{ display: 'flex', gap: 6, overflowX: 'auto', WebkitOverflowScrolling: 'touch', paddingBottom: 4, msOverflowStyle: 'none', scrollbarWidth: 'none' }}>
@@ -340,7 +656,10 @@ export default function Scout() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.05 + i * 0.02 }}
                 className="macos-panel"
-                style={{ padding: m ? 14 : '18px 22px', opacity: opp.status === 'dismissed' ? 0.4 : 1 }}
+                style={{ 
+                  padding: m ? 14 : '18px 22px', 
+                  opacity: opp.status === 'dismissed' ? 0.4 : 1,
+                }}
               >
                 {/* Mobile: vertical layout */}
                 {m ? (
@@ -380,19 +699,25 @@ export default function Scout() {
                       {opp.summary}
                     </p>
                     {/* Actions — full width on mobile */}
-                    {opp.status === 'new' && (
-                      <div style={{ display: 'flex', gap: 8 }} onClick={(e) => e.stopPropagation()}>
+                    {(!opp.status || opp.status === 'new') && (
+                      <div style={{ display: 'flex', gap: 6 }} onClick={(e) => e.stopPropagation()}>
                         <button
-                          onClick={() => handleDeploy(opp.id)}
-                          style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '10px', borderRadius: 8, border: 'none', cursor: 'pointer', color: '#fff', background: '#007AFF', fontSize: 12, fontWeight: 600 }}
+                          onClick={() => handleDeploy(opp.id, false)}
+                          style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, padding: '8px', borderRadius: 8, border: 'none', cursor: 'pointer', color: '#fff', background: '#007AFF', fontSize: 11, fontWeight: 600 }}
                         >
-                          <Rocket size={13} /> Deploy
+                          <Rocket size={12} /> Deploy
+                        </button>
+                        <button
+                          onClick={() => handleDeploy(opp.id, true)}
+                          style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, padding: '8px', borderRadius: 8, border: 'none', cursor: 'pointer', color: '#fff', background: '#FF6B35', fontSize: 11, fontWeight: 600 }}
+                        >
+                          ⚡ Auto-Research
                         </button>
                         <button
                           onClick={() => handleDismiss(opp.id)}
-                          style={{ width: 40, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '10px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.06)', cursor: 'pointer', color: 'rgba(255,255,255,0.5)' }}
+                          style={{ width: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '8px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.06)', cursor: 'pointer', color: 'rgba(255,255,255,0.5)' }}
                         >
-                          <X size={14} />
+                          <X size={12} />
                         </button>
                       </div>
                     )}
@@ -439,10 +764,13 @@ export default function Scout() {
                       </div>
                     </div>
                     <div style={{ display: 'flex', gap: 8, flexShrink: 0 }} onClick={(e) => e.stopPropagation()}>
-                      {opp.status === 'new' && (
+                      {(!opp.status || opp.status === 'new') && (
                         <>
-                          <button onClick={() => handleDeploy(opp.id)} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 8, border: 'none', cursor: 'pointer', color: '#fff', background: '#007AFF', fontSize: 11 }}>
-                            <Rocket size={12} /> Deploy
+                          <button onClick={() => handleDeploy(opp.id, false)} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 10px', borderRadius: 8, border: 'none', cursor: 'pointer', color: '#fff', background: '#007AFF', fontSize: 10, fontWeight: 600 }}>
+                            <Rocket size={11} /> Deploy
+                          </button>
+                          <button onClick={() => handleDeploy(opp.id, true)} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 10px', borderRadius: 8, border: 'none', cursor: 'pointer', color: '#fff', background: '#FF6B35', fontSize: 10, fontWeight: 600 }}>
+                            ⚡ Auto-Research
                           </button>
                           <button onClick={() => handleDismiss(opp.id)} className="macos-button" style={{ display: 'flex', alignItems: 'center', padding: '6px 8px', borderRadius: 8, fontSize: 11, cursor: 'pointer' }}>
                             <X size={12} />

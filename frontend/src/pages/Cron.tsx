@@ -692,6 +692,44 @@ export default function Cron() {
             ))}
           </div>
 
+          {/* Empty state — link to Quick Start */}
+          {jobs.length === 0 && !loading && (
+            <GlassCard noPad>
+              <div style={{ padding: m ? 24 : 40, textAlign: 'center' }}>
+                <Clock size={40} style={{ color: 'rgba(255,255,255,0.15)', marginBottom: 16 }} />
+                <h3 style={{ fontSize: 16, fontWeight: 600, color: 'rgba(255,255,255,0.7)', marginBottom: 8 }}>
+                  No cron jobs yet
+                </h3>
+                <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.45)', marginBottom: 20, lineHeight: 1.5, maxWidth: 400, margin: '0 auto 20px' }}>
+                  Cron jobs run tasks automatically on a schedule. Get started quickly with pre-built automation recipes, or create a custom job.
+                </p>
+                <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
+                  <a
+                    href="/quick-start"
+                    style={{
+                      padding: '10px 20px', borderRadius: 8, border: 'none',
+                      background: '#FF9500', color: '#fff',
+                      fontSize: 13, fontWeight: 600, textDecoration: 'none',
+                      display: 'inline-flex', alignItems: 'center', gap: 6
+                    }}
+                  >
+                    ⚡ Automation Recipes
+                  </a>
+                  <button
+                    onClick={() => setShowCreateModal(true)}
+                    style={{
+                      padding: '10px 20px', borderRadius: 8, 
+                      border: '1px solid rgba(255,255,255,0.15)', background: 'transparent',
+                      color: 'rgba(255,255,255,0.7)', fontSize: 13, fontWeight: 600, cursor: 'pointer'
+                    }}
+                  >
+                    Create Custom Job
+                  </button>
+                </div>
+              </div>
+            </GlassCard>
+          )}
+
           {/* Jobs — card layout on mobile, table on desktop */}
           {m ? (
             /* MOBILE: Card list */
@@ -733,7 +771,7 @@ export default function Cron() {
                           <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.65)', margin: 0 }}>{job.lastRun ? timeAgo(job.lastRun) : '—'}</p>
                         </div>
                         <div>
-                          <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', fontWeight: 600, marginBottom: 2, margin: '0 0 2px' }}>Next Run</p>
+                          <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', fontWeight: 600, marginBottom: 2, margin: '0 0 2px' }}>Next Run (UTC)</p>
                           <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.65)', margin: 0 }}>{job.nextRun ? timeAgo(job.nextRun) : '—'}</p>
                         </div>
                       </div>
@@ -794,7 +832,7 @@ export default function Cron() {
             /* DESKTOP: Table */
             <GlassCard delay={0.2} hover={false} noPad>
               <div style={{ padding: '16px 24px', borderBottom: '1px solid rgba(255,255,255,0.08)', display: 'grid', gridTemplateColumns: '3fr 2fr 1fr 2fr 2fr 1fr 2fr', gap: 16 }}>
-                {['Name', 'Schedule', 'Status', 'Last Run', 'Next Run', 'Duration', 'Actions'].map((h) => (
+                {['Name', 'Schedule', 'Status', 'Last Run', 'Next Run (UTC)', 'Duration', 'Actions'].map((h) => (
                   <span key={h} style={{ color: 'rgba(255,255,255,0.45)', fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.15em' }}>{h}</span>
                 ))}
               </div>

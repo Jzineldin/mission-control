@@ -32,6 +32,7 @@ const GOALS = {
   primary: ['developer', 'development', 'programming', 'software', 'engineer'],
   secondary: ['ai', 'machine learning', 'automation', 'startup', 'innovation'],
   freelance: ['freelance', 'contract', 'remote', 'consultant', 'project'],
+  local: ['sweden', 'swedish', 'småland', 'kronoberg', 'växjö', 'jönköping', 'stockholm'],
   openclaw: ['openclaw', 'clawd', 'mission control', 'ai agent', 'skill', 'sub-agent', 'heartbeat', 'cron job', 'gateway'],
 };
 
@@ -113,6 +114,7 @@ async function braveSearch(query, count = MAX_RESULTS_PER_QUERY) {
   
   const data = await res.json();
   return (data.web?.results || []).map(r => ({
+    id: `scout-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`,
     title: r.title,
     url: r.url,
     description: r.description,
@@ -233,18 +235,39 @@ async function main() {
   const deduped = dedupe(allResults);
   const sorted = deduped.sort((a, b) => b.score - a.score).slice(0, MAX_TOTAL);
   
-  console.log(`\n📈 Found ${sorted.length} opportunities (${deduped.length} before limit)`);
+  console.log(`\n📈 Found ${sorted.length} new opportunities (${deduped.length} before limit)`);
   
-  // Write results
+  // Merge with existing results (preserve old opportunities, add new ones)
+  let existingOpps = [];
+  try {
+    const existing = JSON.parse(fs.readFileSync(RESULTS_FILE, 'utf8'));
+    existingOpps = existing.opportunities || [];
+    console.log(`📂 Merging with ${existingOpps.length} existing opportunities`);
+  } catch { /* No existing file — first scan */ }
+
+  // Build URL set from new results for dedup
+  const newUrls = new Set(sorted.map(o => o.url));
+  
+  // Keep old opportunities that aren't duplicates of new ones
+  // Also keep deployed/dismissed status from old entries
+  const preserved = existingOpps.filter(old => {
+    if (newUrls.has(old.url)) return false; // New version replaces old
+    return true; // Keep non-duplicate old results
+  });
+
+  // Merge: new results first, then preserved old ones
+  const merged = [...sorted, ...preserved];
+  
   const output = {
     generatedAt: new Date().toISOString(),
     totalQueries: QUERIES.length,
-    totalResults: sorted.length,
-    opportunities: sorted,
+    totalResults: merged.length,
+    newThisScan: sorted.length,
+    opportunities: merged,
   };
   
   fs.writeFileSync(RESULTS_FILE, JSON.stringify(output, null, 2));
-  console.log(`💾 Results saved to ${RESULTS_FILE}`);
+  console.log(`💾 Saved ${merged.length} total (${sorted.length} new + ${preserved.length} kept)`);
   
   // Show top 5
   console.log('\n🏆 Top opportunities:');

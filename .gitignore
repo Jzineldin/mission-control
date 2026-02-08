@@ -35,4 +35,8 @@ documents/
 
 # Temporary files
 *.tmp
-*.swp
+*.swp# Internal docs (not for public repo)
+AUDIT.md
+HUMAN-AUDIT.md
+ULTRATHINK*.md
+NEW-USER-AUDIT.md
