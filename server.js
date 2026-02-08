@@ -2999,28 +2999,67 @@ app.post('/api/quick/schedule', async (req, res) => {
 
 // POST /api/settings/model-routing
 app.post('/api/settings/model-routing', async (req, res) => {
-  // Write to OpenClaw config via gateway
   const { main, subagent, heartbeat } = req.body;
   try {
-    const raw = JSON.stringify({
-      agents: { defaults: { model: { primary: main } } },
-      agents_subagents_model: subagent,
-      heartbeat_model: heartbeat
+    // Build the config patch
+    const patch = {
+      agents: {
+        defaults: {
+          model: { primary: main },
+          subagents: { model: subagent },
+          heartbeat: { model: heartbeat }
+        }
+      }
+    };
+
+    // Apply via gateway config.patch API
+    const patchRes = await fetch(`http://127.0.0.1:${GATEWAY_PORT}/v1/config/patch`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${GATEWAY_TOKEN}` },
+      body: JSON.stringify({ raw: JSON.stringify(patch) }),
+      signal: AbortSignal.timeout(10000)
     });
-    // For now just save to mc-config.json
+
+    if (patchRes.ok) {
+      // Also save to mc-config for display
+      mcConfig.modelRouting = { main, subagent, heartbeat };
+      fs.writeFileSync(MC_CONFIG_PATH, JSON.stringify(mcConfig, null, 2));
+      res.json({ status: 'saved', applied: true, message: 'Model routing updated and gateway restarting' });
+    } else {
+      const err = await patchRes.text();
+      console.log('[Model routing] Gateway patch failed:', err);
+      // Fallback: save to mc-config only
+      mcConfig.modelRouting = { main, subagent, heartbeat };
+      fs.writeFileSync(MC_CONFIG_PATH, JSON.stringify(mcConfig, null, 2));
+      res.json({ status: 'saved', applied: false, message: 'Saved locally but gateway patch failed' });
+    }
+  } catch(e) {
+    console.log('[Model routing] Error:', e.message);
+    // Fallback: save locally
     mcConfig.modelRouting = { main, subagent, heartbeat };
     fs.writeFileSync(MC_CONFIG_PATH, JSON.stringify(mcConfig, null, 2));
-    res.json({ status: 'saved' });
-  } catch(e) { 
-    res.status(500).json({ error: e.message }); 
+    res.json({ status: 'saved', applied: false, error: e.message });
   }
 });
 
 // POST /api/settings/heartbeat
 app.post('/api/settings/heartbeat', async (req, res) => {
   try {
-    const { interval } = req.body;
-    mcConfig.heartbeat = { interval };
+    const { interval, model } = req.body;
+    
+    // If model provided, patch gateway config
+    if (model) {
+      try {
+        await fetch(`http://127.0.0.1:${GATEWAY_PORT}/v1/config/patch`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${GATEWAY_TOKEN}` },
+          body: JSON.stringify({ raw: JSON.stringify({ agents: { defaults: { heartbeat: { model } } } }) }),
+          signal: AbortSignal.timeout(10000)
+        });
+      } catch (e) { console.log('[Heartbeat] Gateway patch failed:', e.message); }
+    }
+
+    mcConfig.heartbeat = { interval, model };
     fs.writeFileSync(MC_CONFIG_PATH, JSON.stringify(mcConfig, null, 2));
     res.json({ status: 'saved' });
   } catch(e) {
