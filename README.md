@@ -10,6 +10,9 @@ A macOS-native-feel dashboard for monitoring and controlling your [OpenClaw](htt
 ### Scout Engine
 ![Scout Engine](screenshot-scout.png)
 
+### Chat with your Agent
+![Chat Widget](screenshot-chat.png)
+
 ## Features
 
 - **📊 Dashboard** — Agent status, quick actions, activity feed, token usage
