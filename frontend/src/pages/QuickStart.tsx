@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Zap, Mail, Calendar, DollarSign, Newspaper, Activity, BarChart3, 
@@ -82,6 +82,24 @@ export default function QuickStart() {
   const m = useIsMobile()
   const [enabledRecipes, setEnabledRecipes] = useState<Set<string>>(new Set())
   const [enablingId, setEnablingId] = useState<string | null>(null)
+
+  // Check which recipes are already enabled (match by cron job name)
+  useEffect(() => {
+    fetch('/api/cron')
+      .then(r => r.json())
+      .then(data => {
+        const jobs = data.jobs || []
+        const jobNames = new Set(jobs.filter((j: any) => j.enabled).map((j: any) => j.name))
+        const alreadyEnabled = new Set<string>()
+        for (const recipe of AUTOMATION_RECIPES) {
+          if (jobNames.has(recipe.name)) {
+            alreadyEnabled.add(recipe.id)
+          }
+        }
+        if (alreadyEnabled.size > 0) setEnabledRecipes(alreadyEnabled)
+      })
+      .catch(() => {})
+  }, [])
 
   const handleEnableRecipe = async (recipe: typeof AUTOMATION_RECIPES[0]) => {
     setEnablingId(recipe.id)
