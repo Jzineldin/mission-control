@@ -1624,9 +1624,27 @@ app.get('/api/skills', async (req, res) => {
     // Get installed skills from config
     if (config.skills && config.skills.entries) {
       for (const [name, skillConfig] of Object.entries(config.skills.entries)) {
+        // Try to read description from SKILL.md frontmatter
+        let description = skillConfig.description || '';
+        if (!description) {
+          const skillMdPaths = [
+            path.join(SKILLS_PATH, name, 'SKILL.md'),
+            skillConfig.path ? path.join(skillConfig.path, 'SKILL.md') : null,
+            path.join('/usr/lib/node_modules/openclaw/skills', name, 'SKILL.md'),
+          ].filter(Boolean);
+          for (const p of skillMdPaths) {
+            try {
+              if (fs.existsSync(p)) {
+                const content = fs.readFileSync(p, 'utf8');
+                const descMatch = content.match(/^description:\s*(.+)$/m);
+                if (descMatch) { description = descMatch[1].trim(); break; }
+              }
+            } catch {}
+          }
+        }
         installed.push({
           name,
-          description: skillConfig.description || 'No description',
+          description: description || 'No description',
           status: skillConfig.enabled !== false ? 'active' : 'inactive',
           installed: true,
           path: skillConfig.path,
@@ -1662,6 +1680,17 @@ app.get('/api/skills', async (req, res) => {
             skillInfo.description = skill.description || skillInfo.description;
             skillInfo.version = skill.version;
           }
+          // Also try SKILL.md frontmatter
+          const skillMdPath = path.join(skillPath, 'SKILL.md');
+          try {
+            if (fs.existsSync(skillMdPath)) {
+              const content = fs.readFileSync(skillMdPath, 'utf8');
+              const descMatch = content.match(/^description:\s*(.+)$/m);
+              if (descMatch && skillInfo.description === 'Workspace skill') {
+                skillInfo.description = descMatch[1].trim();
+              }
+            }
+          } catch {}
 
           available.push({
             ...skillInfo,
@@ -1686,9 +1715,18 @@ app.get('/api/skills', async (req, res) => {
         const isInstalled = installed.some(s => s.name === dir);
 
         if (!isInstalled) {
+          let description = 'System skill';
+          const skillMdPath = path.join(skillPath, 'SKILL.md');
+          try {
+            if (fs.existsSync(skillMdPath)) {
+              const content = fs.readFileSync(skillMdPath, 'utf8');
+              const descMatch = content.match(/^description:\s*(.+)$/m);
+              if (descMatch) description = descMatch[1].trim();
+            }
+          } catch {}
           available.push({
             name: dir,
-            description: 'System skill',
+            description,
             status: 'available',
             installed: false,
             path: skillPath,
