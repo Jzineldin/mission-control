@@ -7,6 +7,9 @@ A macOS-native-feel dashboard for monitoring and controlling your [OpenClaw](htt
 ### Cron Monitor
 ![Cron Monitor](screenshot-cron.png)
 
+### Workshop
+![Workshop](screenshot-workshop.png)
+
 ### Scout Engine
 ![Scout Engine](screenshot-scout.png)
 
