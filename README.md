@@ -196,6 +196,7 @@ If it's useful to you, consider:
 
 - 🏠 **[Tale Forge](https://tale-forge.app)** — AI storytelling for kids (our main project)
 - 💼 **[LinkedIn](https://www.linkedin.com/in/kevin-el-zarka/)** — Connect with the creator
+- 🐦 **[X / Twitter](https://x.com/KevinElzarka)** — Follow for updates
 - 🐙 **[GitHub](https://github.com/Jzineldin)** — More projects
 
 ---
