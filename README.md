@@ -188,6 +188,7 @@ If it's useful to you, consider:
 - ⭐ **Starring** this repo
 - 🐛 **Reporting bugs** or **suggesting features**
 - ☕ **[Buy me a coffee](https://ko-fi.com/kevinelzarka)** to keep development going
+- 📧 **Questions?** kevin.elzarka@gmail.com
 
 ---
 
