@@ -29,6 +29,7 @@ interface SetupStatus {
     channels: string[]
     agentName: string
     workspacePath: string
+    gatewayToken?: string
   }
 }
 
@@ -114,7 +115,7 @@ export default function Setup() {
   const handleSaveSetup = async () => {
     try {
       setLoading(true)
-      
+
       // Combine template queries with custom queries
       let allQueries = [...setupData.scout.queries]
       customQueries.forEach(q => {
@@ -122,15 +123,17 @@ export default function Setup() {
           allQueries.push({ q: q.trim(), category: 'custom', source: 'web', weight: 0.8 })
         }
       })
-      
+
       const payload = {
         ...setupData,
         scout: {
           ...setupData.scout,
           queries: allQueries
-        }
+        },
+        agentName: status?.detectedConfig?.agentName || '',
+        workspacePath: status?.detectedConfig?.workspacePath || '',
       }
-      
+
       const response = await fetch('/api/setup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -147,6 +150,21 @@ export default function Setup() {
     } finally {
       setLoading(false)
     }
+  }
+
+  // Quick Setup: apply all detected values and jump straight to the confirmation step
+  const handleQuickSetup = () => {
+    if (!status) return
+    const d = status.detectedConfig
+    setSetupData(prev => ({
+      ...prev,
+      dashboardName: d.agentName ? `${d.agentName} Control` : prev.dashboardName,
+      gateway: {
+        port: status.gatewayPort || prev.gateway.port,
+        token: d.gatewayToken || prev.gateway.token,
+      },
+    }))
+    setStep(4)
   }
 
   const addScoutTemplate = (templateKey: keyof typeof scoutTemplates) => {
@@ -333,12 +351,22 @@ export default function Setup() {
               </div>
             )}
 
-            <div style={{ textAlign: 'center' }}>
-              <button 
-                style={buttonStyle}
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+              {/* Quick Setup — only shown when gateway is running and config was detected */}
+              {status?.gatewayRunning && status?.detectedConfig?.agentName && (
+                <button
+                  style={{ ...buttonStyle, background: COLORS.green, width: '100%', justifyContent: 'center' }}
+                  onClick={handleQuickSetup}
+                >
+                  <Zap size={20} />
+                  Quick Setup — Use Detected Config
+                </button>
+              )}
+              <button
+                style={{ ...(status?.gatewayRunning && status?.detectedConfig?.agentName ? secondaryButtonStyle : buttonStyle), width: '100%', justifyContent: 'center' }}
                 onClick={() => setStep(2)}
               >
-                Let's Get Started
+                {status?.gatewayRunning && status?.detectedConfig?.agentName ? 'Manual Setup' : "Let's Get Started"}
                 <ArrowRight size={20} />
               </button>
             </div>

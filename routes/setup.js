@@ -80,12 +80,14 @@ router.get('/', async (req, res) => {
 
 router.post('/', async (req, res) => {
   try {
-    const { dashboardName, gateway, modules, scout } = req.body;
+    const { dashboardName, gateway, modules, scout, agentName, workspacePath } = req.body;
 
     if (dashboardName) {
       mcConfig.name = dashboardName;
       mcConfig.subtitle = dashboardName;
     }
+    if (agentName) mcConfig.agentName = agentName;
+    if (workspacePath) mcConfig.workspace = workspacePath;
     if (gateway && typeof gateway === 'object') {
       if (gateway.port) mcConfig.gateway.port = gateway.port;
       if (gateway.token) mcConfig.gateway.token = gateway.token;

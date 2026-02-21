@@ -10,6 +10,7 @@ import StatusBadge from '../components/StatusBadge'
 import { useApi, timeAgo } from '../lib/hooks'
 import { useIsMobile } from '../lib/useIsMobile'
 import { TEXT, COLORS, GLASS, accent } from '../lib/theme'
+import { useAgentName } from '../lib/AgentContext'
 
 interface Message {
   id: string
@@ -86,6 +87,7 @@ function modelShort(model: string): string {
 
 export default function Chat() {
   const m = useIsMobile()
+  const agentName = useAgentName()
   const { data: sessionsData } = useApi<any>('/api/sessions', 15000)
   const [activeSession, setActiveSession] = useState<string | null>(null)
   const [activeSessionName, setActiveSessionName] = useState('')
@@ -234,7 +236,7 @@ export default function Chat() {
 
   const openMainChat = () => {
     setActiveSession('main-chat')
-    setActiveSessionName('Zinbot')
+    setActiveSessionName(agentName)
     setMessages([])
     setHistoryMessages([])
   }
@@ -257,8 +259,14 @@ export default function Chat() {
     }
   }
 
+  const escapeHtml = (str: string) => str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+
   const renderContent = (text: string) => {
-    return text
+    return escapeHtml(text)
       .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
       .replace(/`([^`]+)`/g, '<code style="background:rgba(255,255,255,0.08);padding:2px 6px;border-radius:4px;font-size:12px;">$1</code>')
       .replace(/\n/g, '<br/>')
@@ -357,7 +365,7 @@ export default function Chat() {
             </button>
             <Sparkles size={18} style={{ color: COLORS.blue }} />
             <div style={{ flex: 1 }}>
-              <h2 style={{ fontSize: 15, fontWeight: 600, color: TEXT.primary }}>Chat with Zinbot</h2>
+              <h2 style={{ fontSize: 15, fontWeight: 600, color: TEXT.primary }}>Chat with {agentName}</h2>
               <p style={{ fontSize: 11, color: TEXT.tertiary }}>Full memory & tools</p>
             </div>
             {messages.length > 0 && (
@@ -386,7 +394,7 @@ export default function Chat() {
                         </div>
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-                            <span style={{ fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.85)' }}>{msg.role === 'assistant' ? 'Zinbot' : 'You'}</span>
+                            <span style={{ fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.85)' }}>{msg.role === 'assistant' ? agentName : 'You'}</span>
                             {msg.streaming && <Loader2 size={10} style={{ color: COLORS.blue, animation: 'spin 1s linear infinite' }} />}
                           </div>
                           <div style={{ fontSize: 13, lineHeight: 1.6, color: 'rgba(255,255,255,0.82)', wordBreak: 'break-word' }} dangerouslySetInnerHTML={{ __html: renderContent(msg.content || '...') }} />
@@ -406,7 +414,7 @@ export default function Chat() {
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
-                  placeholder="Message Zinbot..."
+                  placeholder={`Message ${agentName}...`}
                   disabled={isStreaming}
                   rows={1}
                   autoFocus

@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { MessageCircle, X, Send, Bot, User, Loader2, Minimize2 } from 'lucide-react'
 import { useIsMobile } from '../lib/useIsMobile'
+import { useAgentName } from '../lib/AgentContext'
 
 interface Message {
   id: string
@@ -15,6 +16,7 @@ const uuid = () => 'xxxx-xxxx-xxxx'.replace(/x/g, () => Math.floor(Math.random()
 
 export default function ChatWidget() {
   const m = useIsMobile()
+  const agentName = useAgentName()
   const [open, setOpen] = useState(false)
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
@@ -119,8 +121,14 @@ export default function ChatWidget() {
     }
   }
 
+  const escapeHtml = (str: string) => str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+
   const renderContent = (text: string) => {
-    return text
+    return escapeHtml(text)
       .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
       .replace(/`([^`]+)`/g, '<code style="background:rgba(255,255,255,0.08);padding:1px 4px;border-radius:3px;font-size:11px;">$1</code>')
       .replace(/\n/g, '<br/>')
@@ -216,7 +224,7 @@ export default function ChatWidget() {
                   <Bot size={16} style={{ color: '#007AFF' }} />
                 </div>
                 <div>
-                  <h3 style={{ fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.92)' }}>Zinbot</h3>
+                  <h3 style={{ fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.92)' }}>{agentName}</h3>
                   <p style={{ fontSize: 10, color: '#32D74B' }}>Online</p>
                 </div>
               </div>
@@ -249,7 +257,7 @@ export default function ChatWidget() {
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 3 }}>
-                          <span style={{ fontSize: 10, fontWeight: 600, color: 'rgba(255,255,255,0.75)' }}>{msg.role === 'assistant' ? 'Zinbot' : 'You'}</span>
+                          <span style={{ fontSize: 10, fontWeight: 600, color: 'rgba(255,255,255,0.75)' }}>{msg.role === 'assistant' ? agentName : 'You'}</span>
                           {msg.streaming && <Loader2 size={9} style={{ color: '#007AFF', animation: 'spin 1s linear infinite' }} />}
                         </div>
                         <div style={{ fontSize: 12.5, lineHeight: 1.5, color: 'rgba(255,255,255,0.78)', wordBreak: 'break-word' }} dangerouslySetInnerHTML={{ __html: renderContent(msg.content || '...') }} />

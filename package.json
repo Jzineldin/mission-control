@@ -7,8 +7,10 @@
   "license": "BSL-1.1",
   "keywords": ["openclaw", "dashboard", "ai", "agent", "mission-control"],
   "scripts": {
-    "start": "node server.js",
-    "build": "cd frontend && npm run build"
+    "start": "node scripts/ensure-build.js && node server.js",
+    "build": "cd frontend && npm run build",
+    "postinstall": "cd frontend && npm install",
+    "setup": "node scripts/auto-setup.js"
   },
   "engines": {
     "node": ">=18"

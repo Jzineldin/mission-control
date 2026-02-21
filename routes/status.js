@@ -53,7 +53,8 @@ async function refreshStatusCache() {
 
     let heartbeat = { lastHeartbeat: null, lastChecks: {} };
     try {
-      heartbeat = JSON.parse(fs.readFileSync(path.join(MEMORY_PATH, 'heartbeat-state.json'), 'utf8'));
+      const raw = await fs.promises.readFile(path.join(MEMORY_PATH, 'heartbeat-state.json'), 'utf8');
+      heartbeat = JSON.parse(raw);
     } catch {
       // use default heartbeat object
     }
@@ -81,7 +82,8 @@ router.get('/', async (req, res) => {
     // Always read heartbeat state fresh from disk (cheap operation)
     let hb = cachedHb || {};
     try {
-      hb = JSON.parse(fs.readFileSync(path.join(MEMORY_PATH, 'heartbeat-state.json'), 'utf8'));
+      const raw = await fs.promises.readFile(path.join(MEMORY_PATH, 'heartbeat-state.json'), 'utf8');
+      hb = JSON.parse(raw);
     } catch {
       // use cached value
     }

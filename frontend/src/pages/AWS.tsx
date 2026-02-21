@@ -6,6 +6,7 @@ import { useIsMobile } from '../lib/useIsMobile'
 import GlassCard from '../components/GlassCard'
 import { useApi } from '../lib/hooks'
 import { TEXT, COLORS, GLASS, accent } from '../lib/theme'
+import { useAgentName } from '../lib/AgentContext'
 
 interface AWSService {
   name: string
@@ -67,6 +68,7 @@ function getModelAction(m: BedrockModel): { label: string; type: 'agent' | 'imag
 
 export default function AWS() {
   const isMobile = useIsMobile()
+  const agentName = useAgentName()
   const { data: awsData, loading: awsLoading } = useApi<AWSData>('/api/aws/services', 60000)
   const { data: modelsData, loading: modelsLoading } = useApi<BedrockModel[]>('/api/aws/bedrock-models', 120000)
   const { data: costData } = useApi<any>('/api/aws/costs', 60000)
@@ -491,7 +493,7 @@ export default function AWS() {
                     {action.type === 'agent' && (
                       <div>
                         <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', marginBottom: 12 }}>
-                          Switch Zinbot's active model to this. Takes effect on next message.
+                          Switch {agentName}'s active model to this. Takes effect on next message.
                         </p>
                         <button
                           onClick={() => handleSetAgentModel(selectedModel.modelId)}

@@ -69,7 +69,9 @@ router.get('/', async (req, res) => {
 
 router.get('/:sessionKey/history', async (req, res) => {
   try {
-    const sessionKey = decodeURIComponent(req.params.sessionKey);
+    let sessionKey;
+    try { sessionKey = decodeURIComponent(req.params.sessionKey); }
+    catch { return res.status(400).json({ error: 'Invalid session key encoding' }); }
     const cfg = await readJSON(path.join(OPENCLAW_DIR, 'openclaw.json'), {});
     const gwToken = cfg.gateway?.auth?.token || process.env.MC_GATEWAY_TOKEN || GATEWAY_TOKEN;
     const gwPort = cfg.gateway?.port || GATEWAY_PORT;
@@ -118,7 +120,9 @@ router.get('/:sessionKey/history', async (req, res) => {
 
 router.post('/:sessionKey/send', async (req, res) => {
   try {
-    const sessionKey = decodeURIComponent(req.params.sessionKey);
+    let sessionKey;
+    try { sessionKey = decodeURIComponent(req.params.sessionKey); }
+    catch { return res.status(400).json({ error: 'Invalid session key encoding' }); }
     const { message } = req.body;
     if (!message) return res.status(400).json({ error: 'message required' });
 
@@ -197,7 +201,9 @@ router.post('/:sessionKey/send', async (req, res) => {
 // ── DELETE /api/sessions/:key/close ──────────────────────────────────────────
 
 router.delete('/:key/close', async (req, res) => {
-  const key = decodeURIComponent(req.params.key);
+  let key;
+  try { key = decodeURIComponent(req.params.key); }
+  catch { return res.status(400).json({ error: 'Invalid key encoding' }); }
   if (!hiddenSessions.includes(key)) {
     hiddenSessions.push(key);
     await writeJSON(HIDDEN_SESSIONS_FILE, hiddenSessions);

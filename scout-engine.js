@@ -1,10 +1,12 @@
 #!/usr/bin/env node
 /**
- * Scout Engine — Searches for opportunities matching Kevin's goals
+ * Scout Engine — Searches for opportunities using configurable goals
  * Uses Brave Search API to find leads across Twitter, LinkedIn, Reddit
- * 
+ *
  * Usage: node scout-engine.js [--dry-run]
  * Output: writes to scout-results.json
+ *
+ * Customise goals via mc-config.json: { "scout": { "goals": { ... } } }
  */
 
 const fs = require('fs');
@@ -27,14 +29,34 @@ const RESULTS_FILE = path.join(__dirname, 'scout-results.json');
 const MAX_RESULTS_PER_QUERY = 5;
 const MAX_TOTAL = 50;
 
-// Kevin's goals and skills for scoring
-const GOALS = {
-  primary: ['website', 'webbutveckling', 'hemsida', 'webbdesign', 'web developer', 'react developer'],
-  secondary: ['edtech', 'ai storytelling', 'children education', 'empathy', 'startup funding', 'swedish grant'],
-  freelance: ['freelance developer', 'react job', 'supabase', 'typescript developer', 'nextjs developer'],
-  local: ['småland', 'kronoberg', 'växjö', 'åseda', 'alvesta', 'lenhovda'],
-  openclaw: ['openclaw', 'clawd', 'mission control', 'ai agent', 'skill', 'sub-agent', 'heartbeat', 'cron job', 'gateway'],
+// Generic default goals — no personal data. Override via mc-config.json scout.goals
+const DEFAULT_GOALS = {
+  primary:   ['website', 'web developer', 'web development', 'react developer', 'frontend developer'],
+  secondary: ['edtech', 'ai', 'startup', 'education', 'automation'],
+  freelance: ['freelance developer', 'react job', 'typescript developer', 'nextjs developer', 'fullstack'],
+  local:     [], // Populate via mc-config.json to boost results from your region
+  openclaw:  ['openclaw', 'clawd', 'mission control', 'ai agent', 'skill', 'sub-agent', 'heartbeat', 'cron job', 'gateway'],
 };
+
+// Load goals from mc-config.json scout.goals, fallback to defaults
+function loadGoals() {
+  try {
+    const configPath = path.join(__dirname, 'mc-config.json');
+    if (fs.existsSync(configPath)) {
+      const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+      if (config.scout?.goals && typeof config.scout.goals === 'object') {
+        console.log('📎 Loaded custom goals from mc-config.json');
+        return { ...DEFAULT_GOALS, ...config.scout.goals };
+      }
+    }
+  } catch (e) {
+    console.warn('⚠️  Could not load goals from mc-config.json, using defaults:', e.message);
+  }
+  return DEFAULT_GOALS;
+}
+
+// Load on startup
+const GOALS = loadGoals();
 
 // Default queries (fallback)
 const DEFAULT_QUERIES = [
@@ -259,4 +281,4 @@ if (require.main === module) {
   main().catch(console.error);
 }
 
-module.exports = { loadQueries, scoreOpportunity, GOALS };
+module.exports = { loadQueries, loadGoals, scoreOpportunity, DEFAULT_GOALS };

@@ -2,11 +2,12 @@
 const fs = require('fs');
 const path = require('path');
 const { promisify } = require('util');
-const { exec } = require('child_process');
+const { exec, execFile } = require('child_process');
 const express = require('express');
 const { S3_BUCKET, S3_REGION, S3_PREFIX } = require('../lib/config');
 
 const execPromise = promisify(exec);
+const execFilePromise = promisify(execFile);
 const router = express.Router();
 
 // ── GET /api/aws/services ─────────────────────────────────────────────────────
@@ -81,6 +82,9 @@ router.post('/generate-image', async (req, res) => {
   try {
     const { modelId, prompt } = req.body;
     if (!prompt) return res.status(400).json({ error: 'prompt required' });
+    if (!modelId || !/^[a-zA-Z0-9._:-]+$/.test(modelId)) {
+      return res.status(400).json({ error: 'Invalid model ID' });
+    }
 
     const timestamp = Date.now();
     let payload;
@@ -100,10 +104,14 @@ router.post('/generate-image', async (req, res) => {
     const payloadB64 = Buffer.from(JSON.stringify(payload)).toString('base64');
     const outFile = `/tmp/mc-image-${timestamp}.json`;
 
-    await execPromise(
-      `aws bedrock-runtime invoke-model --model-id "${modelId}" --content-type "application/json" --accept "application/json" --body "${payloadB64}" ${outFile}`,
-      { timeout: 60000 }
-    );
+    await execFilePromise('aws', [
+      'bedrock-runtime', 'invoke-model',
+      '--model-id', modelId,
+      '--content-type', 'application/json',
+      '--accept', 'application/json',
+      '--body', payloadB64,
+      outFile,
+    ], { timeout: 60000 });
 
     const result = JSON.parse(fs.readFileSync(outFile, 'utf8'));
     const imageB64 = result.images?.[0] || result.image;
@@ -187,10 +195,15 @@ router.get('/gallery', async (req, res) => {
 
 router.get('/s3-image/:key(*)', async (req, res) => {
   try {
-    const key = decodeURIComponent(req.params.key);
+    let key;
+    try { key = decodeURIComponent(req.params.key); }
+    catch { return res.status(400).json({ error: 'Invalid key encoding' }); }
+    if (!/^[a-zA-Z0-9/_.-]+$/.test(key)) {
+      return res.status(400).json({ error: 'Invalid S3 key format' });
+    }
     const localCache = `/tmp/s3-cache-${key.replace(/\//g, '_')}`;
     if (!fs.existsSync(localCache)) {
-      await execPromise(`aws s3 cp "s3://${S3_BUCKET}/${key}" "${localCache}"`, { timeout: 15000 });
+      await execFilePromise('aws', ['s3', 'cp', `s3://${S3_BUCKET}/${key}`, localCache], { timeout: 15000 });
     }
     res.type('png').sendFile(localCache);
   } catch (error) {

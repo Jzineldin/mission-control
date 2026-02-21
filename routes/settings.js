@@ -72,10 +72,19 @@ router.post('/heartbeat', async (req, res) => {
 
 // ── GET /api/settings/export ──────────────────────────────────────────────────
 
-router.get('/export', (req, res) => {
-  res.setHeader('Content-Disposition', 'attachment; filename=mc-config.json');
-  res.setHeader('Content-Type', 'application/json');
-  res.sendFile(MC_CONFIG_PATH);
+router.get('/export', async (req, res) => {
+  try {
+    const config = await readJSON(MC_CONFIG_PATH, {});
+    const safe = JSON.parse(JSON.stringify(config));
+    if (safe.gateway) delete safe.gateway.token;
+    if (safe.notion) delete safe.notion.token;
+    if (safe.scout) delete safe.scout.braveApiKey;
+    res.setHeader('Content-Disposition', 'attachment; filename=mc-config.json');
+    res.json(safe);
+  } catch (e) {
+    console.error('[Settings export]', e.message);
+    res.status(500).json({ error: 'Export failed' });
+  }
 });
 
 // ── POST /api/settings/import ─────────────────────────────────────────────────

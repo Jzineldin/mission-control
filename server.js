@@ -32,7 +32,8 @@ const quickActionsRouter = require('./routes/quickactions');
 
 // ── Express app ───────────────────────────────────────────────────────────────
 const app = express();
-const PORT = 3333;
+const PORT = parseInt(process.env.PORT || '3333', 10);
+const BIND_HOST = process.env.BIND_HOST || '127.0.0.1';
 
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'frontend/dist')));
@@ -64,7 +65,7 @@ app.get('*', (req, res) => {
 });
 
 // ── Server startup ────────────────────────────────────────────────────────────
-app.listen(PORT, '0.0.0.0', async () => {
+app.listen(PORT, BIND_HOST, async () => {
   console.log(`Mission Control running at http://localhost:${PORT}`);
 
   // Recover stuck inProgress tasks from the previous run

@@ -6,6 +6,7 @@ import PageTransition from '../components/PageTransition'
 import { useApi, timeAgo } from '../lib/hooks'
 import { useIsMobile } from '../lib/useIsMobile'
 import { TEXT, COLORS, GLASS, accent } from '../lib/theme'
+import { useAgentName } from '../lib/AgentContext'
 
 const priorityConfig: Record<string, { color: string; label: string }> = {
   high: { color: COLORS.red, label: 'High' },
@@ -37,6 +38,7 @@ interface Task {
 
 export default function Workshop() {
   const m = useIsMobile()
+  const agentName = useAgentName()
   const { data, loading, refetch } = useApi<any>('/api/tasks', 5000)
   const [showAddModal, setShowAddModal] = useState(false)
   const [viewTask, setViewTask] = useState<Task | null>(null)
@@ -99,7 +101,7 @@ export default function Workshop() {
     } catch {}
   }
 
-  const discussWithZinbot = (task: Task) => {
+  const discussWithAgent = (task: Task) => {
     const reportSnippet = task.result ? task.result.substring(0, 500) : task.description
     const message = `Regarding the task "${task.title}":\n\n${reportSnippet}\n\nWhat should we do with this?`
     window.dispatchEvent(new CustomEvent('open-chat', { detail: { message } }))
@@ -180,17 +182,17 @@ export default function Workshop() {
 
           {/* Action buttons */}
           <div style={{ display: 'flex', gap: 10, flexDirection: m ? 'column' : 'row' }}>
-            {/* Discuss with Zinbot — the primary action */}
+            {/* Discuss with agent — the primary action */}
             {viewTask.result && (
               <button
-                onClick={() => discussWithZinbot(viewTask)}
+                onClick={() => discussWithAgent(viewTask)}
                 style={{
                   flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
                   padding: '12px 20px', borderRadius: 10, border: 'none', cursor: 'pointer',
                   background: COLORS.blue, color: '#fff', fontSize: 13, fontWeight: 600,
                 }}
               >
-                <MessageSquare size={15} /> Discuss with Zinbot
+                <MessageSquare size={15} /> Discuss with {agentName}
               </button>
             )}
 
@@ -402,7 +404,7 @@ export default function Workshop() {
                           {/* Discuss for done tasks */}
                           {col === 'done' && task.result && (
                             <button
-                              onClick={(e) => { e.stopPropagation(); discussWithZinbot(task); }}
+                              onClick={(e) => { e.stopPropagation(); discussWithAgent(task); }}
                               style={{
                                 display: 'flex', alignItems: 'center', gap: 4,
                                 padding: '5px 10px', borderRadius: 7,

@@ -1,6 +1,7 @@
 import { Routes, Route, useLocation, useNavigate } from 'react-router-dom'
 import { AnimatePresence } from 'framer-motion'
 import { useState, useEffect } from 'react'
+import { AgentProvider } from './lib/AgentContext'
 import { Menu, X } from 'lucide-react'
 import { useIsMobile } from './lib/useIsMobile'
 import Sidebar from './components/Sidebar'
@@ -45,6 +46,7 @@ export default function App() {
   const closeSidebar = () => setSidebarOpen(false)
 
   return (
+    <AgentProvider>
     <div className="macos-desktop" style={{ display: 'flex', height: '100vh', overflow: 'hidden', maxWidth: '100vw' }}>
       {/* Mobile hamburger button — fixed top-left (hidden on setup) */}
       {isMobile && !isSetupPage && (
@@ -121,5 +123,6 @@ export default function App() {
       {/* Global chat widget — hidden on pages with built-in chat (mobile) and setup page */}
       {!hideChatWidget && !isSetupPage && <ChatWidget />}
     </div>
+    </AgentProvider>
   )
 }

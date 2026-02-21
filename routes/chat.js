@@ -1,65 +1,57 @@
 'use strict';
 const express = require('express');
-const { GATEWAY_URL, GATEWAY_TOKEN } = require('../lib/config');
+const { GATEWAY_PORT, GATEWAY_TOKEN } = require('../lib/config');
 
 const router = express.Router();
 
-// POST /api/chat — proxy to OpenClaw gateway (streaming SSE)
+router.get('/', (req, res) => res.json({ status: 'ok', hint: 'POST messages to chat' }));
+router.options('/', (req, res) => res.sendStatus(204));
+
+// POST /api/chat — try multiple methods to reach the agent
 router.post('/', async (req, res) => {
-  const { messages, stream } = req.body;
+  const { messages } = req.body;
+  const lastUserMsg = [...(messages || [])].reverse().find(m => m.role === 'user');
+  if (!lastUserMsg) return res.status(400).json({ error: 'No user message' });
 
-  const payload = JSON.stringify({
-    model: 'openclaw',
-    messages: messages || [],
-    stream: !!stream,
-    user: 'mission-control',
-  });
+  console.log('[Chat] Message:', lastUserMsg.content.substring(0, 80));
 
-  console.log('[Chat proxy] Sending to gateway, payload length:', Buffer.byteLength(payload));
+  const gwUrl = `http://127.0.0.1:${GATEWAY_PORT}`;
+  const headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${GATEWAY_TOKEN}` };
 
+  // Method 1: Try sessions_send via tools/invoke
   try {
-    const gwRes = await fetch(`${GATEWAY_URL}/v1/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${GATEWAY_TOKEN}`,
-      },
-      body: payload,
-      signal: AbortSignal.timeout(120000),
+    const r = await fetch(`${gwUrl}/tools/invoke`, {
+      method: 'POST', headers,
+      body: JSON.stringify({ tool: 'sessions_send', args: { sessionKey: 'agent:main:main', message: lastUserMsg.content, timeoutSeconds: 60 } }),
+      signal: AbortSignal.timeout(65000),
     });
-
-    if (stream) {
-      res.writeHead(gwRes.status, {
-        'Content-Type': 'text/event-stream',
-        'Cache-Control': 'no-cache',
-        'Connection': 'keep-alive',
-        'X-Accel-Buffering': 'no',
-      });
-
-      const reader = gwRes.body.getReader();
-      const pump = async () => {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) { res.end(); break; }
-          res.write(value);
-        }
-      };
-      pump().catch(err => {
-        console.error('[Chat proxy] Stream error:', err.message);
-        res.end();
-      });
-      req.on('close', () => { reader.cancel(); });
-    } else {
-      const data = await gwRes.text();
-      console.log('[Chat proxy] Gateway responded:', gwRes.status, data.substring(0, 100));
-      res.status(gwRes.status).send(data);
+    const data = await r.json();
+    if (data?.ok) {
+      const text = data?.result?.content?.[0]?.text || data?.result?.details?.reply || JSON.stringify(data.result);
+      return res.json({ choices: [{ message: { role: 'assistant', content: text }, finish_reason: 'stop' }] });
     }
-  } catch (err) {
-    console.error('[Chat proxy] Fetch error:', err.message);
-    if (!res.headersSent) {
-      res.status(502).json({ error: `Gateway error: ${err.message}` });
+  } catch (e) { console.warn('[Chat] sessions_send failed:', e.message); }
+
+  // Method 2: Try v1/chat/completions
+  try {
+    const r = await fetch(`${gwUrl}/v1/chat/completions`, {
+      method: 'POST', headers,
+      body: JSON.stringify({ messages: messages || [], model: 'default' }),
+      signal: AbortSignal.timeout(65000),
+    });
+    if (r.ok) {
+      const data = await r.json();
+      return res.json(data);
     }
-  }
+  } catch (e) { console.warn('[Chat] v1/chat failed:', e.message); }
+
+  // Fallback: explain the situation
+  res.json({
+    choices: [{
+      message: { role: 'assistant', content: '⚠️ Chat is not connected yet. The OpenClaw gateway doesn\'t expose chat tools via HTTP.\n\nYou can talk to me via **Discord** or the **terminal** instead. We\'re working on enabling direct chat in Mission Control!' },
+      finish_reason: 'stop',
+    }],
+  });
 });
 
 module.exports = router;

@@ -39,9 +39,14 @@ router.post('/upload', upload.array('files', 20), async (req, res) => {
   try {
     const uploaded = [];
     for (const file of (req.files || [])) {
-      const dest = path.join(DOCS_DIR, file.originalname);
+      const safeName = path.basename(file.originalname);
+      if (!safeName || safeName.startsWith('.')) {
+        await fs.promises.unlink(file.path).catch(() => {});
+        continue;
+      }
+      const dest = path.join(DOCS_DIR, safeName);
       await fs.promises.rename(file.path, dest);
-      uploaded.push(file.originalname);
+      uploaded.push(safeName);
     }
     res.json({ ok: true, uploaded });
   } catch (err) {
