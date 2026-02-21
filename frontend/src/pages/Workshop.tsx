@@ -5,17 +5,18 @@ import { Plus, Clock, Zap, CheckCircle, Play, X, AlertCircle, Loader2, ArrowLeft
 import PageTransition from '../components/PageTransition'
 import { useApi, timeAgo } from '../lib/hooks'
 import { useIsMobile } from '../lib/useIsMobile'
+import { TEXT, COLORS, GLASS, accent } from '../lib/theme'
 
 const priorityConfig: Record<string, { color: string; label: string }> = {
-  high: { color: '#FF453A', label: 'High' },
-  medium: { color: '#FF9500', label: 'Medium' },
-  low: { color: '#007AFF', label: 'Low' },
+  high: { color: COLORS.red, label: 'High' },
+  medium: { color: COLORS.orange, label: 'Medium' },
+  low: { color: COLORS.blue, label: 'Low' },
 }
 
 const columnConfig: Record<string, { title: string; color: string; icon: any }> = {
-  queue: { title: 'Queue', color: '#8E8E93', icon: Clock },
-  inProgress: { title: 'In Progress', color: '#007AFF', icon: Zap },
-  done: { title: 'Done', color: '#32D74B', icon: CheckCircle },
+  queue: { title: 'Queue', color: COLORS.gray, icon: Clock },
+  inProgress: { title: 'In Progress', color: COLORS.blue, icon: Zap },
+  done: { title: 'Done', color: COLORS.green, icon: CheckCircle },
 }
 
 interface Task {
@@ -114,21 +115,21 @@ export default function Workshop() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <button
               onClick={() => setViewTask(null)}
-              style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: 8, cursor: 'pointer', display: 'flex', color: 'rgba(255,255,255,0.7)' }}
+              style={{ background: GLASS.divider, border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: 8, cursor: 'pointer', display: 'flex', color: 'rgba(255,255,255,0.7)' }}
             >
               <ArrowLeft size={18} />
             </button>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <h2 style={{ fontSize: m ? 15 : 17, fontWeight: 600, color: 'rgba(255,255,255,0.92)' }}>
+              <h2 style={{ fontSize: m ? 15 : 17, fontWeight: 600, color: TEXT.primary }}>
                 {viewTask.title}
               </h2>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
-                <span style={{ width: 7, height: 7, borderRadius: '50%', background: priorityConfig[viewTask.priority]?.color || '#8E8E93' }} />
-                <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)' }}>
+                <span style={{ width: 7, height: 7, borderRadius: '50%', background: priorityConfig[viewTask.priority]?.color || COLORS.gray }} />
+                <span style={{ fontSize: 11, color: TEXT.tertiary }}>
                   {isExecuting ? 'Sub-agent working...' : viewTask.status === 'done' ? `Completed ${viewTask.completed ? timeAgo(viewTask.completed) : ''}` : 'Queued'}
                 </span>
                 {viewTask.tags?.map(tag => (
-                  <span key={tag} style={{ fontSize: 10, padding: '1px 7px', borderRadius: 5, background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.4)' }}>{tag}</span>
+                  <span key={tag} style={{ fontSize: 10, padding: '1px 7px', borderRadius: 5, background: GLASS.divider, color: 'rgba(255,255,255,0.4)' }}>{tag}</span>
                 ))}
               </div>
             </div>
@@ -137,8 +138,8 @@ export default function Workshop() {
           {/* Description */}
           {viewTask.description && (
             <div className="macos-panel" style={{ padding: m ? 14 : 20 }}>
-              <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginBottom: 6 }}>Task Description</p>
-              <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.65)', lineHeight: 1.6 }}>{viewTask.description}</p>
+              <p style={{ fontSize: 11, color: TEXT.dim, marginBottom: 6 }}>Task Description</p>
+              <p style={{ fontSize: 13, color: TEXT.secondary, lineHeight: 1.6 }}>{viewTask.description}</p>
             </div>
           )}
 
@@ -146,9 +147,9 @@ export default function Workshop() {
           {isExecuting && (
             <div className="macos-panel" style={{ padding: m ? 14 : 20 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <Loader2 size={18} style={{ color: '#007AFF', animation: 'spin 1s linear infinite' }} />
+                <Loader2 size={18} style={{ color: COLORS.blue, animation: 'spin 1s linear infinite' }} />
                 <div>
-                  <p style={{ fontSize: 13, fontWeight: 500, color: '#007AFF' }}>Sub-agent is working...</p>
+                  <p style={{ fontSize: 13, fontWeight: 500, color: COLORS.blue }}>Sub-agent is working...</p>
                   <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginTop: 2 }}>Results will appear here when done. This page auto-refreshes.</p>
                 </div>
               </div>
@@ -171,8 +172,8 @@ export default function Workshop() {
           {viewTask.error && (
             <div className="macos-panel" style={{ padding: m ? 14 : 20, borderLeft: '3px solid #FF453A' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <AlertCircle size={16} style={{ color: '#FF453A' }} />
-                <p style={{ fontSize: 13, color: '#FF453A' }}>{viewTask.error}</p>
+                <AlertCircle size={16} style={{ color: COLORS.red }} />
+                <p style={{ fontSize: 13, color: COLORS.red }}>{viewTask.error}</p>
               </div>
             </div>
           )}
@@ -186,7 +187,7 @@ export default function Workshop() {
                 style={{
                   flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
                   padding: '12px 20px', borderRadius: 10, border: 'none', cursor: 'pointer',
-                  background: '#007AFF', color: '#fff', fontSize: 13, fontWeight: 600,
+                  background: COLORS.blue, color: '#fff', fontSize: 13, fontWeight: 600,
                 }}
               >
                 <MessageSquare size={15} /> Discuss with Zinbot
@@ -201,7 +202,7 @@ export default function Workshop() {
                 style={{
                   flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
                   padding: '12px 20px', borderRadius: 10, border: 'none', cursor: 'pointer',
-                  background: '#007AFF', color: '#fff', fontSize: 13, fontWeight: 600,
+                  background: COLORS.blue, color: '#fff', fontSize: 13, fontWeight: 600,
                 }}
               >
                 <Play size={15} /> Execute Task
@@ -215,7 +216,7 @@ export default function Workshop() {
                 style={{
                   display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
                   padding: '12px 20px', borderRadius: 10, cursor: 'pointer',
-                  background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)',
+                  background: GLASS.divider, border: '1px solid rgba(255,255,255,0.1)',
                   color: 'rgba(255,255,255,0.7)', fontSize: 13, fontWeight: 500,
                 }}
               >
@@ -235,7 +236,7 @@ export default function Workshop() {
             style={{
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
               padding: '8px 16px', borderRadius: 8, border: '1px solid rgba(255,69,58,0.3)',
-              background: 'rgba(255,69,58,0.1)', color: '#FF453A', fontSize: 12, cursor: 'pointer',
+              background: 'rgba(255,69,58,0.1)', color: COLORS.red, fontSize: 12, cursor: 'pointer',
               marginTop: 8, width: m ? '100%' : 'auto', alignSelf: 'flex-start',
             }}
           >
@@ -262,7 +263,7 @@ export default function Workshop() {
               display: 'flex', alignItems: 'center', gap: 8,
               padding: m ? '10px 16px' : '10px 20px',
               borderRadius: 10, border: 'none', cursor: 'pointer',
-              background: '#007AFF', color: '#fff',
+              background: COLORS.blue, color: '#fff',
               fontSize: 13, fontWeight: 600,
               width: m ? '100%' : undefined,
               justifyContent: m ? 'center' : undefined,
@@ -283,14 +284,14 @@ export default function Workshop() {
                 {/* Column Header */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14, paddingLeft: 4 }}>
                   <Icon size={15} style={{ color: config.color }} />
-                  <h3 style={{ fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.92)' }}>{config.title}</h3>
-                  <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 6, background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.5)' }}>{tasks.length}</span>
+                  <h3 style={{ fontSize: 13, fontWeight: 600, color: TEXT.primary }}>{config.title}</h3>
+                  <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 6, background: GLASS.border, color: 'rgba(255,255,255,0.5)' }}>{tasks.length}</span>
                 </div>
 
                 {/* Cards */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                   {tasks.length === 0 && (
-                    <div style={{ padding: '24px 16px', textAlign: 'center', border: '1px dashed rgba(255,255,255,0.08)', borderRadius: 12, color: 'rgba(255,255,255,0.25)', fontSize: 12 }}>
+                    <div style={{ padding: '24px 16px', textAlign: 'center', border: '1px dashed rgba(255,255,255,0.08)', borderRadius: 12, color: TEXT.muted, fontSize: 12 }}>
                       {col === 'queue' ? 'Add tasks or deploy from Scout' : col === 'inProgress' ? 'Execute a task to start' : 'Completed tasks show here'}
                     </div>
                   )}
@@ -311,10 +312,10 @@ export default function Workshop() {
                           width: 8, 
                           height: 8, 
                           borderRadius: '50%', 
-                          background: task.priority === 'high' ? '#FF453A' : task.priority === 'medium' ? '#FF9500' : '#8E8E93',
+                          background: task.priority === 'high' ? COLORS.red : task.priority === 'medium' ? COLORS.orange : COLORS.gray,
                           marginRight: 8 
                         }} />
-                        <h4 style={{ fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.92)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
+                        <h4 style={{ fontSize: 13, fontWeight: 600, color: TEXT.primary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
                           {task.title}
                         </h4>
                         <span style={{ 
@@ -322,7 +323,7 @@ export default function Workshop() {
                           padding: '2px 6px', 
                           borderRadius: 4, 
                           background: `rgba(${task.priority === 'high' ? '255,69,58' : task.priority === 'medium' ? '255,149,0' : '142,142,147'}, 0.15)`,
-                          color: task.priority === 'high' ? '#FF453A' : task.priority === 'medium' ? '#FF9500' : '#8E8E93',
+                          color: task.priority === 'high' ? COLORS.red : task.priority === 'medium' ? COLORS.orange : COLORS.gray,
                           textTransform: 'capitalize',
                           fontWeight: 500
                         }}>
@@ -332,7 +333,7 @@ export default function Workshop() {
 
                       {/* Description */}
                       {task.description && (
-                        <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', marginBottom: 10, lineHeight: 1.5, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                        <p style={{ fontSize: 12, color: TEXT.tertiary, marginBottom: 10, lineHeight: 1.5, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
                           {task.description}
                         </p>
                       )}
@@ -340,8 +341,8 @@ export default function Workshop() {
                       {/* Status for in-progress */}
                       {col === 'inProgress' && task.status === 'executing' && (
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10, padding: '6px 10px', borderRadius: 8, background: 'rgba(0,122,255,0.1)', border: '1px solid rgba(0,122,255,0.2)' }}>
-                          <Loader2 size={12} style={{ color: '#007AFF', animation: 'spin 1s linear infinite' }} />
-                          <span style={{ fontSize: 11, color: '#007AFF', fontWeight: 500 }}>Sub-agent working...</span>
+                          <Loader2 size={12} style={{ color: COLORS.blue, animation: 'spin 1s linear infinite' }} />
+                          <span style={{ fontSize: 11, color: COLORS.blue, fontWeight: 500 }}>Sub-agent working...</span>
                         </div>
                       )}
 
@@ -358,7 +359,7 @@ export default function Workshop() {
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
                         <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', flex: 1, overflow: 'hidden' }}>
                           {task.tags?.map(tag => {
-                            const tagColors = ['#007AFF', '#32D74B', '#FF9500', '#FF453A', '#BF5AF2', '#64D2FF'];
+                            const tagColors = [COLORS.blue, COLORS.green, COLORS.orange, COLORS.red, COLORS.purple, '#64D2FF'];
                             const colorIndex = tag.split('').reduce((a, c) => a + c.charCodeAt(0), 0) % tagColors.length;
                             const tagColor = tagColors[colorIndex];
                             return (
@@ -373,7 +374,7 @@ export default function Workshop() {
                             );
                           })}
                           {task.source && (
-                            <span style={{ fontSize: 10, padding: '2px 7px', borderRadius: 5, background: task.source === 'scout' ? 'rgba(191,90,242,0.12)' : 'rgba(255,255,255,0.06)', color: task.source === 'scout' ? '#BF5AF2' : 'rgba(255,255,255,0.4)' }}>
+                            <span style={{ fontSize: 10, padding: '2px 7px', borderRadius: 5, background: task.source === 'scout' ? 'rgba(191,90,242,0.12)' : GLASS.divider, color: task.source === 'scout' ? COLORS.purple : 'rgba(255,255,255,0.4)' }}>
                               {task.source}
                             </span>
                           )}
@@ -389,7 +390,7 @@ export default function Workshop() {
                                 display: 'flex', alignItems: 'center', gap: 5,
                                 padding: '6px 12px', borderRadius: 8,
                                 border: 'none', cursor: executing[task.id] ? 'wait' : 'pointer',
-                                background: executing[task.id] ? 'rgba(0,122,255,0.3)' : '#007AFF',
+                                background: executing[task.id] ? 'rgba(0,122,255,0.3)' : COLORS.blue,
                                 color: '#fff', fontSize: 11, fontWeight: 600,
                               }}
                             >
@@ -406,7 +407,7 @@ export default function Workshop() {
                                 display: 'flex', alignItems: 'center', gap: 4,
                                 padding: '5px 10px', borderRadius: 7,
                                 border: '1px solid rgba(0,122,255,0.3)', background: 'rgba(0,122,255,0.08)',
-                                color: '#007AFF', fontSize: 11, fontWeight: 500, cursor: 'pointer',
+                                color: COLORS.blue, fontSize: 11, fontWeight: 500, cursor: 'pointer',
                               }}
                             >
                               <MessageSquare size={11} /> Discuss
@@ -445,7 +446,7 @@ export default function Workshop() {
               style={{ background: 'rgba(28,28,30,0.95)', backdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: m ? 12 : 16, padding: m ? 20 : 28, width: '100%', maxWidth: m ? '95vw' : 480 }}
             >
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-                <h2 style={{ fontSize: 18, fontWeight: 700, color: 'rgba(255,255,255,0.92)' }}>Add Task</h2>
+                <h2 style={{ fontSize: 18, fontWeight: 700, color: TEXT.primary }}>Add Task</h2>
                 <button onClick={() => setShowAddModal(false)} style={{ background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: 8, width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
                   <X size={16} style={{ color: 'rgba(255,255,255,0.6)' }} />
                 </button>
@@ -453,27 +454,27 @@ export default function Workshop() {
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                 <div>
-                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.65)', marginBottom: 6 }}>Title *</label>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: TEXT.secondary, marginBottom: 6 }}>Title *</label>
                   <input
                     value={addForm.title}
                     onChange={(e) => setAddForm(prev => ({ ...prev, title: e.target.value }))}
                     placeholder="e.g. Research competitors, Write blog post..."
                     autoFocus
-                    style={{ width: '100%', padding: '10px 14px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, fontSize: 13, color: 'rgba(255,255,255,0.92)', outline: 'none', boxSizing: 'border-box' }}
+                    style={{ width: '100%', padding: '10px 14px', background: GLASS.surface, border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, fontSize: 13, color: TEXT.primary, outline: 'none', boxSizing: 'border-box' }}
                   />
                 </div>
                 <div>
-                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.65)', marginBottom: 6 }}>Description</label>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: TEXT.secondary, marginBottom: 6 }}>Description</label>
                   <textarea
                     value={addForm.description}
                     onChange={(e) => setAddForm(prev => ({ ...prev, description: e.target.value }))}
                     placeholder="What should be done? Any specific instructions..."
                     rows={3}
-                    style={{ width: '100%', padding: '10px 14px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, fontSize: 13, color: 'rgba(255,255,255,0.92)', outline: 'none', resize: 'vertical', minHeight: 70, boxSizing: 'border-box' }}
+                    style={{ width: '100%', padding: '10px 14px', background: GLASS.surface, border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, fontSize: 13, color: TEXT.primary, outline: 'none', resize: 'vertical', minHeight: 70, boxSizing: 'border-box' }}
                   />
                 </div>
                 <div>
-                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.65)', marginBottom: 6 }}>Priority</label>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: TEXT.secondary, marginBottom: 6 }}>Priority</label>
                   <div style={{ display: 'flex', gap: 6 }}>
                     {(['low', 'medium', 'high'] as const).map(p => (
                       <button
@@ -482,7 +483,7 @@ export default function Workshop() {
                         style={{
                           flex: 1, padding: '8px 0', borderRadius: 8, cursor: 'pointer',
                           border: addForm.priority === p ? `1px solid ${priorityConfig[p].color}40` : '1px solid rgba(255,255,255,0.08)',
-                          background: addForm.priority === p ? `${priorityConfig[p].color}15` : 'rgba(255,255,255,0.04)',
+                          background: addForm.priority === p ? `${priorityConfig[p].color}15` : GLASS.surface,
                           color: addForm.priority === p ? priorityConfig[p].color : 'rgba(255,255,255,0.5)',
                           fontSize: 12, fontWeight: 500, textTransform: 'capitalize',
                         }}
@@ -493,12 +494,12 @@ export default function Workshop() {
                   </div>
                 </div>
                 <div>
-                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.65)', marginBottom: 6 }}>Tags (comma separated)</label>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: TEXT.secondary, marginBottom: 6 }}>Tags (comma separated)</label>
                   <input
                     value={addForm.tags}
                     onChange={(e) => setAddForm(prev => ({ ...prev, tags: e.target.value }))}
                     placeholder="research, email, dev..."
-                    style={{ width: '100%', padding: '10px 14px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, fontSize: 13, color: 'rgba(255,255,255,0.92)', outline: 'none', boxSizing: 'border-box' }}
+                    style={{ width: '100%', padding: '10px 14px', background: GLASS.surface, border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, fontSize: 13, color: TEXT.primary, outline: 'none', boxSizing: 'border-box' }}
                   />
                 </div>
               </div>
@@ -509,7 +510,7 @@ export default function Workshop() {
                 style={{
                   width: '100%', marginTop: 20, padding: '12px', borderRadius: 10,
                   border: 'none', cursor: addForm.title.trim() ? 'pointer' : 'not-allowed',
-                  background: addForm.title.trim() ? '#007AFF' : 'rgba(255,255,255,0.08)',
+                  background: addForm.title.trim() ? COLORS.blue : GLASS.border,
                   color: '#fff', fontSize: 14, fontWeight: 600,
                   opacity: addForm.title.trim() ? 1 : 0.5,
                 }}

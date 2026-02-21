@@ -9,9 +9,10 @@ import { useIsMobile } from '../lib/useIsMobile'
 import GlassCard from '../components/GlassCard'
 import AnimatedCounter from '../components/AnimatedCounter'
 import { useApi } from '../lib/hooks'
+import { TEXT, COLORS, GLASS, accent } from '../lib/theme'
 
 const typeIcons: Record<string, any> = { md: FileText, csv: FileSpreadsheet, js: FileCode, json: FileCode, txt: FileText, pdf: File, default: File }
-const typeColors: Record<string, string> = { md: '#007AFF', csv: '#32D74B', js: '#FF9500', json: '#FF9500', txt: '#8E8E93', pdf: '#FF453A', default: '#8E8E93' }
+const typeColors: Record<string, string> = { md: COLORS.blue, csv: COLORS.green, js: COLORS.orange, json: COLORS.orange, txt: COLORS.gray, pdf: COLORS.red, default: COLORS.gray }
 
 export default function Docs() {
   const m = useIsMobile()
@@ -80,9 +81,9 @@ export default function Docs() {
         {/* Stats */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: m ? 8 : 20 }}>
           {[
-            { label: 'Docs', value: docs.length, icon: Layers, color: '#007AFF' },
-            { label: 'Chunks', value: totalChunks, icon: Database, color: '#BF5AF2' },
-            { label: 'Size', value: Math.round(totalSize / 1024) || 156, suffix: ' KB', icon: HardDrive, color: '#32D74B' },
+            { label: 'Docs', value: docs.length, icon: Layers, color: COLORS.blue },
+            { label: 'Chunks', value: totalChunks, icon: Database, color: COLORS.purple },
+            { label: 'Size', value: Math.round(totalSize / 1024) || 156, suffix: ' KB', icon: HardDrive, color: COLORS.green },
           ].map((s, i) => (
             <GlassCard key={s.label} delay={0.05 + i * 0.05} noPad>
               <div style={{ padding: m ? '10px 12px' : 20 }}>
@@ -92,8 +93,8 @@ export default function Docs() {
                   </div>
                   <span style={{ fontSize: 10, fontWeight: 600, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase' }}>{s.label}</span>
                 </div>
-                <p style={{ fontSize: m ? 20 : 24, fontWeight: 300, color: 'rgba(255,255,255,0.92)', fontVariantNumeric: 'tabular-nums' }}>
-                  <AnimatedCounter end={s.value} />{s.suffix && <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)' }}>{s.suffix}</span>}
+                <p style={{ fontSize: m ? 20 : 24, fontWeight: 300, color: TEXT.primary, fontVariantNumeric: 'tabular-nums' }}>
+                  <AnimatedCounter end={s.value} />{s.suffix && <span style={{ fontSize: 12, color: TEXT.tertiary }}>{s.suffix}</span>}
                 </p>
               </div>
             </GlassCard>
@@ -128,27 +129,27 @@ export default function Docs() {
           {uploading ? (
             <>
               <div style={{ width: 32, height: 32, border: '2px solid #007AFF', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto 12px' }} />
-              <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.65)', fontWeight: 500 }}>Uploading...</p>
+              <p style={{ fontSize: 13, color: TEXT.secondary, fontWeight: 500 }}>Uploading...</p>
             </>
           ) : uploadStatus === 'success' ? (
             <>
-              <CheckCircle size={28} style={{ color: '#32D74B', margin: '0 auto 12px', display: 'block' }} />
-              <p style={{ fontSize: 13, color: '#32D74B', fontWeight: 500 }}>Files uploaded successfully!</p>
+              <CheckCircle size={28} style={{ color: COLORS.green, margin: '0 auto 12px', display: 'block' }} />
+              <p style={{ fontSize: 13, color: COLORS.green, fontWeight: 500 }}>Files uploaded successfully!</p>
             </>
           ) : uploadStatus === 'error' ? (
             <>
-              <AlertCircle size={28} style={{ color: '#FF453A', margin: '0 auto 12px', display: 'block' }} />
-              <p style={{ fontSize: 13, color: '#FF453A', fontWeight: 500 }}>Upload failed. Try again.</p>
+              <AlertCircle size={28} style={{ color: COLORS.red, margin: '0 auto 12px', display: 'block' }} />
+              <p style={{ fontSize: 13, color: COLORS.red, fontWeight: 500 }}>Upload failed. Try again.</p>
             </>
           ) : (
             <>
-              <div style={{ width: 44, height: 44, borderRadius: 12, margin: '0 auto 12px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: dragOver ? 'rgba(0,122,255,0.15)' : 'rgba(255,255,255,0.06)' }}>
-                <Upload size={20} style={{ color: dragOver ? '#007AFF' : 'rgba(255,255,255,0.4)' }} />
+              <div style={{ width: 44, height: 44, borderRadius: 12, margin: '0 auto 12px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: dragOver ? 'rgba(0,122,255,0.15)' : GLASS.divider }}>
+                <Upload size={20} style={{ color: dragOver ? COLORS.blue : 'rgba(255,255,255,0.4)' }} />
               </div>
-              <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.65)', fontWeight: 500 }}>
+              <p style={{ fontSize: 13, color: TEXT.secondary, fontWeight: 500 }}>
                 {m ? 'Tap to upload files' : 'Drag & drop files here, or click to browse'}
               </p>
-              <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginTop: 6 }}>.md .txt .csv .json .pdf .js .ts</p>
+              <p style={{ fontSize: 11, color: TEXT.dim, marginTop: 6 }}>.md .txt .csv .json .pdf .js .ts</p>
             </>
           )}
         </motion.div>
@@ -186,10 +187,10 @@ export default function Docs() {
                     <Icon size={m ? 16 : 18} style={{ color, opacity: 0.8 }} />
                   </div>
                   <div style={{ minWidth: 0, flex: 1 }}>
-                    <h4 style={{ fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.92)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{doc.name}</h4>
+                    <h4 style={{ fontSize: 13, fontWeight: 600, color: TEXT.primary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{doc.name}</h4>
                     <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginTop: 2 }}>{doc.size} · {doc.chunks || 0} chunks</p>
                   </div>
-                  <span style={{ fontSize: 10, fontFamily: 'monospace', textTransform: 'uppercase', color: 'rgba(255,255,255,0.35)', flexShrink: 0 }}>{ext}</span>
+                  <span style={{ fontSize: 10, fontFamily: 'monospace', textTransform: 'uppercase', color: TEXT.dim, flexShrink: 0 }}>{ext}</span>
                 </div>
               </motion.div>
             )

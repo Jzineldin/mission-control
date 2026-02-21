@@ -6,6 +6,7 @@ import { useIsMobile } from '../lib/useIsMobile'
 import GlassCard from '../components/GlassCard'
 import StatusBadge from '../components/StatusBadge'
 import { useApi } from '../lib/hooks'
+import { TEXT, COLORS, GLASS, accent } from '../lib/theme'
 
 interface OpenClawConfig {
   model?: string
@@ -87,7 +88,7 @@ export default function Settings() {
         {/* Header */}
         <div>
           <h1 className="text-title" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <Settings2 size={22} style={{ color: '#007AFF' }} /> Settings
+            <Settings2 size={22} style={{ color: COLORS.blue }} /> Settings
           </h1>
           <p className="text-body" style={{ marginTop: 4 }}>Gateway configuration, model routing & preferences</p>
         </div>
@@ -101,9 +102,9 @@ export default function Settings() {
             <div style={{ padding: isMobile ? 16 : 24 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
                 <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(191,90,242,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <Shield size={18} style={{ color: '#BF5AF2' }} />
+                  <Shield size={18} style={{ color: COLORS.purple }} />
                 </div>
-                <h2 style={{ fontSize: 15, fontWeight: 600, color: 'rgba(255,255,255,0.92)' }}>OpenClaw Configuration</h2>
+                <h2 style={{ fontSize: 15, fontWeight: 600, color: TEXT.primary }}>OpenClaw Configuration</h2>
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -114,12 +115,12 @@ export default function Settings() {
                   { label: 'AWS Region', value: configData?.bedrock_region || 'us-east-1', mono: true },
                 ].map((item) => (
                   <div key={item.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: '1px solid rgba(255,255,255,0.05)', gap: 12 }}>
-                    <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.65)', flexShrink: 0 }}>{item.label}</span>
-                    <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.92)', fontFamily: item.mono ? 'monospace' : 'inherit', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>{String(item.value)}</span>
+                    <span style={{ fontSize: 13, color: TEXT.secondary, flexShrink: 0 }}>{item.label}</span>
+                    <span style={{ fontSize: 12, color: TEXT.primary, fontFamily: item.mono ? 'monospace' : 'inherit', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>{String(item.value)}</span>
                   </div>
                 ))}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0' }}>
-                  <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.65)' }}>Status</span>
+                  <span style={{ fontSize: 13, color: TEXT.secondary }}>Status</span>
                   <StatusBadge status="active" label="Connected" />
                 </div>
               </div>
@@ -134,9 +135,9 @@ export default function Settings() {
             <div style={{ padding: isMobile ? 16 : 24 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
                 <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(255,149,0,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <Database size={18} style={{ color: '#FF9500' }} />
+                  <Database size={18} style={{ color: COLORS.orange }} />
                 </div>
-                <h2 style={{ fontSize: 15, fontWeight: 600, color: 'rgba(255,255,255,0.92)' }}>System Information</h2>
+                <h2 style={{ fontSize: 15, fontWeight: 600, color: TEXT.primary }}>System Information</h2>
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -147,8 +148,8 @@ export default function Settings() {
                   { label: 'Platform', value: 'Linux x64' },
                 ].map((item) => (
                   <div key={item.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                    <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.65)' }}>{item.label}</span>
-                    <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.92)' }}>{item.value}</span>
+                    <span style={{ fontSize: 13, color: TEXT.secondary }}>{item.label}</span>
+                    <span style={{ fontSize: 13, color: TEXT.primary }}>{item.value}</span>
                   </div>
                 ))}
               </div>
@@ -226,7 +227,7 @@ function ModelRoutingCard({ isMobile }: { isMobile: boolean }) {
 
   const selectStyle = { 
     width: '100%', padding: '12px 16px', borderRadius: 10, border: '1px solid rgba(255,255,255,0.1)', 
-    background: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.92)', fontSize: 13,
+    background: GLASS.surface, color: TEXT.primary, fontSize: 13,
     cursor: 'pointer', appearance: 'none' as const,
     backgroundImage: 'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'12\' height=\'12\' viewBox=\'0 0 12 12\'%3E%3Cpath fill=\'%23999\' d=\'M6 8L1 3h10z\'/%3E%3C/svg%3E")',
     backgroundRepeat: 'no-repeat', backgroundPosition: 'right 16px center',
@@ -237,9 +238,9 @@ function ModelRoutingCard({ isMobile }: { isMobile: boolean }) {
       <div style={{ padding: isMobile ? 16 : 24 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
           <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(255,149,0,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Zap size={18} style={{ color: '#FF9500' }} />
+            <Zap size={18} style={{ color: COLORS.orange }} />
           </div>
-          <h2 style={{ fontSize: 15, fontWeight: 600, color: 'rgba(255,255,255,0.92)' }}>Model Routing</h2>
+          <h2 style={{ fontSize: 15, fontWeight: 600, color: TEXT.primary }}>Model Routing</h2>
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -270,7 +271,7 @@ function ModelRoutingCard({ isMobile }: { isMobile: boolean }) {
             style={{
               width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
               padding: '12px 16px', borderRadius: 10, border: 'none', cursor: saving ? 'not-allowed' : 'pointer',
-              background: saving ? 'rgba(255,149,0,0.3)' : '#FF9500',
+              background: saving ? 'rgba(255,149,0,0.3)' : COLORS.orange,
               color: '#fff', fontSize: 13, fontWeight: 500,
               opacity: saving ? 0.5 : 1,
               transition: 'all 0.2s',
@@ -290,13 +291,13 @@ function ModelRoutingCard({ isMobile }: { isMobile: boolean }) {
           </button>
 
           {saveStatus === 'success' && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#32D74B', fontSize: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: COLORS.green, fontSize: 12 }}>
               <span className="status-dot status-dot-green" />
               Model routing saved successfully
             </div>
           )}
           {saveStatus === 'error' && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#FF453A', fontSize: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: COLORS.red, fontSize: 12 }}>
               <span className="status-dot status-dot-red" />
               Failed to save model routing
             </div>
@@ -351,9 +352,9 @@ function HeartbeatConfigCard({ isMobile }: { isMobile: boolean }) {
       <div style={{ padding: isMobile ? 16 : 24 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
           <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(255,69,58,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Clock size={18} style={{ color: '#FF453A' }} />
+            <Clock size={18} style={{ color: COLORS.red }} />
           </div>
-          <h2 style={{ fontSize: 15, fontWeight: 600, color: 'rgba(255,255,255,0.92)' }}>Heartbeat Interval</h2>
+          <h2 style={{ fontSize: 15, fontWeight: 600, color: TEXT.primary }}>Heartbeat Interval</h2>
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -364,7 +365,7 @@ function HeartbeatConfigCard({ isMobile }: { isMobile: boolean }) {
               onChange={(e) => setInterval(e.target.value)}
               style={{ 
                 width: '100%', padding: '12px 16px', borderRadius: 10, border: '1px solid rgba(255,255,255,0.1)', 
-                background: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.92)', fontSize: 13,
+                background: GLASS.surface, color: TEXT.primary, fontSize: 13,
                 cursor: 'pointer'
               }}
             >
@@ -382,7 +383,7 @@ function HeartbeatConfigCard({ isMobile }: { isMobile: boolean }) {
             style={{
               width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
               padding: '12px 16px', borderRadius: 10, border: 'none', cursor: saving ? 'not-allowed' : 'pointer',
-              background: saving ? 'rgba(255,69,58,0.3)' : '#FF453A',
+              background: saving ? 'rgba(255,69,58,0.3)' : COLORS.red,
               color: '#fff', fontSize: 13, fontWeight: 500,
               opacity: saving ? 0.5 : 1,
               transition: 'all 0.2s',
@@ -402,13 +403,13 @@ function HeartbeatConfigCard({ isMobile }: { isMobile: boolean }) {
           </button>
 
           {saveStatus === 'success' && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#32D74B', fontSize: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: COLORS.green, fontSize: 12 }}>
               <span className="status-dot status-dot-green" />
               Heartbeat interval saved successfully
             </div>
           )}
           {saveStatus === 'error' && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#FF453A', fontSize: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: COLORS.red, fontSize: 12 }}>
               <span className="status-dot status-dot-red" />
               Failed to save heartbeat interval
             </div>
@@ -466,9 +467,9 @@ function ExportImportCard({ isMobile }: { isMobile: boolean }) {
       <div style={{ padding: isMobile ? 16 : 24 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
           <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(50,215,75,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Globe size={18} style={{ color: '#32D74B' }} />
+            <Globe size={18} style={{ color: COLORS.green }} />
           </div>
-          <h2 style={{ fontSize: 15, fontWeight: 600, color: 'rgba(255,255,255,0.92)' }}>Export / Import</h2>
+          <h2 style={{ fontSize: 15, fontWeight: 600, color: TEXT.primary }}>Export / Import</h2>
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -477,7 +478,7 @@ function ExportImportCard({ isMobile }: { isMobile: boolean }) {
             style={{
               width: '100%', padding: '12px 16px', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
               border: '1px solid rgba(50,215,75,0.3)', background: 'rgba(50,215,75,0.1)',
-              color: '#32D74B', fontSize: 13, cursor: 'pointer', fontWeight: 500,
+              color: COLORS.green, fontSize: 13, cursor: 'pointer', fontWeight: 500,
               transition: 'all 0.15s',
             }}
             onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(50,215,75,0.2)' }}
@@ -502,7 +503,7 @@ function ExportImportCard({ isMobile }: { isMobile: boolean }) {
               style={{
                 width: '100%', padding: '12px 16px', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
                 border: '1px solid rgba(0,122,255,0.3)', background: 'rgba(0,122,255,0.1)',
-                color: '#007AFF', fontSize: 13, cursor: importing ? 'not-allowed' : 'pointer', fontWeight: 500,
+                color: COLORS.blue, fontSize: 13, cursor: importing ? 'not-allowed' : 'pointer', fontWeight: 500,
                 opacity: importing ? 0.5 : 1,
                 transition: 'all 0.15s',
               }}
@@ -524,13 +525,13 @@ function ExportImportCard({ isMobile }: { isMobile: boolean }) {
           </div>
 
           {importStatus === 'success' && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#32D74B', fontSize: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: COLORS.green, fontSize: 12 }}>
               <span className="status-dot status-dot-green" />
               Configuration imported successfully. Restart required.
             </div>
           )}
           {importStatus === 'error' && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#FF453A', fontSize: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: COLORS.red, fontSize: 12 }}>
               <span className="status-dot status-dot-red" />
               Failed to import configuration
             </div>

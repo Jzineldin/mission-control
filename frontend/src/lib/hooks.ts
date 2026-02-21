@@ -30,6 +30,33 @@ export function useApi<T>(url: string, interval?: number) {
   return { data, loading, error, refetch: fetchData }
 }
 
+export function useDashboardData() {
+  const [statusData, setStatusData] = useState<any>(null)
+  const [activityData, setActivityData] = useState<any>(null)
+  const [sessionsData, setSessionsData] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
+
+  const fetchAll = async () => {
+    const [statusRes, activityRes, sessionsRes] = await Promise.allSettled([
+      fetch('/api/status').then(r => { if (!r.ok) throw new Error(`${r.status}`); return r.json() }),
+      fetch('/api/activity').then(r => { if (!r.ok) throw new Error(`${r.status}`); return r.json() }),
+      fetch('/api/sessions').then(r => { if (!r.ok) throw new Error(`${r.status}`); return r.json() }),
+    ])
+    if (statusRes.status === 'fulfilled')   setStatusData(statusRes.value)
+    if (activityRes.status === 'fulfilled') setActivityData(activityRes.value)
+    if (sessionsRes.status === 'fulfilled') setSessionsData(sessionsRes.value)
+    setLoading(false)
+  }
+
+  useEffect(() => {
+    fetchAll()
+    const timer = setInterval(fetchAll, 10000)
+    return () => clearInterval(timer)
+  }, [])
+
+  return { status: statusData, activity: activityData, sessions: sessionsData, loading }
+}
+
 export function timeAgo(dateStr: string): string {
   if (!dateStr) return '—'
   const diff = Date.now() - new Date(dateStr).getTime()

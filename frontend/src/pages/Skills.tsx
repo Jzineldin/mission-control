@@ -6,6 +6,7 @@ import { useIsMobile } from '../lib/useIsMobile'
 import GlassCard from '../components/GlassCard'
 import StatusBadge from '../components/StatusBadge'
 import { useApi } from '../lib/hooks'
+import { TEXT, COLORS, GLASS, accent } from '../lib/theme'
 
 interface Skill {
   name: string
@@ -77,9 +78,9 @@ export default function Skills() {
 
   const getTypeIcon = (type?: string) => {
     switch (type) {
-      case 'system': return <Package size={16} style={{ color: '#007AFF' }} />
-      case 'workspace': return <FolderOpen size={16} style={{ color: '#32D74B' }} />
-      default: return <Code size={16} style={{ color: '#BF5AF2' }} />
+      case 'system': return <Package size={16} style={{ color: COLORS.blue }} />
+      case 'workspace': return <FolderOpen size={16} style={{ color: COLORS.green }} />
+      default: return <Code size={16} style={{ color: COLORS.purple }} />
     }
   }
 
@@ -91,7 +92,7 @@ export default function Skills() {
         {/* Header */}
         <div>
           <h1 className="text-title" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <Puzzle size={22} style={{ color: '#BF5AF2' }} /> Skills Manager
+            <Puzzle size={22} style={{ color: COLORS.purple }} /> Skills Manager
           </h1>
           <p className="text-body" style={{ marginTop: 4 }}>Installed skills that extend your agent's capabilities</p>
         </div>
@@ -99,10 +100,10 @@ export default function Skills() {
         {/* Stats Cards */}
         <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', gap: 16 }}>
           {[
-            { label: 'Installed', value: skillsData?.installed?.length || 0, color: '#007AFF' },
-            { label: 'Active', value: skillsData?.installed?.filter(s => s.status === 'active').length || 0, color: '#32D74B' },
-            { label: 'Available', value: skillsData?.available?.length || 0, color: '#BF5AF2' },
-            { label: 'System', value: skillsData?.installed?.filter(s => s.type === 'system').length || 0, color: '#FF9500' },
+            { label: 'Installed', value: skillsData?.installed?.length || 0, color: COLORS.blue },
+            { label: 'Active', value: skillsData?.installed?.filter(s => s.status === 'active').length || 0, color: COLORS.green },
+            { label: 'Available', value: skillsData?.available?.length || 0, color: COLORS.purple },
+            { label: 'System', value: skillsData?.installed?.filter(s => s.type === 'system').length || 0, color: COLORS.orange },
           ].map((s, i) => (
             <GlassCard key={s.label} delay={0.05 + i * 0.03} noPad>
               <div style={{ padding: '16px 20px' }}>
@@ -122,7 +123,7 @@ export default function Skills() {
               style={{
                 padding: '8px 16px', borderRadius: 10, cursor: 'pointer', fontSize: 12, fontWeight: 500,
                 border: filter === tab ? '1px solid rgba(0,122,255,0.4)' : '1px solid rgba(255,255,255,0.08)',
-                background: filter === tab ? 'rgba(0,122,255,0.15)' : 'rgba(255,255,255,0.04)',
+                background: filter === tab ? 'rgba(0,122,255,0.15)' : GLASS.surface,
                 color: filter === tab ? '#fff' : 'rgba(255,255,255,0.55)',
                 transition: 'all 0.2s',
               }}
@@ -136,13 +137,13 @@ export default function Skills() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 16 }}>
           {loading ? (
             <GlassCard noPad>
-              <div style={{ padding: isMobile ? 16 : 24, textAlign: 'center', color: 'rgba(255,255,255,0.45)', fontSize: 13 }}>
+              <div style={{ padding: isMobile ? 16 : 24, textAlign: 'center', color: TEXT.tertiary, fontSize: 13 }}>
                 Loading skills...
               </div>
             </GlassCard>
           ) : filteredSkills.length === 0 ? (
             <GlassCard noPad>
-              <div style={{ padding: isMobile ? 16 : 24, textAlign: 'center', color: 'rgba(255,255,255,0.45)', fontSize: 13 }}>
+              <div style={{ padding: isMobile ? 16 : 24, textAlign: 'center', color: TEXT.tertiary, fontSize: 13 }}>
                 No skills found
               </div>
             </GlassCard>
@@ -161,12 +162,12 @@ export default function Skills() {
                       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, flex: 1 }}>
                         <div style={{ marginTop: 2 }}>{getTypeIcon(skill.type)}</div>
                         <div style={{ flex: 1 }}>
-                          <h3 style={{ fontSize: 14, fontWeight: 600, color: 'rgba(255,255,255,0.92)', marginBottom: 4 }}>{skill.name}</h3>
-                          <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.65)', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', lineHeight: 1.5 }}>
+                          <h3 style={{ fontSize: 14, fontWeight: 600, color: TEXT.primary, marginBottom: 4 }}>{skill.name}</h3>
+                          <p style={{ fontSize: 12, color: TEXT.secondary, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', lineHeight: 1.5 }}>
                             {skill.description || 'No description available'}
                           </p>
                           {skill.version && (
-                            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', marginTop: 8 }}>
+                            <div style={{ fontSize: 11, color: TEXT.tertiary, marginTop: 8 }}>
                               v{skill.version} {skill.author && `• by ${skill.author}`}
                             </div>
                           )}
@@ -188,17 +189,17 @@ export default function Skills() {
                             style={{
                               display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 8,
                               border: '1px solid rgba(255,255,255,0.08)', 
-                              background: skill.status === 'active' ? 'rgba(52,215,75,0.15)' : 'rgba(255,255,255,0.04)',
-                              color: skill.status === 'active' ? '#32D74B' : 'rgba(255,255,255,0.65)', 
+                              background: skill.status === 'active' ? 'rgba(52,215,75,0.15)' : GLASS.surface,
+                              color: skill.status === 'active' ? COLORS.green : TEXT.secondary, 
                               fontSize: 11, cursor: 'pointer',
                               opacity: toggling === skill.name ? 0.5 : 1,
                               transition: 'all 0.2s',
                             }}
                           >
                             {skill.status === 'active' ? (
-                              <><ToggleRight size={16} style={{ color: '#32D74B' }} /><span>Enabled</span></>
+                              <><ToggleRight size={16} style={{ color: COLORS.green }} /><span>Enabled</span></>
                             ) : (
-                              <><ToggleLeft size={16} style={{ color: '#8E8E93' }} /><span>Disabled</span></>
+                              <><ToggleLeft size={16} style={{ color: COLORS.gray }} /><span>Disabled</span></>
                             )}
                           </button>
                           <button
@@ -206,15 +207,15 @@ export default function Skills() {
                             disabled={toggling === skill.name}
                             style={{
                               display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 8,
-                              border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.04)',
-                              color: 'rgba(255,255,255,0.65)', fontSize: 11, cursor: 'pointer',
+                              border: '1px solid rgba(255,255,255,0.08)', background: GLASS.surface,
+                              color: TEXT.secondary, fontSize: 11, cursor: 'pointer',
                               opacity: toggling === skill.name ? 0.5 : 1,
                               transition: 'background 0.15s',
                             }}
                             onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,69,58,0.15)' }}
-                            onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.04)' }}
+                            onMouseLeave={(e) => { e.currentTarget.style.background = GLASS.surface }}
                           >
-                            <Trash2 size={16} style={{ color: '#FF453A' }} />
+                            <Trash2 size={16} style={{ color: COLORS.red }} />
                             <span>Uninstall</span>
                           </button>
                         </>
@@ -224,7 +225,7 @@ export default function Skills() {
                           disabled={toggling === skill.name}
                           style={{
                             display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', borderRadius: 8,
-                            border: 'none', background: '#007AFF', color: '#fff', fontSize: 11, cursor: 'pointer',
+                            border: 'none', background: COLORS.blue, color: '#fff', fontSize: 11, cursor: 'pointer',
                             opacity: toggling === skill.name ? 0.5 : 1,
                           }}
                         >
@@ -236,7 +237,7 @@ export default function Skills() {
 
                     {skill.path && (
                       <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-                        <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', fontFamily: 'monospace' }}>
+                        <div style={{ fontSize: 11, color: TEXT.dim, fontFamily: 'monospace' }}>
                           {skill.path}
                         </div>
                       </div>

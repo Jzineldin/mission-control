@@ -9,6 +9,7 @@ import GlassCard from '../components/GlassCard'
 import StatusBadge from '../components/StatusBadge'
 import { useApi, timeAgo } from '../lib/hooks'
 import { useIsMobile } from '../lib/useIsMobile'
+import { TEXT, COLORS, GLASS, accent } from '../lib/theme'
 
 interface Message {
   id: string
@@ -272,13 +273,13 @@ export default function Chat() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: m ? 12 : 16 }}>
             <button
               onClick={() => setActiveSession(null)}
-              style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: 8, cursor: 'pointer', display: 'flex', color: 'rgba(255,255,255,0.7)' }}
+              style={{ background: GLASS.divider, border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: 8, cursor: 'pointer', display: 'flex', color: 'rgba(255,255,255,0.7)' }}
             >
               <ArrowLeft size={18} />
             </button>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <h2 style={{ fontSize: 15, fontWeight: 600, color: 'rgba(255,255,255,0.92)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{activeSessionName}</h2>
-              <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)' }}>Session history · send a message to continue</p>
+              <h2 style={{ fontSize: 15, fontWeight: 600, color: TEXT.primary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{activeSessionName}</h2>
+              <p style={{ fontSize: 11, color: TEXT.tertiary }}>Session history · send a message to continue</p>
             </div>
           </div>
 
@@ -298,13 +299,13 @@ export default function Chat() {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                   {historyMessages.map((msg: any, i: number) => (
                     <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-                      <div style={{ width: 30, height: 30, borderRadius: 8, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: msg.role === 'assistant' ? 'rgba(0,122,255,0.15)' : msg.role === 'system' ? 'rgba(255,149,0,0.15)' : 'rgba(255,255,255,0.08)' }}>
-                        {msg.role === 'assistant' ? <Bot size={15} style={{ color: '#007AFF' }} />
-                          : msg.role === 'system' ? <Zap size={15} style={{ color: '#FF9500' }} />
+                      <div style={{ width: 30, height: 30, borderRadius: 8, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: msg.role === 'assistant' ? 'rgba(0,122,255,0.15)' : msg.role === 'system' ? 'rgba(255,149,0,0.15)' : GLASS.border }}>
+                        {msg.role === 'assistant' ? <Bot size={15} style={{ color: COLORS.blue }} />
+                          : msg.role === 'system' ? <Zap size={15} style={{ color: COLORS.orange }} />
                           : <User size={15} style={{ color: 'rgba(255,255,255,0.6)' }} />}
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <span style={{ fontSize: 10, fontWeight: 600, color: msg.role === 'assistant' ? '#007AFF' : msg.role === 'system' ? '#FF9500' : 'rgba(255,255,255,0.65)', textTransform: 'capitalize', marginBottom: 4, display: 'block' }}>{msg.role}</span>
+                        <span style={{ fontSize: 10, fontWeight: 600, color: msg.role === 'assistant' ? COLORS.blue : msg.role === 'system' ? COLORS.orange : TEXT.secondary, textTransform: 'capitalize', marginBottom: 4, display: 'block' }}>{msg.role}</span>
                         <div style={{ fontSize: 13, lineHeight: 1.6, color: 'rgba(255,255,255,0.78)', wordBreak: 'break-word', whiteSpace: 'pre-wrap' }}>
                           {typeof msg.content === 'string' ? msg.content.substring(0, 2000) : JSON.stringify(msg.content).substring(0, 2000)}
                           {(msg.content?.length || 0) > 2000 && <span style={{ color: 'rgba(255,255,255,0.3)' }}>... (truncated)</span>}
@@ -327,10 +328,10 @@ export default function Chat() {
                   placeholder="Continue this conversation..."
                   disabled={sessionSending}
                   rows={1}
-                  style={{ flex: 1, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: '10px 12px', color: 'rgba(255,255,255,0.9)', fontSize: 13, resize: 'none', outline: 'none', fontFamily: 'inherit', maxHeight: 80, lineHeight: 1.4 }}
+                  style={{ flex: 1, background: GLASS.surface, border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: '10px 12px', color: 'rgba(255,255,255,0.9)', fontSize: 13, resize: 'none', outline: 'none', fontFamily: 'inherit', maxHeight: 80, lineHeight: 1.4 }}
                   onInput={(e) => { const t = e.currentTarget; t.style.height = 'auto'; t.style.height = Math.min(t.scrollHeight, 80) + 'px' }}
                 />
-                <button type="submit" disabled={!sessionInput.trim() || sessionSending} style={{ width: 36, height: 36, borderRadius: 10, border: 'none', background: sessionInput.trim() && !sessionSending ? '#007AFF' : 'rgba(255,255,255,0.06)', color: sessionInput.trim() && !sessionSending ? '#fff' : 'rgba(255,255,255,0.25)', cursor: sessionInput.trim() && !sessionSending ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <button type="submit" disabled={!sessionInput.trim() || sessionSending} style={{ width: 36, height: 36, borderRadius: 10, border: 'none', background: sessionInput.trim() && !sessionSending ? COLORS.blue : GLASS.divider, color: sessionInput.trim() && !sessionSending ? '#fff' : TEXT.muted, cursor: sessionInput.trim() && !sessionSending ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                   {sessionSending ? <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> : <Send size={16} />}
                 </button>
               </form>
@@ -350,14 +351,14 @@ export default function Chat() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: m ? 12 : 16 }}>
             <button
               onClick={() => setActiveSession(null)}
-              style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: 8, cursor: 'pointer', display: 'flex', color: 'rgba(255,255,255,0.7)' }}
+              style={{ background: GLASS.divider, border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: 8, cursor: 'pointer', display: 'flex', color: 'rgba(255,255,255,0.7)' }}
             >
               <ArrowLeft size={18} />
             </button>
-            <Sparkles size={18} style={{ color: '#007AFF' }} />
+            <Sparkles size={18} style={{ color: COLORS.blue }} />
             <div style={{ flex: 1 }}>
-              <h2 style={{ fontSize: 15, fontWeight: 600, color: 'rgba(255,255,255,0.92)' }}>Chat with Zinbot</h2>
-              <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)' }}>Full memory & tools</p>
+              <h2 style={{ fontSize: 15, fontWeight: 600, color: TEXT.primary }}>Chat with Zinbot</h2>
+              <p style={{ fontSize: 11, color: TEXT.tertiary }}>Full memory & tools</p>
             </div>
             {messages.length > 0 && (
               <button onClick={clearChat} className="macos-button" style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 10px', fontSize: 11 }}>
@@ -380,13 +381,13 @@ export default function Chat() {
                   <AnimatePresence>
                     {messages.map((msg) => (
                       <motion.div key={msg.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-                        <div style={{ width: 30, height: 30, borderRadius: 8, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: msg.role === 'assistant' ? 'rgba(0,122,255,0.15)' : 'rgba(255,255,255,0.08)' }}>
-                          {msg.role === 'assistant' ? <Bot size={15} style={{ color: '#007AFF' }} /> : <User size={15} style={{ color: 'rgba(255,255,255,0.6)' }} />}
+                        <div style={{ width: 30, height: 30, borderRadius: 8, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: msg.role === 'assistant' ? 'rgba(0,122,255,0.15)' : GLASS.border }}>
+                          {msg.role === 'assistant' ? <Bot size={15} style={{ color: COLORS.blue }} /> : <User size={15} style={{ color: 'rgba(255,255,255,0.6)' }} />}
                         </div>
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
                             <span style={{ fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.85)' }}>{msg.role === 'assistant' ? 'Zinbot' : 'You'}</span>
-                            {msg.streaming && <Loader2 size={10} style={{ color: '#007AFF', animation: 'spin 1s linear infinite' }} />}
+                            {msg.streaming && <Loader2 size={10} style={{ color: COLORS.blue, animation: 'spin 1s linear infinite' }} />}
                           </div>
                           <div style={{ fontSize: 13, lineHeight: 1.6, color: 'rgba(255,255,255,0.82)', wordBreak: 'break-word' }} dangerouslySetInnerHTML={{ __html: renderContent(msg.content || '...') }} />
                         </div>
@@ -409,10 +410,10 @@ export default function Chat() {
                   disabled={isStreaming}
                   rows={1}
                   autoFocus
-                  style={{ flex: 1, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: '10px 12px', color: 'rgba(255,255,255,0.9)', fontSize: 13, resize: 'none', outline: 'none', fontFamily: 'inherit', maxHeight: 100, lineHeight: 1.5 }}
+                  style={{ flex: 1, background: GLASS.surface, border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: '10px 12px', color: 'rgba(255,255,255,0.9)', fontSize: 13, resize: 'none', outline: 'none', fontFamily: 'inherit', maxHeight: 100, lineHeight: 1.5 }}
                   onInput={(e) => { const t = e.currentTarget; t.style.height = 'auto'; t.style.height = Math.min(t.scrollHeight, 100) + 'px' }}
                 />
-                <button type="submit" disabled={!input.trim() || isStreaming} style={{ width: 36, height: 36, borderRadius: 10, border: 'none', background: input.trim() && !isStreaming ? '#007AFF' : 'rgba(255,255,255,0.06)', color: input.trim() && !isStreaming ? '#fff' : 'rgba(255,255,255,0.25)', cursor: input.trim() && !isStreaming ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <button type="submit" disabled={!input.trim() || isStreaming} style={{ width: 36, height: 36, borderRadius: 10, border: 'none', background: input.trim() && !isStreaming ? COLORS.blue : GLASS.divider, color: input.trim() && !isStreaming ? '#fff' : TEXT.muted, cursor: input.trim() && !isStreaming ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                   {isStreaming ? <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> : <Send size={16} />}
                 </button>
               </form>
@@ -437,7 +438,7 @@ export default function Chat() {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
           <div>
             <h1 className="text-title" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <MessageCircle size={m ? 18 : 22} style={{ color: '#007AFF' }} /> Conversations
+              <MessageCircle size={m ? 18 : 22} style={{ color: COLORS.blue }} /> Conversations
             </h1>
             <p className="text-body" style={{ marginTop: 4 }}>All agent sessions & chat history</p>
           </div>
@@ -447,7 +448,7 @@ export default function Chat() {
               display: 'flex', alignItems: 'center', gap: 8,
               padding: m ? '10px 16px' : '10px 20px',
               borderRadius: 10, border: 'none', cursor: 'pointer',
-              background: '#007AFF', color: '#fff',
+              background: COLORS.blue, color: '#fff',
               fontSize: 13, fontWeight: 600,
               width: m ? '100%' : undefined,
               justifyContent: m ? 'center' : undefined,
@@ -468,7 +469,7 @@ export default function Chat() {
               onChange={(e) => setSearchQuery(e.target.value)}
               style={{
                 width: '100%',
-                background: 'rgba(255,255,255,0.06)',
+                background: GLASS.divider,
                 border: '1px solid rgba(255,255,255,0.1)',
                 padding: '10px 16px 10px 40px',
                 borderRadius: 10,
@@ -498,14 +499,14 @@ export default function Chat() {
                   padding: m ? '7px 12px' : '8px 14px',
                   borderRadius: 8, flexShrink: 0,
                   border: filter === f.id ? '1px solid rgba(0,122,255,0.4)' : '1px solid rgba(255,255,255,0.08)',
-                  background: filter === f.id ? 'rgba(0,122,255,0.12)' : 'rgba(255,255,255,0.04)',
+                  background: filter === f.id ? 'rgba(0,122,255,0.12)' : GLASS.surface,
                   color: filter === f.id ? '#fff' : 'rgba(255,255,255,0.5)',
                   fontSize: 12, fontWeight: 500, cursor: 'pointer',
                   WebkitTapHighlightColor: 'transparent',
                 }}
               >
                 {f.label}
-                <span style={{ fontSize: 10, padding: '1px 5px', borderRadius: 5, background: filter === f.id ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.06)', color: filter === f.id ? '#fff' : 'rgba(255,255,255,0.35)' }}>
+                <span style={{ fontSize: 10, padding: '1px 5px', borderRadius: 5, background: filter === f.id ? 'rgba(255,255,255,0.15)' : GLASS.divider, color: filter === f.id ? '#fff' : TEXT.dim }}>
                   {f.count}
                 </span>
               </button>
@@ -534,7 +535,7 @@ export default function Chat() {
                     width: m ? 40 : 44, 
                     height: m ? 40 : 44, 
                     borderRadius: 12, 
-                    background: 'rgba(255,255,255,0.06)', 
+                    background: GLASS.divider, 
                     display: 'flex', 
                     alignItems: 'center', 
                     justifyContent: 'center', 
@@ -548,7 +549,7 @@ export default function Chat() {
                       <h3 style={{ 
                         fontSize: 13, 
                         fontWeight: 600, 
-                        color: 'rgba(255,255,255,0.92)', 
+                        color: TEXT.primary, 
                         overflow: 'hidden', 
                         textOverflow: 'ellipsis', 
                         whiteSpace: 'nowrap', 
@@ -562,12 +563,12 @@ export default function Chat() {
                       <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>
                         {typeLabel}
                       </span>
-                      <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.25)' }}>·</span>
+                      <span style={{ fontSize: 11, color: TEXT.muted }}>·</span>
                       <span style={{ 
                         fontSize: 10, 
                         padding: '2px 6px', 
                         borderRadius: 4, 
-                        background: 'rgba(255,255,255,0.08)', 
+                        background: GLASS.border, 
                         color: 'rgba(255,255,255,0.6)',
                         fontVariantNumeric: 'tabular-nums'
                       }}>
@@ -598,14 +599,14 @@ export default function Chat() {
                     style={{
                       width: 22, height: 22, borderRadius: 6,
                       border: '1px solid rgba(255,255,255,0.1)',
-                      background: 'rgba(255,255,255,0.06)',
+                      background: GLASS.divider,
                       color: 'rgba(255,255,255,0.4)',
                       cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
                       fontSize: 11, opacity: closingSession === s.key ? 0.5 : 0.7,
                       flexShrink: 0, marginLeft: 6,
                     }}
-                    onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,69,58,0.15)'; e.currentTarget.style.color = '#FF453A'; }}
-                    onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; e.currentTarget.style.color = 'rgba(255,255,255,0.4)'; }}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,69,58,0.15)'; e.currentTarget.style.color = COLORS.red; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = GLASS.divider; e.currentTarget.style.color = 'rgba(255,255,255,0.4)'; }}
                   >
                     {closingSession === s.key ? '·' : '✕'}
                   </button>

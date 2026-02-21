@@ -6,6 +6,7 @@ import { useIsMobile } from '../lib/useIsMobile'
 import GlassCard from '../components/GlassCard'
 import StatusBadge from '../components/StatusBadge'
 import { useApi, timeAgo, formatDate } from '../lib/hooks'
+import { TEXT, COLORS, GLASS, accent } from '../lib/theme'
 
 const statusIcons: Record<string, any> = {
   success: CheckCircle,
@@ -116,7 +117,7 @@ function CreateJobModal({ isOpen, onClose, onSubmit }: CreateJobModalProps) {
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.9 }}
         style={{
-          background: 'rgba(255,255,255,0.08)',
+          background: GLASS.border,
           backdropFilter: 'blur(20px)',
           border: '1px solid rgba(255,255,255,0.12)',
           borderRadius: 16,
@@ -136,13 +137,13 @@ function CreateJobModal({ isOpen, onClose, onSubmit }: CreateJobModalProps) {
           <h2 style={{
             fontSize: m ? 18 : 20,
             fontWeight: 600,
-            color: 'rgba(255,255,255,0.92)',
+            color: TEXT.primary,
             margin: 0,
             display: 'flex',
             alignItems: 'center',
             gap: 8
           }}>
-            <Plus size={m ? 16 : 18} style={{ color: '#007AFF' }} />
+            <Plus size={m ? 16 : 18} style={{ color: COLORS.blue }} />
             Create Cron Job
           </h2>
           <button
@@ -182,7 +183,7 @@ function CreateJobModal({ isOpen, onClose, onSubmit }: CreateJobModalProps) {
               style={{
                 width: '100%',
                 padding: m ? '10px 12px' : '12px 16px',
-                background: 'rgba(255,255,255,0.05)',
+                background: GLASS.borderSubtle,
                 border: '1px solid rgba(255,255,255,0.1)',
                 borderRadius: 8,
                 color: 'rgba(255,255,255,0.9)',
@@ -214,7 +215,7 @@ function CreateJobModal({ isOpen, onClose, onSubmit }: CreateJobModalProps) {
               style={{
                 width: '100%',
                 padding: m ? '10px 12px' : '12px 16px',
-                background: 'rgba(255,255,255,0.05)',
+                background: GLASS.borderSubtle,
                 border: '1px solid rgba(255,255,255,0.1)',
                 borderRadius: 8,
                 color: 'rgba(255,255,255,0.9)',
@@ -236,7 +237,7 @@ function CreateJobModal({ isOpen, onClose, onSubmit }: CreateJobModalProps) {
                   type="button"
                   onClick={() => handlePresetClick(preset.expr)}
                   style={{
-                    background: 'rgba(255,255,255,0.08)',
+                    background: GLASS.border,
                     border: '1px solid rgba(255,255,255,0.1)',
                     borderRadius: 6,
                     padding: '4px 8px',
@@ -250,7 +251,7 @@ function CreateJobModal({ isOpen, onClose, onSubmit }: CreateJobModalProps) {
                     e.currentTarget.style.color = 'rgba(255,255,255,0.9)'
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.background = 'rgba(255,255,255,0.08)'
+                    e.currentTarget.style.background = GLASS.border
                     e.currentTarget.style.color = 'rgba(255,255,255,0.7)'
                   }}
                 >
@@ -287,7 +288,7 @@ function CreateJobModal({ isOpen, onClose, onSubmit }: CreateJobModalProps) {
               style={{
                 width: '100%',
                 padding: m ? '10px 12px' : '12px 16px',
-                background: 'rgba(255,255,255,0.05)',
+                background: GLASS.borderSubtle,
                 border: '1px solid rgba(255,255,255,0.1)',
                 borderRadius: 8,
                 color: 'rgba(255,255,255,0.9)',
@@ -320,7 +321,7 @@ function CreateJobModal({ isOpen, onClose, onSubmit }: CreateJobModalProps) {
               style={{
                 width: '100%',
                 padding: m ? '10px 12px' : '12px 16px',
-                background: 'rgba(255,255,255,0.05)',
+                background: GLASS.borderSubtle,
                 border: '1px solid rgba(255,255,255,0.1)',
                 borderRadius: 8,
                 color: 'rgba(255,255,255,0.9)',
@@ -355,7 +356,7 @@ function CreateJobModal({ isOpen, onClose, onSubmit }: CreateJobModalProps) {
               style={{
                 width: '100%',
                 padding: m ? '10px 12px' : '12px 16px',
-                background: 'rgba(255,255,255,0.05)',
+                background: GLASS.borderSubtle,
                 border: '1px solid rgba(255,255,255,0.1)',
                 borderRadius: 8,
                 color: 'rgba(255,255,255,0.9)',
@@ -390,7 +391,7 @@ function CreateJobModal({ isOpen, onClose, onSubmit }: CreateJobModalProps) {
                 style={{
                   width: '100%',
                   padding: m ? '10px 12px' : '12px 16px',
-                  background: 'rgba(255,255,255,0.05)',
+                  background: GLASS.borderSubtle,
                   border: '1px solid rgba(255,255,255,0.1)',
                   borderRadius: 8,
                   color: 'rgba(255,255,255,0.9)',
@@ -424,7 +425,7 @@ function CreateJobModal({ isOpen, onClose, onSubmit }: CreateJobModalProps) {
                 transition: 'all 0.15s'
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.background = 'rgba(255,255,255,0.05)'
+                e.currentTarget.style.background = GLASS.borderSubtle
                 e.currentTarget.style.color = 'rgba(255,255,255,0.9)'
               }}
               onMouseLeave={(e) => {
@@ -438,7 +439,7 @@ function CreateJobModal({ isOpen, onClose, onSubmit }: CreateJobModalProps) {
               type="submit"
               style={{
                 padding: m ? '10px 16px' : '12px 20px',
-                background: '#007AFF',
+                background: COLORS.blue,
                 border: 'none',
                 borderRadius: 8,
                 color: 'white',
@@ -451,7 +452,7 @@ function CreateJobModal({ isOpen, onClose, onSubmit }: CreateJobModalProps) {
                 e.currentTarget.style.background = '#0056CC'
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.background = '#007AFF'
+                e.currentTarget.style.background = COLORS.blue
               }}
             >
               Create Job
@@ -471,7 +472,7 @@ function ToggleSwitch({ enabled, onChange }: { enabled: boolean; onChange: (enab
         width: 44,
         height: 24,
         borderRadius: 12,
-        background: enabled ? '#32D74B' : 'rgba(255,255,255,0.2)',
+        background: enabled ? COLORS.green : 'rgba(255,255,255,0.2)',
         position: 'relative',
         cursor: 'pointer',
         transition: 'background 0.2s',
@@ -605,7 +606,7 @@ export default function Cron() {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div>
               <h1 className="text-title" style={{ display: 'flex', alignItems: 'center', gap: 10, margin: 0 }}>
-                <Clock size={m ? 18 : 22} style={{ color: '#007AFF' }} /> Cron Jobs
+                <Clock size={m ? 18 : 22} style={{ color: COLORS.blue }} /> Cron Jobs
               </h1>
               <p className="text-body" style={{ marginTop: 4, margin: '4px 0 0' }}>Scheduled jobs that run automatically</p>
             </div>
@@ -616,7 +617,7 @@ export default function Cron() {
                 alignItems: 'center',
                 gap: 8,
                 padding: m ? '8px 12px' : '10px 16px',
-                background: '#007AFF',
+                background: COLORS.blue,
                 border: 'none',
                 borderRadius: 8,
                 color: 'white',
@@ -630,7 +631,7 @@ export default function Cron() {
                 e.currentTarget.style.transform = 'translateY(-1px)'
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.background = '#007AFF'
+                e.currentTarget.style.background = COLORS.blue
                 e.currentTarget.style.transform = 'translateY(0)'
               }}
             >
@@ -645,7 +646,7 @@ export default function Cron() {
               padding: '10px 18px', borderRadius: 10, fontSize: 13, fontWeight: 500,
               background: toast.startsWith('✅') ? 'rgba(50,215,75,0.15)' : 'rgba(255,69,58,0.15)',
               border: `1px solid ${toast.startsWith('✅') ? 'rgba(50,215,75,0.3)' : 'rgba(255,69,58,0.3)'}`,
-              color: toast.startsWith('✅') ? '#32D74B' : '#FF453A',
+              color: toast.startsWith('✅') ? COLORS.green : COLORS.red,
             }}>
               {toast}
             </div>
@@ -654,9 +655,9 @@ export default function Cron() {
           {/* Summary Cards */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: m ? 8 : 16 }}>
             {[
-              { label: 'Active', icon: Play, color: '#32D74B', count: jobs.filter((j: CronJob) => j.status === 'active' || (j.enabled && j.status !== 'disabled')).length },
-              { label: 'Disabled', icon: Pause, color: '#FF9500', count: jobs.filter((j: CronJob) => j.status === 'disabled' || !j.enabled).length },
-              { label: 'Failed', icon: AlertTriangle, color: '#FF453A', count: jobs.filter((j: CronJob) => j.status === 'failed' || j.status === 'error').length },
+              { label: 'Active', icon: Play, color: COLORS.green, count: jobs.filter((j: CronJob) => j.status === 'active' || (j.enabled && j.status !== 'disabled')).length },
+              { label: 'Disabled', icon: Pause, color: COLORS.orange, count: jobs.filter((j: CronJob) => j.status === 'disabled' || !j.enabled).length },
+              { label: 'Failed', icon: AlertTriangle, color: COLORS.red, count: jobs.filter((j: CronJob) => j.status === 'failed' || j.status === 'error').length },
             ].map((item, i) => (
               <GlassCard key={item.label} delay={0.05 + i * 0.05} noPad>
                 <div style={{ padding: m ? '10px 12px' : 20 }}>
@@ -664,9 +665,9 @@ export default function Cron() {
                     <div style={{ width: m ? 26 : 32, height: m ? 26 : 32, borderRadius: 8, background: `${item.color}20`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       <item.icon size={m ? 12 : 14} style={{ color: item.color }} />
                     </div>
-                    <span style={{ fontSize: m ? 10 : 12, fontWeight: 600, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase' }}>{item.label}</span>
+                    <span style={{ fontSize: m ? 10 : 12, fontWeight: 600, color: TEXT.tertiary, textTransform: 'uppercase' }}>{item.label}</span>
                   </div>
-                  <p style={{ fontSize: m ? 20 : 24, fontWeight: 300, color: 'rgba(255,255,255,0.92)', fontVariantNumeric: 'tabular-nums', margin: 0 }}>{item.count}</p>
+                  <p style={{ fontSize: m ? 20 : 24, fontWeight: 300, color: TEXT.primary, fontVariantNumeric: 'tabular-nums', margin: 0 }}>{item.count}</p>
                 </div>
               </GlassCard>
             ))}
@@ -688,7 +689,7 @@ export default function Cron() {
                       {/* Top: name + toggle */}
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
                         <div style={{ flex: 1, minWidth: 0 }}>
-                          <p style={{ fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.92)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', margin: 0 }}>{job.name}</p>
+                          <p style={{ fontSize: 13, fontWeight: 600, color: TEXT.primary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', margin: 0 }}>{job.name}</p>
                         </div>
                         <ToggleSwitch 
                           enabled={job.enabled} 
@@ -697,7 +698,7 @@ export default function Cron() {
                       </div>
                       
                       {/* Schedule */}
-                      <code style={{ fontSize: 11, color: '#BF5AF2', background: 'rgba(255,255,255,0.06)', padding: '3px 8px', borderRadius: 5, fontFamily: 'monospace', display: 'inline-block', marginBottom: 10 }}>
+                      <code style={{ fontSize: 11, color: COLORS.purple, background: GLASS.divider, padding: '3px 8px', borderRadius: 5, fontFamily: 'monospace', display: 'inline-block', marginBottom: 10 }}>
                         {job.schedule}
                       </code>
                       
@@ -710,11 +711,11 @@ export default function Cron() {
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 10 }}>
                         <div>
                           <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', fontWeight: 600, marginBottom: 2, margin: '0 0 2px' }}>Last Run</p>
-                          <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.65)', margin: 0 }}>{job.lastRun ? timeAgo(job.lastRun) : '—'}</p>
+                          <p style={{ fontSize: 12, color: TEXT.secondary, margin: 0 }}>{job.lastRun ? timeAgo(job.lastRun) : '—'}</p>
                         </div>
                         <div>
                           <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', fontWeight: 600, marginBottom: 2, margin: '0 0 2px' }}>Next Run</p>
-                          <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.65)', margin: 0 }}>{job.nextRun ? timeAgo(job.nextRun) : '—'}</p>
+                          <p style={{ fontSize: 12, color: TEXT.secondary, margin: 0 }}>{job.nextRun ? timeAgo(job.nextRun) : '—'}</p>
                         </div>
                       </div>
 
@@ -730,7 +731,7 @@ export default function Cron() {
                             justifyContent: 'center',
                             gap: 6,
                             padding: '6px 10px',
-                            background: 'rgba(255,255,255,0.08)',
+                            background: GLASS.border,
                             border: '1px solid rgba(255,255,255,0.1)',
                             borderRadius: 6,
                             color: 'rgba(255,255,255,0.8)',
@@ -756,7 +757,7 @@ export default function Cron() {
                             background: 'rgba(255,69,58,0.1)',
                             border: '1px solid rgba(255,69,58,0.2)',
                             borderRadius: 6,
-                            color: '#FF453A',
+                            color: COLORS.red,
                             cursor: actionLoading === `delete-${job.id}` ? 'not-allowed' : 'pointer',
                             transition: 'all 0.15s',
                             opacity: actionLoading === `delete-${job.id}` ? 0.6 : 1
@@ -775,7 +776,7 @@ export default function Cron() {
             <GlassCard delay={0.2} hover={false} noPad>
               <div style={{ padding: '16px 24px', borderBottom: '1px solid rgba(255,255,255,0.08)', display: 'grid', gridTemplateColumns: '3fr 2fr 1fr 2fr 2fr 1fr 2fr', gap: 16 }}>
                 {['Name', 'Schedule', 'Status', 'Last Run', 'Next Run', 'Duration', 'Actions'].map((h) => (
-                  <span key={h} style={{ color: 'rgba(255,255,255,0.45)', fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.15em' }}>{h}</span>
+                  <span key={h} style={{ color: TEXT.tertiary, fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.15em' }}>{h}</span>
                 ))}
               </div>
               {jobs.map((job: CronJob, i: number) => (
@@ -792,11 +793,11 @@ export default function Cron() {
                   onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent' }}
                 >
                   <div style={{ overflow: 'hidden' }}>
-                    <p style={{ fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.92)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', margin: 0 }}>{job.name}</p>
-                    <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.45)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'monospace', margin: '2px 0 0' }}>{job.id}</p>
+                    <p style={{ fontSize: 13, fontWeight: 600, color: TEXT.primary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', margin: 0 }}>{job.name}</p>
+                    <p style={{ fontSize: 10, color: TEXT.tertiary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'monospace', margin: '2px 0 0' }}>{job.id}</p>
                   </div>
                   <div>
-                    <code style={{ fontSize: 12, color: '#BF5AF2', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)', padding: '4px 8px', borderRadius: 6, fontFamily: 'monospace' }}>{job.schedule}</code>
+                    <code style={{ fontSize: 12, color: COLORS.purple, background: GLASS.divider, border: '1px solid rgba(255,255,255,0.08)', padding: '4px 8px', borderRadius: 6, fontFamily: 'monospace' }}>{job.schedule}</code>
                   </div>
                   <div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -810,20 +811,20 @@ export default function Cron() {
                   <div>
                     {job.lastRun ? (
                       <>
-                        <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.65)', margin: 0 }}>{timeAgo(job.lastRun)}</p>
-                        <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.45)', margin: '2px 0 0' }}>{formatDate(job.lastRun)}</p>
+                        <p style={{ fontSize: 12, color: TEXT.secondary, margin: 0 }}>{timeAgo(job.lastRun)}</p>
+                        <p style={{ fontSize: 10, color: TEXT.tertiary, margin: '2px 0 0' }}>{formatDate(job.lastRun)}</p>
                       </>
-                    ) : <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)' }}>—</span>}
+                    ) : <span style={{ fontSize: 12, color: TEXT.tertiary }}>—</span>}
                   </div>
                   <div>
                     {job.nextRun ? (
                       <>
-                        <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.65)', margin: 0 }}>{timeAgo(job.nextRun)}</p>
-                        <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.45)', margin: '2px 0 0' }}>{formatDate(job.nextRun)}</p>
+                        <p style={{ fontSize: 12, color: TEXT.secondary, margin: 0 }}>{timeAgo(job.nextRun)}</p>
+                        <p style={{ fontSize: 10, color: TEXT.tertiary, margin: '2px 0 0' }}>{formatDate(job.nextRun)}</p>
                       </>
-                    ) : <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)' }}>—</span>}
+                    ) : <span style={{ fontSize: 12, color: TEXT.tertiary }}>—</span>}
                   </div>
-                  <div><span style={{ fontSize: 12, fontWeight: 500, color: 'rgba(255,255,255,0.65)' }}>{job.duration || '—'}</span></div>
+                  <div><span style={{ fontSize: 12, fontWeight: 500, color: TEXT.secondary }}>{job.duration || '—'}</span></div>
                   <div style={{ display: 'flex', gap: 8 }}>
                     <button
                       onClick={() => handleRun(job.id)}
@@ -835,7 +836,7 @@ export default function Cron() {
                         justifyContent: 'center',
                         width: 32,
                         height: 28,
-                        background: 'rgba(255,255,255,0.08)',
+                        background: GLASS.border,
                         border: '1px solid rgba(255,255,255,0.1)',
                         borderRadius: 6,
                         color: 'rgba(255,255,255,0.8)',
@@ -850,7 +851,7 @@ export default function Cron() {
                         }
                       }}
                       onMouseLeave={(e) => {
-                        e.currentTarget.style.background = 'rgba(255,255,255,0.08)'
+                        e.currentTarget.style.background = GLASS.border
                         e.currentTarget.style.color = 'rgba(255,255,255,0.8)'
                       }}
                     >
@@ -873,7 +874,7 @@ export default function Cron() {
                         background: 'rgba(255,69,58,0.1)',
                         border: '1px solid rgba(255,69,58,0.2)',
                         borderRadius: 6,
-                        color: '#FF453A',
+                        color: COLORS.red,
                         cursor: actionLoading === `delete-${job.id}` ? 'not-allowed' : 'pointer',
                         transition: 'all 0.15s',
                         opacity: actionLoading === `delete-${job.id}` ? 0.6 : 1

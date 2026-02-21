@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { CheckCircle, ArrowRight, ArrowLeft, Settings, Zap, Search } from 'lucide-react'
 import PageTransition from '../components/PageTransition'
 import { useIsMobile } from '../lib/useIsMobile'
+import { TEXT, COLORS, GLASS, accent } from '../lib/theme'
 
 interface SetupData {
   dashboardName: string
@@ -205,7 +206,7 @@ export default function Setup() {
   }
 
   const buttonStyle = {
-    background: '#007AFF',
+    background: COLORS.blue,
     color: 'white',
     border: 'none',
     borderRadius: 10,
@@ -286,13 +287,13 @@ export default function Setup() {
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
                 {status?.gatewayRunning ? (
-                  <CheckCircle size={24} style={{ color: '#32D74B' }} />
+                  <CheckCircle size={24} style={{ color: COLORS.green }} />
                 ) : (
                   <div style={{ 
                     width: 24, 
                     height: 24, 
                     borderRadius: '50%', 
-                    background: '#FF453A',
+                    background: COLORS.red,
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center'
@@ -321,7 +322,7 @@ export default function Setup() {
                 padding: 20,
                 marginBottom: 32
               }}>
-                <h3 style={{ color: '#007AFF', fontSize: 16, fontWeight: 600, marginBottom: 12 }}>
+                <h3 style={{ color: COLORS.blue, fontSize: 16, fontWeight: 600, marginBottom: 12 }}>
                   Detected Configuration
                 </h3>
                 <div style={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: 14 }}>
@@ -356,7 +357,7 @@ export default function Setup() {
               alignItems: 'center',
               gap: 12
             }}>
-              <Settings size={32} style={{ color: '#007AFF' }} />
+              <Settings size={32} style={{ color: COLORS.blue }} />
               Configure Dashboard
             </h2>
 
@@ -438,7 +439,7 @@ export default function Setup() {
                       style={{ margin: 0 }}
                     />
                     <span style={{ 
-                      color: enabled ? '#007AFF' : 'rgba(255, 255, 255, 0.8)',
+                      color: enabled ? COLORS.blue : 'rgba(255, 255, 255, 0.8)',
                       fontSize: 14,
                       fontWeight: 500,
                       textTransform: 'capitalize'
@@ -475,7 +476,7 @@ export default function Setup() {
               alignItems: 'center',
               gap: 12
             }}>
-              <Search size={32} style={{ color: '#007AFF' }} />
+              <Search size={32} style={{ color: COLORS.blue }} />
               Scout Setup
             </h2>
             <p style={{ 
@@ -530,7 +531,7 @@ export default function Setup() {
                         </div>
                         <button
                           style={{
-                            background: selected ? '#007AFF' : 'rgba(255, 255, 255, 0.1)',
+                            background: selected ? COLORS.blue : 'rgba(255, 255, 255, 0.1)',
                             color: selected ? 'white' : 'rgba(255, 255, 255, 0.8)',
                             border: 'none',
                             borderRadius: 8,
@@ -584,7 +585,7 @@ export default function Setup() {
                       style={{
                         background: 'rgba(255, 69, 58, 0.2)',
                         border: '1px solid rgba(255, 69, 58, 0.3)',
-                        color: '#FF453A',
+                        color: COLORS.red,
                         borderRadius: 8,
                         padding: '0 12px',
                         cursor: 'pointer'
@@ -628,7 +629,7 @@ export default function Setup() {
         {step === 4 && (
           <div style={cardStyle}>
             <div style={{ textAlign: 'center', marginBottom: 32 }}>
-              <CheckCircle size={64} style={{ color: '#32D74B', marginBottom: 16 }} />
+              <CheckCircle size={64} style={{ color: COLORS.green, marginBottom: 16 }} />
               <h2 style={{ 
                 fontSize: 28, 
                 fontWeight: 700, 

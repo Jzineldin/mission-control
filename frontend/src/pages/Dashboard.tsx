@@ -2,15 +2,16 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Activity, Cpu, MessageSquare, Database, Radio, Heart,
-  BarChart3, Zap, Mail, Calendar, Code, CheckCircle, Search,
-  Clock, Loader2, Play, ArrowRight, Bell
+  BarChart3, Mail, Calendar, CheckCircle, Search,
+  Clock, Loader2, ArrowRight, Bell
 } from 'lucide-react'
 import PageTransition from '../components/PageTransition'
 import GlassCard from '../components/GlassCard'
 import AnimatedCounter from '../components/AnimatedCounter'
 import StatusBadge from '../components/StatusBadge'
-import { useApi, timeAgo } from '../lib/hooks'
+import { useDashboardData, timeAgo } from '../lib/hooks'
 import { useIsMobile } from '../lib/useIsMobile'
+import { TEXT, COLORS, GLASS, accent } from '../lib/theme'
 
 const feedIcons: Record<string, any> = {
   check: CheckCircle,
@@ -20,11 +21,11 @@ const feedIcons: Record<string, any> = {
 }
 
 const feedColors: Record<string, string> = {
-  task_completed: '#32D74B',
-  task_running: '#007AFF',
-  scout_found: '#FF9500',
-  scout_deployed: '#BF5AF2',
-  cron_run: '#8E8E93',
+  task_completed: COLORS.green,
+  task_running:   COLORS.blue,
+  scout_found:    COLORS.orange,
+  scout_deployed: COLORS.purple,
+  cron_run:       COLORS.gray,
 }
 
 function QuickActionsBar() {
@@ -34,8 +35,7 @@ function QuickActionsBar() {
 
   const handleQuickAction = async (endpoint: string, label: string) => {
     if (loading) return
-    
-    // All quick actions: open chat widget with auto-send
+
     if (endpoint === '/quick/emails') {
       window.dispatchEvent(new CustomEvent('open-chat', { detail: { message: 'Check my unread emails and summarize anything important.', autoSend: true } }))
       return
@@ -48,17 +48,17 @@ function QuickActionsBar() {
       window.dispatchEvent(new CustomEvent('open-chat', { detail: { message: 'Run a quick heartbeat check: emails, calendar, anything urgent I should know about?', autoSend: true } }))
       return
     }
-    
+
     setLoading(endpoint)
     setResult(null)
-    
+
     try {
-      const res = await fetch(`/api${endpoint}`, { 
-        method: 'POST', 
+      const res = await fetch(`/api${endpoint}`, {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' }
       })
       const data = await res.json()
-      
+
       if (data.status === 'triggered') {
         setResult('✅ Heartbeat triggered')
       } else if (data.status === 'error') {
@@ -66,8 +66,7 @@ function QuickActionsBar() {
       } else {
         setResult('✅ Action completed')
       }
-      
-      // Clear result after 5 seconds
+
       setTimeout(() => setResult(null), 10000)
     } catch (e: any) {
       setResult(`❌ ${e.message}`)
@@ -83,56 +82,57 @@ function QuickActionsBar() {
     { endpoint: '/quick/schedule', label: '📅 Today\'s Schedule', icon: Calendar },
   ]
 
+  const blueAccent = accent(COLORS.blue)
+  const isActive = (ep: string) => loading === ep
+
   return (
     <GlassCard delay={0.08} noPad>
       <div style={{ padding: m ? 14 : 20 }}>
-        <h3 style={{ fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.92)', marginBottom: 12 }}>
+        <h3 style={{ fontSize: 13, fontWeight: 600, color: TEXT.primary, marginBottom: 12 }}>
           Quick Actions
         </h3>
-        
-        <div style={{ 
-          display: 'flex', 
-          flexDirection: m ? 'column' : 'row', 
-          gap: m ? 10 : 12 
+
+        <div style={{
+          display: 'flex',
+          flexDirection: m ? 'column' : 'row',
+          gap: m ? 10 : 12
         }}>
           {actions.map(action => (
             <button
               key={action.endpoint}
               onClick={() => handleQuickAction(action.endpoint, action.label)}
-              disabled={loading === action.endpoint}
+              disabled={isActive(action.endpoint)}
               style={{
                 flex: m ? undefined : 1,
                 padding: '10px 16px',
                 borderRadius: 8,
-                border: '1px solid rgba(0,122,255,0.3)',
-                background: loading === action.endpoint 
-                  ? 'rgba(0,122,255,0.2)' 
-                  : 'rgba(0,122,255,0.1)',
-                color: 'rgba(255,255,255,0.9)',
+                border: `1px solid ${blueAccent.border}`,
+                background: isActive(action.endpoint) ? blueAccent.bgHover : blueAccent.bg,
+                color: TEXT.primary,
                 fontSize: 12,
                 fontWeight: 500,
-                cursor: loading === action.endpoint ? 'not-allowed' : 'pointer',
+                cursor: isActive(action.endpoint) ? 'not-allowed' : 'pointer',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 gap: 8,
                 transition: 'all 0.15s',
-                opacity: loading === action.endpoint ? 0.7 : 1,
+                opacity: isActive(action.endpoint) ? 0.7 : 1,
               }}
               onMouseEnter={(e) => {
-                if (loading !== action.endpoint) {
-                  e.currentTarget.style.background = 'rgba(0,122,255,0.2)'
-                  e.currentTarget.style.borderColor = 'rgba(0,122,255,0.5)'
+                if (!isActive(action.endpoint)) {
+                  e.currentTarget.style.background = blueAccent.bgHover
+                  e.currentTarget.style.borderColor = blueAccent.borderHi
                 }
               }}
               onMouseLeave={(e) => {
-                if (loading !== action.endpoint) {
-                  e.currentTarget.style.background = 'rgba(0,122,255,0.1)'
-                  e.currentTarget.style.borderColor = 'rgba(0,122,255,0.3)'
+                if (!isActive(action.endpoint)) {
+                  e.currentTarget.style.background = blueAccent.bg
+                  e.currentTarget.style.borderColor = blueAccent.border
                 }
               }}
             >
-              {loading === action.endpoint ? (
+              {isActive(action.endpoint) ? (
                 <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} />
               ) : (
                 <action.icon size={14} />
@@ -141,22 +141,16 @@ function QuickActionsBar() {
             </button>
           ))}
         </div>
-        
+
         {result && (
-          <div style={{ 
-            marginTop: 12, 
-            padding: '8px 12px', 
-            borderRadius: 6, 
-            background: result.startsWith('❌') 
-              ? 'rgba(255,69,58,0.1)' 
-              : 'rgba(50,215,75,0.1)',
-            border: `1px solid ${result.startsWith('❌') 
-              ? 'rgba(255,69,58,0.3)' 
-              : 'rgba(50,215,75,0.3)'}`,
+          <div style={{
+            marginTop: 12,
+            padding: '8px 12px',
+            borderRadius: 6,
+            background: result.startsWith('❌') ? accent(COLORS.red).bg : accent(COLORS.green).bg,
+            border: `1px solid ${result.startsWith('❌') ? accent(COLORS.red).border : accent(COLORS.green).border}`,
             fontSize: 11,
-            color: result.startsWith('❌') 
-              ? '#FF453A' 
-              : '#32D74B',
+            color: result.startsWith('❌') ? COLORS.red : COLORS.green,
           }}>
             {result}
           </div>
@@ -169,9 +163,7 @@ function QuickActionsBar() {
 export default function Dashboard() {
   const m = useIsMobile()
   const navigate = useNavigate()
-  const { data, loading } = useApi<any>('/api/status', 30000)
-  const { data: activityData } = useApi<any>('/api/activity', 10000)
-  const { data: sessionsData } = useApi<any>('/api/sessions', 15000)
+  const { status: data, activity: activityData, sessions: sessionsData, loading } = useDashboardData()
   const [countdown, setCountdown] = useState('')
 
   useEffect(() => {
@@ -195,7 +187,7 @@ export default function Dashboard() {
     return (
       <PageTransition>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '50vh' }}>
-          <div style={{ width: 24, height: 24, border: '2px solid #007AFF', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+          <div style={{ width: 24, height: 24, border: `2px solid ${COLORS.blue}`, borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
         </div>
       </PageTransition>
     )
@@ -207,9 +199,8 @@ export default function Dashboard() {
   const activeSessions = sessions.filter((s: any) => s.isActive).length
   const totalSessions = sessions.length
 
-  // Use detected agent name from OpenClaw if showing default "Mission Control"
-  const displayName = agent.name === 'Mission Control' 
-    ? 'Agent' // Default to detected name or fallback
+  const displayName = agent.name === 'Mission Control'
+    ? 'Agent'
     : agent.name
 
   return (
@@ -228,38 +219,37 @@ export default function Dashboard() {
         <GlassCard delay={0.05} noPad>
           <div style={{ padding: m ? 16 : 24 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: m ? 12 : 0 }}>
-              <div style={{ width: 40, height: 40, borderRadius: 10, background: 'rgba(0,122,255,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <Activity size={20} style={{ color: '#007AFF' }} />
+              <div style={{ width: 40, height: 40, borderRadius: 10, background: accent(COLORS.blue).bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <Activity size={20} style={{ color: COLORS.blue }} />
               </div>
               <div style={{ minWidth: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <h2 style={{ fontSize: 14, fontWeight: 600, color: 'rgba(255,255,255,0.92)' }}>{displayName}</h2>
+                  <h2 style={{ fontSize: 14, fontWeight: 600, color: TEXT.primary }}>{displayName}</h2>
                   <StatusBadge status="active" pulse />
                 </div>
-                <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                <p style={{ fontSize: 11, color: TEXT.tertiary, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {m ? agent.heartbeatInterval : `${agent.model} · ${agent.heartbeatInterval} · ${agent.totalAgents} agents`}
                 </p>
-                {/* Last Active timestamp */}
                 {sessions.length > 0 && (
-                  <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', marginTop: 4 }}>
-                    Last active: {timeAgo(sessions.sort((a, b) => new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime())[0]?.updatedAt || '')}
+                  <p style={{ fontSize: 10, color: TEXT.dim, marginTop: 4 }}>
+                    Last active: {timeAgo(sessions.sort((a: any, b: any) => new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime())[0]?.updatedAt || '')}
                   </p>
                 )}
               </div>
             </div>
-            <div style={{ display: 'flex', gap: 16, justifyContent: m ? 'space-around' : 'flex-end', paddingTop: m ? 12 : 0, borderTop: m ? '1px solid rgba(255,255,255,0.06)' : 'none' }}>
+            <div style={{ display: 'flex', gap: 16, justifyContent: m ? 'space-around' : 'flex-end', paddingTop: m ? 12 : 0, borderTop: m ? `1px solid ${GLASS.divider}` : 'none' }}>
               <div style={{ textAlign: 'center' }}>
                 <p className="text-label">Sessions</p>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 2 }}>
-                  <p style={{ fontSize: 22, fontWeight: 300, color: 'rgba(255,255,255,0.92)', fontVariantNumeric: 'tabular-nums' }}>
+                  <p style={{ fontSize: 22, fontWeight: 300, color: TEXT.primary, fontVariantNumeric: 'tabular-nums' }}>
                     <AnimatedCounter end={activeSessions} />
-                    <span style={{ fontSize: 14, color: 'rgba(255,255,255,0.45)', marginLeft: 2 }}>/{totalSessions}</span>
+                    <span style={{ fontSize: 14, color: TEXT.tertiary, marginLeft: 2 }}>/{totalSessions}</span>
                   </p>
                   <button
                     onClick={() => navigate('/conversations')}
                     style={{
                       fontSize: 10,
-                      color: '#007AFF',
+                      color: COLORS.blue,
                       background: 'none',
                       border: 'none',
                       cursor: 'pointer',
@@ -272,12 +262,12 @@ export default function Dashboard() {
                   </button>
                 </div>
               </div>
-              <div style={{ width: 1, height: 36, background: 'rgba(255,255,255,0.08)' }} />
+              <div style={{ width: 1, height: 36, background: GLASS.border }} />
               <div style={{ textAlign: 'center' }}>
                 <p className="text-label">Memory</p>
-                <p style={{ fontSize: 22, fontWeight: 300, color: 'rgba(255,255,255,0.92)', marginTop: 2, fontVariantNumeric: 'tabular-nums' }}>
+                <p style={{ fontSize: 22, fontWeight: 300, color: TEXT.primary, marginTop: 2, fontVariantNumeric: 'tabular-nums' }}>
                   <AnimatedCounter end={agent.memoryChunks} />
-                  <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', marginLeft: 4 }}>chunks</span>
+                  <span style={{ fontSize: 12, color: TEXT.tertiary, marginLeft: 4 }}>chunks</span>
                 </p>
               </div>
             </div>
@@ -290,10 +280,10 @@ export default function Dashboard() {
         {/* Stats Grid */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: m ? 10 : 20 }}>
           {[
-            { label: 'Sessions', value: totalSessions, icon: Activity, color: '#007AFF' },
-            { label: 'Mem Files', value: agent.memoryFiles, icon: Database, color: '#BF5AF2' },
-            { label: 'Chunks', value: agent.memoryChunks, icon: Cpu, color: '#32D74B' },
-            { label: 'Channels', value: agent.channels?.length || 0, icon: Radio, color: '#FF9500' },
+            { label: 'Sessions', value: totalSessions,          icon: Activity, color: COLORS.blue   },
+            { label: 'Mem Files', value: agent.memoryFiles,     icon: Database, color: COLORS.purple },
+            { label: 'Chunks',   value: agent.memoryChunks,     icon: Cpu,      color: COLORS.green  },
+            { label: 'Channels', value: agent.channels?.length || 0, icon: Radio, color: COLORS.orange },
           ].map((stat, i) => (
             <GlassCard key={stat.label} delay={0.1 + i * 0.05} noPad>
               <div style={{ padding: m ? '12px 14px' : 20 }}>
@@ -301,9 +291,9 @@ export default function Dashboard() {
                   <div style={{ width: 28, height: 28, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: `${stat.color}20`, flexShrink: 0 }}>
                     <stat.icon size={14} style={{ color: stat.color }} />
                   </div>
-                  <span style={{ fontSize: 10, fontWeight: 600, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{stat.label}</span>
+                  <span style={{ fontSize: 10, fontWeight: 600, color: TEXT.tertiary, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{stat.label}</span>
                 </div>
-                <p style={{ fontSize: m ? 22 : 28, fontWeight: 300, color: 'rgba(255,255,255,0.92)', fontVariantNumeric: 'tabular-nums' }}>
+                <p style={{ fontSize: m ? 22 : 28, fontWeight: 300, color: TEXT.primary, fontVariantNumeric: 'tabular-nums' }}>
                   <AnimatedCounter end={stat.value} />
                 </p>
               </div>
@@ -313,16 +303,16 @@ export default function Dashboard() {
 
         {/* Main content: Activity Feed + System Info */}
         <div style={{ display: 'flex', flexDirection: m ? 'column' : 'row', gap: m ? 16 : 24 }}>
-          
+
           {/* Activity Feed — THE main feature */}
           <div style={{ flex: m ? undefined : 1.5, minWidth: 0 }}>
             <GlassCard delay={0.15} hover={false} noPad>
               <div style={{ padding: m ? 14 : 24, maxHeight: m ? 500 : 640, display: 'flex', flexDirection: 'column' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-                  <h3 style={{ fontSize: 14, fontWeight: 600, color: 'rgba(255,255,255,0.92)', display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <Bell size={14} style={{ color: '#FFD60A' }} /> Activity Feed
+                  <h3 style={{ fontSize: 14, fontWeight: 600, color: TEXT.primary, display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <Bell size={14} style={{ color: COLORS.yellow }} /> Activity Feed
                   </h3>
-                  <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)' }}>{feed.length} items</span>
+                  <span style={{ fontSize: 10, color: TEXT.dim }}>{feed.length} items</span>
                 </div>
                 <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
                   {feed.length === 0 ? (
@@ -332,15 +322,15 @@ export default function Dashboard() {
                     </div>
                   ) : feed.map((item: any, i: number) => {
                     const Icon = feedIcons[item.icon] || Activity
-                    const color = feedColors[item.type] || '#8E8E93'
+                    const color = feedColors[item.type] || COLORS.gray
                     const isRunning = item.type === 'task_running'
-                    
+
                     return (
                       <div
                         key={item.id}
                         style={{
                           display: 'flex', gap: m ? 10 : 12, padding: m ? '10px 0' : '12px 0',
-                          borderBottom: '1px solid rgba(255,255,255,0.04)',
+                          borderBottom: `1px solid ${GLASS.surface}`,
                           cursor: item.actionUrl ? 'pointer' : 'default',
                         }}
                         onClick={() => item.actionUrl && navigate(item.actionUrl)}
@@ -371,7 +361,7 @@ export default function Dashboard() {
                           )}
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 5 }}>
                             {item.score && (
-                              <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 4, background: item.score >= 80 ? 'rgba(50,215,75,0.12)' : 'rgba(255,149,0,0.12)', color: item.score >= 80 ? '#32D74B' : '#FF9500' }}>
+                              <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 4, background: item.score >= 80 ? 'rgba(50,215,75,0.12)' : 'rgba(255,149,0,0.12)', color: item.score >= 80 ? COLORS.green : COLORS.orange }}>
                                 {item.score}pts
                               </span>
                             )}
@@ -381,10 +371,10 @@ export default function Dashboard() {
                             {item.priority && (
                               <span style={{
                                 width: 6, height: 6, borderRadius: '50%',
-                                background: item.priority === 'high' ? '#FF453A' : item.priority === 'medium' ? '#FF9500' : '#007AFF',
+                                background: item.priority === 'high' ? COLORS.red : item.priority === 'medium' ? COLORS.orange : COLORS.blue,
                               }} />
                             )}
-                            <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.25)', marginLeft: 'auto' }}>
+                            <span style={{ fontSize: 10, color: TEXT.muted, marginLeft: 'auto' }}>
                               {item.time ? timeAgo(item.time) : ''}
                             </span>
                           </div>
@@ -417,11 +407,11 @@ export default function Dashboard() {
             {/* Channels */}
             <GlassCard delay={0.2} hover={false} noPad>
               <div style={{ padding: m ? 14 : 24 }}>
-                <h3 style={{ fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.92)', marginBottom: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <Radio size={13} style={{ color: '#BF5AF2' }} /> Channels
+                <h3 style={{ fontSize: 13, fontWeight: 600, color: TEXT.primary, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <Radio size={13} style={{ color: COLORS.purple }} /> Channels
                 </h3>
                 {agent.channels?.length > 0 ? agent.channels.map((ch: any) => (
-                  <div key={ch.name} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                  <div key={ch.name} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0', borderBottom: `1px solid ${GLASS.borderSubtle}` }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flex: 1 }}>
                       <MessageSquare size={14} style={{ color: 'rgba(255,255,255,0.5)', flexShrink: 0 }} />
                       <div style={{ minWidth: 0 }}>
@@ -431,7 +421,7 @@ export default function Dashboard() {
                     </div>
                     <StatusBadge status={ch.state === 'OK' ? 'active' : ch.state === 'OFF' ? 'off' : 'error'} />
                   </div>
-                )) : <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)' }}>No channels</p>}
+                )) : <p style={{ fontSize: 12, color: TEXT.tertiary }}>No channels</p>}
               </div>
             </GlassCard>
 
@@ -439,33 +429,33 @@ export default function Dashboard() {
             <GlassCard delay={0.25} hover={false} noPad>
               <div style={{ padding: m ? 14 : 24 }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-                  <h3 style={{ fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.92)', display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <BarChart3 size={13} style={{ color: '#007AFF' }} /> Tokens Used
+                  <h3 style={{ fontSize: 13, fontWeight: 600, color: TEXT.primary, display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <BarChart3 size={13} style={{ color: COLORS.blue }} /> Tokens Used
                   </h3>
-                  <span style={{ fontSize: 18, fontWeight: 700, color: 'rgba(255,255,255,0.92)', fontVariantNumeric: 'tabular-nums' }}>{(tokenUsage.used / 1000).toFixed(0)}k</span>
+                  <span style={{ fontSize: 18, fontWeight: 700, color: TEXT.primary, fontVariantNumeric: 'tabular-nums' }}>{(tokenUsage.used / 1000).toFixed(0)}k</span>
                 </div>
-                <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)' }}>This session period · No usage limit</div>
+                <div style={{ fontSize: 11, color: TEXT.tertiary }}>This session period · No usage limit</div>
               </div>
             </GlassCard>
 
             {/* Heartbeat */}
             <GlassCard delay={0.3} hover={false} noPad>
               <div style={{ padding: m ? 14 : 24 }}>
-                <h3 style={{ fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.92)', marginBottom: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <Heart size={13} style={{ color: '#FF453A' }} /> Heartbeat
+                <h3 style={{ fontSize: 13, fontWeight: 600, color: TEXT.primary, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <Heart size={13} style={{ color: COLORS.red }} /> Heartbeat
                 </h3>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, textAlign: 'center' }}>
                   <div>
                     <p style={{ fontSize: 10, fontWeight: 600, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', marginBottom: 4 }}>Last</p>
-                    <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.65)' }}>{heartbeat.lastHeartbeat ? timeAgo(new Date(heartbeat.lastHeartbeat * 1000).toISOString()) : '—'}</p>
+                    <p style={{ fontSize: 12, color: TEXT.secondary }}>{heartbeat.lastHeartbeat ? timeAgo(new Date(heartbeat.lastHeartbeat * 1000).toISOString()) : '—'}</p>
                   </div>
                   <div>
                     <p style={{ fontSize: 10, fontWeight: 600, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', marginBottom: 4 }}>Next</p>
-                    <p style={{ fontSize: 12, color: countdown === 'Overdue' ? '#FF453A' : '#007AFF', fontFamily: 'monospace' }}>{countdown || '—'}</p>
+                    <p style={{ fontSize: 12, color: countdown === 'Overdue' ? COLORS.red : COLORS.blue, fontFamily: 'monospace' }}>{countdown || '—'}</p>
                   </div>
                   <div>
                     <p style={{ fontSize: 10, fontWeight: 600, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', marginBottom: 4 }}>Interval</p>
-                    <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.65)' }}>{agent.heartbeatInterval}</p>
+                    <p style={{ fontSize: 12, color: TEXT.secondary }}>{agent.heartbeatInterval}</p>
                   </div>
                 </div>
               </div>

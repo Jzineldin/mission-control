@@ -5,6 +5,7 @@ import PageTransition from '../components/PageTransition'
 import { useIsMobile } from '../lib/useIsMobile'
 import GlassCard from '../components/GlassCard'
 import { useApi } from '../lib/hooks'
+import { TEXT, COLORS, GLASS, accent } from '../lib/theme'
 
 interface AWSService {
   name: string
@@ -54,14 +55,14 @@ function getModelAction(m: BedrockModel): { label: string; type: 'agent' | 'imag
   const inp = m.inputModalities || []
   // Only Amazon models (Nova Canvas, Titan Image Gen) support text-to-image via our API
   if (out.includes('IMAGE') && (m.modelId.startsWith('amazon.nova-canvas') || m.modelId.startsWith('amazon.titan-image'))) {
-    return { label: 'Generate Image', type: 'image', color: '#BF5AF2' }
+    return { label: 'Generate Image', type: 'image', color: COLORS.purple }
   }
-  if (out.includes('IMAGE')) return { label: 'Image Tool', type: 'none', color: '#BF5AF2' } // Stability needs input image
-  if (out.includes('VIDEO')) return { label: 'Video Gen', type: 'none', color: '#FF9500' }
-  if (out.includes('SPEECH')) return { label: 'Text to Speech', type: 'tts', color: '#32D74B' }
-  if (out.includes('EMBEDDING')) return { label: 'Embedding', type: 'none', color: '#8E8E93' }
-  if (out.includes('TEXT') && inp.includes('TEXT')) return { label: 'Use as Agent', type: 'agent', color: '#007AFF' }
-  return { label: 'View', type: 'none', color: '#8E8E93' }
+  if (out.includes('IMAGE')) return { label: 'Image Tool', type: 'none', color: COLORS.purple } // Stability needs input image
+  if (out.includes('VIDEO')) return { label: 'Video Gen', type: 'none', color: COLORS.orange }
+  if (out.includes('SPEECH')) return { label: 'Text to Speech', type: 'tts', color: COLORS.green }
+  if (out.includes('EMBEDDING')) return { label: 'Embedding', type: 'none', color: COLORS.gray }
+  if (out.includes('TEXT') && inp.includes('TEXT')) return { label: 'Use as Agent', type: 'agent', color: COLORS.blue }
+  return { label: 'View', type: 'none', color: COLORS.gray }
 }
 
 export default function AWS() {
@@ -178,7 +179,7 @@ export default function AWS() {
         {/* Header */}
         <div>
           <h1 className="text-title" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <Cloud size={22} style={{ color: '#FF9500' }} /> AWS Dashboard
+            <Cloud size={22} style={{ color: COLORS.orange }} /> AWS Dashboard
           </h1>
           <p className="text-body" style={{ marginTop: 4 }}>
             Account {account.id} · {account.region}{account.user ? ` · ${account.user}` : ''}
@@ -189,15 +190,15 @@ export default function AWS() {
         <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', gap: 16 }}>
           {[
             { label: 'Account ID', value: account.id, color: '#fff' },
-            { label: 'Region', value: account.region, color: '#007AFF' },
-            { label: 'Credits', value: `$${credits.total.toLocaleString()}`, color: '#32D74B' },
-            { label: 'Bedrock Models', value: allModels.length, color: '#BF5AF2' },
+            { label: 'Region', value: account.region, color: COLORS.blue },
+            { label: 'Credits', value: `$${credits.total.toLocaleString()}`, color: COLORS.green },
+            { label: 'Bedrock Models', value: allModels.length, color: COLORS.purple },
           ].map((s, i) => (
             <GlassCard key={s.label} delay={0.05 + i * 0.03} noPad>
               <div style={{ padding: '16px 20px' }}>
                 <p className="text-label" style={{ marginBottom: 8 }}>{s.label}</p>
                 <p style={{ fontSize: 20, fontWeight: 300, color: s.color, fontVariantNumeric: 'tabular-nums' }}>{s.value}</p>
-                {s.label === 'Credits' && <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', marginTop: 4 }}>{credits.note}</p>}
+                {s.label === 'Credits' && <p style={{ fontSize: 10, color: TEXT.dim, marginTop: 4 }}>{credits.note}</p>}
               </div>
             </GlassCard>
           ))}
@@ -207,7 +208,7 @@ export default function AWS() {
           {/* Services */}
           <GlassCard delay={0.15} noPad>
             <div style={{ padding: '20px 24px' }}>
-              <h2 style={{ fontSize: 15, fontWeight: 600, color: 'rgba(255,255,255,0.92)', marginBottom: 16 }}>Services</h2>
+              <h2 style={{ fontSize: 15, fontWeight: 600, color: TEXT.primary, marginBottom: 16 }}>Services</h2>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {services.map((svc) => (
                   <motion.div key={svc.name} whileHover={{ scale: 1.01 }} style={{
@@ -223,12 +224,12 @@ export default function AWS() {
                       <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)' }}>{svc.detail}</span>
                       <span style={{
                         fontSize: 10, padding: '2px 8px', borderRadius: 6,
-                        background: svc.status === 'active' ? 'rgba(50,215,75,0.15)' : 'rgba(255,255,255,0.06)',
-                        color: svc.status === 'active' ? '#32D74B' : 'rgba(255,255,255,0.4)',
-                        border: `1px solid ${svc.status === 'active' ? 'rgba(50,215,75,0.3)' : 'rgba(255,255,255,0.08)'}`,
+                        background: svc.status === 'active' ? 'rgba(50,215,75,0.15)' : GLASS.divider,
+                        color: svc.status === 'active' ? COLORS.green : 'rgba(255,255,255,0.4)',
+                        border: `1px solid ${svc.status === 'active' ? 'rgba(50,215,75,0.3)' : GLASS.border}`,
                       }}>{svc.status}</span>
                       <button onClick={() => handleTestService(svc.name)} disabled={testingService === svc.name}
-                        style={{ padding: '4px 8px', borderRadius: 6, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.04)', cursor: 'pointer', color: 'rgba(255,255,255,0.5)' }}>
+                        style={{ padding: '4px 8px', borderRadius: 6, border: '1px solid rgba(255,255,255,0.1)', background: GLASS.surface, cursor: 'pointer', color: 'rgba(255,255,255,0.5)' }}>
                         {testResults[svc.name] === 'success' ? <CheckCircle size={12} color="#32D74B" /> :
                          testResults[svc.name] === 'error' ? <AlertCircle size={12} color="#FF453A" /> : <Play size={12} />}
                       </button>
@@ -242,19 +243,19 @@ export default function AWS() {
           {/* Billing — REAL from Cost Explorer */}
           <GlassCard delay={0.2} noPad>
             <div style={{ padding: '20px 24px' }}>
-              <h2 style={{ fontSize: 15, fontWeight: 600, color: 'rgba(255,255,255,0.92)', marginBottom: 16 }}>Billing & Credits</h2>
+              <h2 style={{ fontSize: 15, fontWeight: 600, color: TEXT.primary, marginBottom: 16 }}>Billing & Credits</h2>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                 {/* Credits + Spending */}
                 <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 12 }}>
                   <div style={{ padding: 14, borderRadius: 12, background: 'rgba(50,215,75,0.08)', border: '1px solid rgba(50,215,75,0.2)' }}>
                     <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', marginBottom: 4, textTransform: 'uppercase', letterSpacing: 1 }}>Credits Left</p>
-                    <p style={{ fontSize: isMobile ? 18 : 22, fontWeight: 300, color: '#32D74B', fontVariantNumeric: 'tabular-nums' }}>
+                    <p style={{ fontSize: isMobile ? 18 : 22, fontWeight: 300, color: COLORS.green, fontVariantNumeric: 'tabular-nums' }}>
                       ${costData ? costData.remaining?.toLocaleString() : '25,000'}
                     </p>
                   </div>
                   <div style={{ padding: 14, borderRadius: 12, background: 'rgba(255,149,0,0.08)', border: '1px solid rgba(255,149,0,0.2)' }}>
                     <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', marginBottom: 4, textTransform: 'uppercase', letterSpacing: 1 }}>This Month</p>
-                    <p style={{ fontSize: isMobile ? 18 : 22, fontWeight: 300, color: '#FF9500', fontVariantNumeric: 'tabular-nums' }}>
+                    <p style={{ fontSize: isMobile ? 18 : 22, fontWeight: 300, color: COLORS.orange, fontVariantNumeric: 'tabular-nums' }}>
                       ${costData ? costData.total?.toFixed(2) : '0.00'}
                     </p>
                   </div>
@@ -266,7 +267,7 @@ export default function AWS() {
                   {(costData?.services || []).map((svc: any) => (
                     <div key={svc.name} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
                       <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.55)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', paddingRight: 12 }}>{svc.name}</span>
-                      <span style={{ fontSize: 12, color: svc.cost > 10 ? '#FF9500' : 'rgba(255,255,255,0.7)', fontWeight: svc.cost > 10 ? 600 : 400, fontVariantNumeric: 'tabular-nums', flexShrink: 0 }}>${svc.cost.toFixed(2)}</span>
+                      <span style={{ fontSize: 12, color: svc.cost > 10 ? COLORS.orange : 'rgba(255,255,255,0.7)', fontWeight: svc.cost > 10 ? 600 : 400, fontVariantNumeric: 'tabular-nums', flexShrink: 0 }}>${svc.cost.toFixed(2)}</span>
                     </div>
                   ))}
                   {(!costData?.services || costData.services.length === 0) && (
@@ -286,7 +287,7 @@ export default function AWS() {
                         return (
                           <div key={d.date} title={`${d.date}: $${d.cost}`} style={{
                             flex: 1, height: `${height}%`, borderRadius: 3,
-                            background: d.cost > 50 ? '#FF453A' : d.cost > 10 ? '#FF9500' : '#007AFF',
+                            background: d.cost > 50 ? COLORS.red : d.cost > 10 ? COLORS.orange : COLORS.blue,
                             opacity: isToday ? 1 : 0.7,
                             minHeight: 2,
                           }} />
@@ -294,8 +295,8 @@ export default function AWS() {
                       })}
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6 }}>
-                      <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.25)' }}>{costData.daily[0]?.date?.slice(5)}</span>
-                      <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.25)' }}>{costData.daily[costData.daily.length-1]?.date?.slice(5)}</span>
+                      <span style={{ fontSize: 9, color: TEXT.muted }}>{costData.daily[0]?.date?.slice(5)}</span>
+                      <span style={{ fontSize: 9, color: TEXT.muted }}>{costData.daily[costData.daily.length-1]?.date?.slice(5)}</span>
                     </div>
                   </div>
                 )}
@@ -309,8 +310,8 @@ export default function AWS() {
           <GlassCard delay={0.22} noPad>
             <div style={{ padding: '20px 24px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                <h2 style={{ fontSize: 15, fontWeight: 600, color: 'rgba(255,255,255,0.92)', display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <Image size={16} style={{ color: '#BF5AF2' }} /> Generated Images ({galleryData.images.length})
+                <h2 style={{ fontSize: 15, fontWeight: 600, color: TEXT.primary, display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <Image size={16} style={{ color: COLORS.purple }} /> Generated Images ({galleryData.images.length})
                 </h2>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 12 }}>
@@ -343,7 +344,7 @@ export default function AWS() {
           <div style={{ padding: '20px 24px' }}>
             {/* Models Header + Search */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-              <h2 style={{ fontSize: 15, fontWeight: 600, color: 'rgba(255,255,255,0.92)' }}>
+              <h2 style={{ fontSize: 15, fontWeight: 600, color: TEXT.primary }}>
                 Bedrock Models ({models.length}{category !== 'all' ? ` / ${allModels.length}` : ''})
               </h2>
               <div style={{ position: 'relative' }}>
@@ -354,7 +355,7 @@ export default function AWS() {
                   placeholder="Search models..."
                   style={{
                     padding: '8px 12px 8px 30px', borderRadius: 8, width: 220,
-                    border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.04)',
+                    border: '1px solid rgba(255,255,255,0.1)', background: GLASS.surface,
                     color: '#fff', fontSize: 12, outline: 'none',
                   }}
                 />
@@ -367,14 +368,14 @@ export default function AWS() {
                 <button key={f.id} onClick={() => setCategory(f.id)} style={{
                   display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', borderRadius: 10, cursor: 'pointer',
                   border: category === f.id ? '1px solid rgba(0,122,255,0.4)' : '1px solid rgba(255,255,255,0.08)',
-                  background: category === f.id ? 'rgba(0,122,255,0.15)' : 'rgba(255,255,255,0.04)',
+                  background: category === f.id ? 'rgba(0,122,255,0.15)' : GLASS.surface,
                   color: category === f.id ? '#fff' : 'rgba(255,255,255,0.55)', fontSize: 12, fontWeight: 500, transition: 'all 0.2s',
                 }}>
                   <f.icon size={13} />
                   {f.label}
                   <span style={{
                     fontSize: 10, padding: '1px 6px', borderRadius: 6,
-                    background: category === f.id ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.06)',
+                    background: category === f.id ? 'rgba(255,255,255,0.15)' : GLASS.divider,
                     color: category === f.id ? '#fff' : 'rgba(255,255,255,0.4)',
                   }}>{counts[f.id]}</span>
                 </button>
@@ -392,7 +393,7 @@ export default function AWS() {
                   <div key={provider}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
                       <span style={{ fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.7)' }}>{provider}</span>
-                      <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)', padding: '1px 6px', borderRadius: 6, background: 'rgba(255,255,255,0.06)' }}>{provModels.length}</span>
+                      <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)', padding: '1px 6px', borderRadius: 6, background: GLASS.divider }}>{provModels.length}</span>
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 8 }}>
                       {provModels.map((m) => {
@@ -406,7 +407,7 @@ export default function AWS() {
                               transition: 'border-color 0.2s',
                             }}
                             onMouseEnter={(e) => (e.currentTarget.style.borderColor = `${action.color}40`)}
-                            onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.06)')}
+                            onMouseLeave={(e) => (e.currentTarget.style.borderColor = GLASS.divider)}
                           >
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                               <div style={{ flex: 1, minWidth: 0 }}>
@@ -471,7 +472,7 @@ export default function AWS() {
                       <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 1 }}>Input</p>
                       <div style={{ display: 'flex', gap: 4 }}>
                         {(selectedModel.inputModalities || []).map(m => (
-                          <span key={m} style={{ fontSize: 10, padding: '3px 8px', borderRadius: 6, background: 'rgba(0,122,255,0.15)', color: '#007AFF', border: '1px solid rgba(0,122,255,0.3)' }}>{m}</span>
+                          <span key={m} style={{ fontSize: 10, padding: '3px 8px', borderRadius: 6, background: 'rgba(0,122,255,0.15)', color: COLORS.blue, border: '1px solid rgba(0,122,255,0.3)' }}>{m}</span>
                         ))}
                       </div>
                     </div>
@@ -479,7 +480,7 @@ export default function AWS() {
                       <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 1 }}>Output</p>
                       <div style={{ display: 'flex', gap: 4 }}>
                         {(selectedModel.outputModalities || []).map(m => (
-                          <span key={m} style={{ fontSize: 10, padding: '3px 8px', borderRadius: 6, background: 'rgba(50,215,75,0.15)', color: '#32D74B', border: '1px solid rgba(50,215,75,0.3)' }}>{m}</span>
+                          <span key={m} style={{ fontSize: 10, padding: '3px 8px', borderRadius: 6, background: 'rgba(50,215,75,0.15)', color: COLORS.green, border: '1px solid rgba(50,215,75,0.3)' }}>{m}</span>
                         ))}
                       </div>
                     </div>
@@ -518,7 +519,7 @@ export default function AWS() {
                           placeholder="Describe the image you want..."
                           style={{
                             width: '100%', padding: '10px 14px', borderRadius: 8, marginBottom: 10,
-                            border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.04)',
+                            border: '1px solid rgba(255,255,255,0.1)', background: GLASS.surface,
                             color: '#fff', fontSize: 13, outline: 'none', boxSizing: 'border-box',
                           }}
                           onKeyDown={(e) => e.key === 'Enter' && handleGenerateImage(selectedModel.modelId, imagePrompt)}
@@ -555,7 +556,7 @@ export default function AWS() {
                           rows={3}
                           style={{
                             width: '100%', padding: '10px 14px', borderRadius: 8, marginBottom: 10, resize: 'vertical',
-                            border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.04)',
+                            border: '1px solid rgba(255,255,255,0.1)', background: GLASS.surface,
                             color: '#fff', fontSize: 13, outline: 'none', boxSizing: 'border-box',
                           }}
                         />
@@ -578,7 +579,7 @@ export default function AWS() {
                     {actionMessage && (
                       <p style={{
                         fontSize: 12, marginTop: 12, textAlign: 'center',
-                        color: actionStatus === 'success' ? '#32D74B' : actionStatus === 'error' ? '#FF453A' : 'rgba(255,255,255,0.5)',
+                        color: actionStatus === 'success' ? COLORS.green : actionStatus === 'error' ? COLORS.red : 'rgba(255,255,255,0.5)',
                       }}>
                         {actionMessage}
                       </p>

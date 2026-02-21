@@ -7,6 +7,7 @@ import GlassCard from '../components/GlassCard'
 import StatusBadge from '../components/StatusBadge'
 import AnimatedCounter from '../components/AnimatedCounter'
 import { useApi, timeAgo } from '../lib/hooks'
+import { TEXT, COLORS, GLASS, accent } from '../lib/theme'
 
 export default function Agents() {
   const m = useIsMobile()
@@ -146,7 +147,7 @@ export default function Agents() {
         <div style={{ display: 'flex', alignItems: m ? 'flex-start' : 'center', justifyContent: 'space-between', flexDirection: m ? 'column' : 'row', gap: m ? 12 : 0 }}>
           <div>
             <h1 className="text-title" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <Bot size={m ? 18 : 22} style={{ color: '#BF5AF2' }} /> Agent Hub
+              <Bot size={m ? 18 : 22} style={{ color: COLORS.purple }} /> Agent Hub
             </h1>
             <p className="text-body" style={{ marginTop: 4 }}>Your AI agents — active sessions, sub-agents & more</p>
           </div>
@@ -182,8 +183,8 @@ export default function Agents() {
             
             {/* Real OpenClaw Agents Section */}
             <div>
-              <h3 style={{ fontSize: 16, fontWeight: 600, color: 'rgba(255,255,255,0.92)', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
-                <Activity size={18} style={{ color: '#007AFF' }} />
+              <h3 style={{ fontSize: 16, fontWeight: 600, color: TEXT.primary, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Activity size={18} style={{ color: COLORS.blue }} />
                 Active Sessions
               </h3>
               <div style={{ display: 'grid', gridTemplateColumns: m ? '1fr' : 'repeat(auto-fill, minmax(280px, 1fr))', gap: m ? 12 : 16 }}>
@@ -207,7 +208,7 @@ export default function Agents() {
                         width: 48, 
                         height: 48, 
                         borderRadius: 14, 
-                        background: 'rgba(255,255,255,0.06)', 
+                        background: GLASS.divider, 
                         border: '1px solid rgba(255,255,255,0.1)', 
                         display: 'flex', 
                         alignItems: 'center', 
@@ -219,7 +220,7 @@ export default function Agents() {
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <h3 style={{ fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.92)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          <h3 style={{ fontSize: 13, fontWeight: 600, color: TEXT.primary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                             {group.name}
                           </h3>
                           <StatusBadge 
@@ -227,22 +228,22 @@ export default function Agents() {
                             pulse={group.sessions.some((s: any) => s.isActive)} 
                           />
                         </div>
-                        <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 2 }}>
+                        <p style={{ fontSize: 11, color: TEXT.tertiary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 2 }}>
                           {group.sessions.length} session{group.sessions.length !== 1 ? 's' : ''}
                         </p>
-                        <p style={{ fontSize: 10, color: '#BF5AF2', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        <p style={{ fontSize: 10, color: COLORS.purple, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {((group.totalTokens || 0) / 1000).toFixed(0)}k tokens
                         </p>
                       </div>
                     </div>
                     
-                    <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', marginBottom: 16, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', lineHeight: 1.5 }}>
+                    <p style={{ fontSize: 12, color: TEXT.tertiary, marginBottom: 16, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', lineHeight: 1.5 }}>
                       {group.sessions.length === 0 ? 'No active sessions' : 
                        group.sessions.length === 1 ? `Active session: ${group.sessions[0].displayName}` :
                        `${group.sessions.length} active sessions`}
                     </p>
                     
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 16, fontSize: 11, color: 'rgba(255,255,255,0.45)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 16, fontSize: 11, color: TEXT.tertiary }}>
                       <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                         <BarChart3 size={11} style={{ color: 'rgba(255,255,255,0.4)' }} /> 
                         {((group.totalTokens || 0) / 1000).toFixed(0)}k tokens
@@ -260,8 +261,8 @@ export default function Agents() {
             {/* Custom Agents Section */}
             {agents.length > 0 && (
               <div>
-                <h3 style={{ fontSize: 16, fontWeight: 600, color: 'rgba(255,255,255,0.92)', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <Bot size={18} style={{ color: '#BF5AF2' }} />
+                <h3 style={{ fontSize: 16, fontWeight: 600, color: TEXT.primary, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <Bot size={18} style={{ color: COLORS.purple }} />
                   Custom Agents
                 </h3>
                 <div style={{ display: 'grid', gridTemplateColumns: m ? '1fr' : 'repeat(auto-fill, minmax(320px, 1fr))', gap: m ? 12 : 16 }}>
@@ -281,22 +282,22 @@ export default function Agents() {
                       }}
                     >
                       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, marginBottom: 16 }}>
-                        <div style={{ width: 48, height: 48, borderRadius: 14, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0 }}>
+                        <div style={{ width: 48, height: 48, borderRadius: 14, background: GLASS.divider, border: '1px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0 }}>
                           {agent.avatar}
                         </div>
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                            <h3 style={{ fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.92)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{agent.name}</h3>
+                            <h3 style={{ fontSize: 13, fontWeight: 600, color: TEXT.primary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{agent.name}</h3>
                             <StatusBadge status={agent.status} pulse={agent.status === 'active'} />
                           </div>
-                          <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 2 }}>{agent.role}</p>
-                          <p style={{ fontSize: 10, color: '#BF5AF2', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          <p style={{ fontSize: 11, color: TEXT.tertiary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 2 }}>{agent.role}</p>
+                          <p style={{ fontSize: 10, color: COLORS.purple, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                             {agent.model?.replace('us.anthropic.', '').replace(/claude-opus-(\d+).*/, 'Claude Opus $1').replace(/claude-sonnet-(\d+).*/, 'Claude Sonnet $1').replace(/claude-haiku-(\d+).*/, 'Claude Haiku $1').replace(/-/g, ' ') || 'Unknown Model'}
                           </p>
                         </div>
                       </div>
-                      <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', marginBottom: 16, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', lineHeight: 1.5 }}>{agent.description}</p>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 16, fontSize: 11, color: 'rgba(255,255,255,0.45)' }}>
+                      <p style={{ fontSize: 12, color: TEXT.tertiary, marginBottom: 16, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', lineHeight: 1.5 }}>{agent.description}</p>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 16, fontSize: 11, color: TEXT.tertiary }}>
                         <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                           <BarChart3 size={11} style={{ color: 'rgba(255,255,255,0.4)' }} /> {((agent.totalTokens || 0) / 1000).toFixed(0)}k tokens
                         </span>
@@ -327,12 +328,12 @@ export default function Agents() {
                     <div style={{ padding: m ? 16 : 24 }}>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-                          <div style={{ width: 56, height: 56, borderRadius: 14, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24 }}>
+                          <div style={{ width: 56, height: 56, borderRadius: 14, background: GLASS.divider, border: '1px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24 }}>
                             {selected.avatar}
                           </div>
                           <div style={{ minWidth: 0 }}>
-                            <h3 style={{ fontSize: 16, fontWeight: 700, color: 'rgba(255,255,255,0.92)' }}>{selected.name}</h3>
-                            <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{selected.description}</p>
+                            <h3 style={{ fontSize: 16, fontWeight: 700, color: TEXT.primary }}>{selected.name}</h3>
+                            <p style={{ fontSize: 12, color: TEXT.tertiary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{selected.description}</p>
                           </div>
                         </div>
                         <motion.button
@@ -347,14 +348,14 @@ export default function Agents() {
                       </div>
                       <div style={{ display: 'grid', gridTemplateColumns: m ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', gap: 16 }}>
                         {[
-                          { label: 'Tokens', value: <><AnimatedCounter end={Math.round((selected.totalTokens || 0) / 1000)} /><span style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)' }}>k</span></> },
+                          { label: 'Tokens', value: <><AnimatedCounter end={Math.round((selected.totalTokens || 0) / 1000)} /><span style={{ fontSize: 12, color: TEXT.tertiary }}>k</span></> },
                           { label: 'Last Active', value: selected.lastActive ? timeAgo(selected.lastActive) : '—' },
                           { label: 'Model', value: selected.model?.replace('us.anthropic.', '').replace(/claude-opus-(\d+).*/, 'Claude Opus $1').replace(/claude-sonnet-(\d+).*/, 'Claude Sonnet $1').replace(/claude-haiku-(\d+).*/, 'Claude Haiku $1').replace(/-/g, ' ') || 'Unknown' },
                           { label: 'Status', value: <StatusBadge status={selected.status} size="md" /> },
                         ].map((item, idx) => (
-                          <div key={idx} style={{ textAlign: 'center', padding: 12, borderRadius: 12, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                            <p style={{ fontSize: 20, fontWeight: 300, color: 'rgba(255,255,255,0.92)' }}>{item.value}</p>
-                            <p style={{ fontSize: 10, fontWeight: 600, color: 'rgba(255,255,255,0.45)', marginTop: 4, textTransform: 'uppercase', letterSpacing: '0.1em' }}>{item.label}</p>
+                          <div key={idx} style={{ textAlign: 'center', padding: 12, borderRadius: 12, background: GLASS.surface, border: '1px solid rgba(255,255,255,0.06)' }}>
+                            <p style={{ fontSize: 20, fontWeight: 300, color: TEXT.primary }}>{item.value}</p>
+                            <p style={{ fontSize: 10, fontWeight: 600, color: TEXT.tertiary, marginTop: 4, textTransform: 'uppercase', letterSpacing: '0.1em' }}>{item.label}</p>
                           </div>
                         ))}
                       </div>
@@ -370,7 +371,7 @@ export default function Agents() {
             <h2 style={{ 
               fontSize: 18, 
               fontWeight: 700, 
-              color: 'rgba(255,255,255,0.92)', 
+              color: TEXT.primary, 
               marginBottom: 16,
               display: 'flex',
               alignItems: 'center',
@@ -446,7 +447,7 @@ export default function Agents() {
                       width: 48, 
                       height: 48, 
                       borderRadius: 14, 
-                      background: 'rgba(255,255,255,0.05)', 
+                      background: GLASS.borderSubtle, 
                       border: '1px dashed rgba(255,255,255,0.2)', 
                       display: 'flex', 
                       alignItems: 'center', 
@@ -463,7 +464,7 @@ export default function Agents() {
                           fontSize: 9,
                           fontWeight: 600,
                           color: 'rgba(255,255,255,0.4)',
-                          background: 'rgba(255,255,255,0.06)',
+                          background: GLASS.divider,
                           padding: '2px 6px',
                           borderRadius: 4,
                           textTransform: 'uppercase',
@@ -472,14 +473,14 @@ export default function Agents() {
                           Template
                         </span>
                       </div>
-                      <p style={{ fontSize: 10, color: '#BF5AF2', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: 2 }}>
+                      <p style={{ fontSize: 10, color: COLORS.purple, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: 2 }}>
                         {template.model}
                       </p>
                     </div>
                   </div>
                   <p style={{ 
                     fontSize: 12, 
-                    color: 'rgba(255,255,255,0.35)', 
+                    color: TEXT.dim, 
                     marginBottom: 16, 
                     display: '-webkit-box', 
                     WebkitLineClamp: 2, 
@@ -496,8 +497,8 @@ export default function Agents() {
                           key={skill}
                           style={{
                             fontSize: 9,
-                            color: 'rgba(255,255,255,0.35)',
-                            background: 'rgba(255,255,255,0.04)',
+                            color: TEXT.dim,
+                            background: GLASS.surface,
                             padding: '2px 6px',
                             borderRadius: 4,
                             border: '1px solid rgba(255,255,255,0.08)'
@@ -507,7 +508,7 @@ export default function Agents() {
                         </span>
                       ))}
                       {template.skills.length > 3 && (
-                        <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.25)' }}>
+                        <span style={{ fontSize: 9, color: TEXT.muted }}>
                           +{template.skills.length - 3}
                         </span>
                       )}
@@ -517,7 +518,7 @@ export default function Agents() {
                         background: 'rgba(0,122,255,0.15)',
                         border: '1px solid rgba(0,122,255,0.3)',
                         borderRadius: 6,
-                        color: '#007AFF',
+                        color: COLORS.blue,
                         fontSize: 11,
                         fontWeight: 600,
                         padding: '4px 10px',
@@ -589,7 +590,7 @@ export default function Agents() {
               >
                 {/* Modal Header */}
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
-                  <h2 style={{ fontSize: 20, fontWeight: 700, color: 'rgba(255,255,255,0.92)' }}>Create Agent</h2>
+                  <h2 style={{ fontSize: 20, fontWeight: 700, color: TEXT.primary }}>Create Agent</h2>
                   <motion.button
                     whileHover={{ scale: 1.1 }}
                     whileTap={{ scale: 0.9 }}
@@ -612,7 +613,7 @@ export default function Agents() {
 
                 {/* Agent Templates */}
                 <div style={{ marginBottom: 32 }}>
-                  <h3 style={{ fontSize: 14, fontWeight: 600, color: 'rgba(255,255,255,0.65)', marginBottom: 12 }}>Quick Start Templates</h3>
+                  <h3 style={{ fontSize: 14, fontWeight: 600, color: TEXT.secondary, marginBottom: 12 }}>Quick Start Templates</h3>
                   <div style={{ display: 'grid', gridTemplateColumns: m ? '1fr' : 'repeat(3, 1fr)', gap: 12 }}>
                     {templates.map((template, i) => (
                       <motion.div
@@ -621,7 +622,7 @@ export default function Agents() {
                         whileTap={{ scale: 0.98 }}
                         onClick={() => applyTemplate(template)}
                         style={{
-                          background: 'rgba(255,255,255,0.04)',
+                          background: GLASS.surface,
                           border: '1px solid rgba(255,255,255,0.08)',
                           borderRadius: 12,
                           padding: 16,
@@ -629,8 +630,8 @@ export default function Agents() {
                           textAlign: 'center'
                         }}
                       >
-                        <div style={{ fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.92)', marginBottom: 4 }}>{template.name}</div>
-                        <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.45)' }}>
+                        <div style={{ fontSize: 12, fontWeight: 600, color: TEXT.primary, marginBottom: 4 }}>{template.name}</div>
+                        <div style={{ fontSize: 10, color: TEXT.tertiary }}>
                           {template.model.includes('opus') ? 'Opus' : template.model.includes('sonnet') ? 'Sonnet' : 'Haiku'}
                         </div>
                       </motion.div>
@@ -642,7 +643,7 @@ export default function Agents() {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: m ? 16 : 20 }}>
                   {/* Name */}
                   <div>
-                    <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.65)', marginBottom: 8 }}>
+                    <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: TEXT.secondary, marginBottom: 8 }}>
                       Name *
                     </label>
                     <input
@@ -653,11 +654,11 @@ export default function Agents() {
                       style={{
                         width: '100%',
                         padding: '12px 16px',
-                        background: 'rgba(255,255,255,0.04)',
+                        background: GLASS.surface,
                         border: '1px solid rgba(255,255,255,0.12)',
                         borderRadius: 8,
                         fontSize: 14,
-                        color: 'rgba(255,255,255,0.92)',
+                        color: TEXT.primary,
                         outline: 'none'
                       }}
                     />
@@ -665,7 +666,7 @@ export default function Agents() {
 
                   {/* Description */}
                   <div>
-                    <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.65)', marginBottom: 8 }}>
+                    <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: TEXT.secondary, marginBottom: 8 }}>
                       Description
                     </label>
                     <textarea
@@ -676,11 +677,11 @@ export default function Agents() {
                       style={{
                         width: '100%',
                         padding: '12px 16px',
-                        background: 'rgba(255,255,255,0.04)',
+                        background: GLASS.surface,
                         border: '1px solid rgba(255,255,255,0.12)',
                         borderRadius: 8,
                         fontSize: 14,
-                        color: 'rgba(255,255,255,0.92)',
+                        color: TEXT.primary,
                         outline: 'none',
                         resize: 'vertical',
                         minHeight: 80
@@ -690,7 +691,7 @@ export default function Agents() {
 
                   {/* Model */}
                   <div>
-                    <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.65)', marginBottom: 8 }}>
+                    <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: TEXT.secondary, marginBottom: 8 }}>
                       Model *
                     </label>
                     <select
@@ -699,11 +700,11 @@ export default function Agents() {
                       style={{
                         width: '100%',
                         padding: '12px 16px',
-                        background: 'rgba(255,255,255,0.04)',
+                        background: GLASS.surface,
                         border: '1px solid rgba(255,255,255,0.12)',
                         borderRadius: 8,
                         fontSize: 14,
-                        color: 'rgba(255,255,255,0.92)',
+                        color: TEXT.primary,
                         outline: 'none'
                       }}
                     >
@@ -715,7 +716,7 @@ export default function Agents() {
 
                   {/* System Prompt */}
                   <div>
-                    <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.65)', marginBottom: 8 }}>
+                    <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: TEXT.secondary, marginBottom: 8 }}>
                       System Prompt
                     </label>
                     <textarea
@@ -726,11 +727,11 @@ export default function Agents() {
                       style={{
                         width: '100%',
                         padding: '12px 16px',
-                        background: 'rgba(255,255,255,0.04)',
+                        background: GLASS.surface,
                         border: '1px solid rgba(255,255,255,0.12)',
                         borderRadius: 8,
                         fontSize: 14,
-                        color: 'rgba(255,255,255,0.92)',
+                        color: TEXT.primary,
                         outline: 'none',
                         resize: 'vertical',
                         minHeight: 100
@@ -740,11 +741,11 @@ export default function Agents() {
 
                   {/* Skills */}
                   <div>
-                    <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.65)', marginBottom: 8 }}>
+                    <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: TEXT.secondary, marginBottom: 8 }}>
                       Skills
                     </label>
                     <div style={{ 
-                      background: 'rgba(255,255,255,0.04)',
+                      background: GLASS.surface,
                       border: '1px solid rgba(255,255,255,0.08)',
                       borderRadius: 8,
                       padding: 16,
@@ -762,7 +763,7 @@ export default function Agents() {
                                 gap: 8,
                                 cursor: 'pointer',
                                 fontSize: 13,
-                                color: 'rgba(255,255,255,0.65)'
+                                color: TEXT.secondary
                               }}
                             >
                               <input
@@ -776,7 +777,7 @@ export default function Agents() {
                           ))}
                         </div>
                       ) : (
-                        <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.45)', textAlign: 'center', padding: 20 }}>
+                        <div style={{ fontSize: 13, color: TEXT.tertiary, textAlign: 'center', padding: 20 }}>
                           No skills available
                         </div>
                       )}
@@ -791,13 +792,13 @@ export default function Agents() {
                     whileTap={{ scale: 0.98 }}
                     onClick={() => setShowCreateModal(false)}
                     style={{
-                      background: 'rgba(255,255,255,0.08)',
+                      background: GLASS.border,
                       border: 'none',
                       borderRadius: 8,
                       padding: '12px 24px',
                       fontSize: 14,
                       fontWeight: 600,
-                      color: 'rgba(255,255,255,0.65)',
+                      color: TEXT.secondary,
                       cursor: 'pointer'
                     }}
                   >
