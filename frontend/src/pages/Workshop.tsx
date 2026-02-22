@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Plus, Clock, Zap, CheckCircle, Play, X, AlertCircle, Loader2, ArrowLeft, MessageSquare, ExternalLink } from 'lucide-react'
+import { Plus, Clock, Zap, CheckCircle, Play, X, AlertCircle, Loader2, ArrowLeft, MessageSquare, Edit2 } from 'lucide-react'
 import PageTransition from '../components/PageTransition'
 import { useApi, timeAgo } from '../lib/hooks'
 import { useIsMobile } from '../lib/useIsMobile'
-import { TEXT, COLORS, GLASS, accent } from '../lib/theme'
+import { TEXT, COLORS, GLASS } from '../lib/theme'
 import { useAgentName } from '../lib/AgentContext'
 
 const priorityConfig: Record<string, { color: string; label: string }> = {
@@ -14,6 +14,7 @@ const priorityConfig: Record<string, { color: string; label: string }> = {
   low: { color: COLORS.blue, label: 'Low' },
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const columnConfig: Record<string, { title: string; color: string; icon: any }> = {
   queue: { title: 'Queue', color: COLORS.gray, icon: Clock },
   inProgress: { title: 'In Progress', color: COLORS.blue, icon: Zap },
@@ -39,27 +40,33 @@ interface Task {
 export default function Workshop() {
   const m = useIsMobile()
   const agentName = useAgentName()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, loading, refetch } = useApi<any>('/api/tasks', 5000)
   const [showAddModal, setShowAddModal] = useState(false)
   const [viewTask, setViewTask] = useState<Task | null>(null)
+  const [editMode, setEditMode] = useState(false)
+  const [editForm, setEditForm] = useState({ title: '', description: '', priority: 'medium', tags: '' })
   const [addForm, setAddForm] = useState({ title: '', description: '', priority: 'medium', tags: '' })
   const [executing, setExecuting] = useState<Record<string, boolean>>({})
   const [searchParams, setSearchParams] = useSearchParams()
 
   // Auto-open task from URL param (?task=xxx)
   useEffect(() => {
-    if (!data || viewTask) return
-    const taskId = searchParams.get('task')
-    if (!taskId) return
-    const columns = data.columns
-    for (const col of Object.values(columns) as Task[][]) {
-      const found = col.find(t => t.id === taskId)
-      if (found) {
-        setViewTask(found)
-        setSearchParams({}, { replace: true })
-        break
+    const run = async () => {
+      if (!data || viewTask) return
+      const taskId = searchParams.get('task')
+      if (!taskId) return
+      const columns = data.columns
+      for (const col of Object.values(columns) as Task[][]) {
+        const found = col.find(t => t.id === taskId)
+        if (found) {
+          setViewTask(found)
+          setSearchParams({}, { replace: true })
+          break
+        }
       }
     }
+    run()
   }, [data, searchParams])
 
   if (loading || !data) {
@@ -90,7 +97,7 @@ export default function Workshop() {
       setShowAddModal(false)
       setAddForm({ title: '', description: '', priority: 'medium', tags: '' })
       refetch()
-    } catch {}
+    } catch { /* skip */ }
   }
 
   const handleExecute = async (taskId: string) => {
@@ -98,7 +105,39 @@ export default function Workshop() {
     try {
       await fetch(`/api/tasks/${taskId}/execute`, { method: 'POST' })
       refetch()
-    } catch {}
+    } catch { /* skip */ }
+  }
+
+  const startEdit = (task: Task) => {
+    setEditForm({
+      title: task.title,
+      description: task.description || '',
+      priority: task.priority || 'medium',
+      tags: task.tags?.join(', ') || '',
+    })
+    setEditMode(true)
+  }
+
+  const handleSaveEdit = async () => {
+    if (!viewTask || !editForm.title.trim()) return
+    try {
+      const res = await fetch(`/api/tasks/${viewTask.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: editForm.title.trim(),
+          description: editForm.description.trim(),
+          priority: editForm.priority,
+          tags: editForm.tags.split(',').map(t => t.trim()).filter(Boolean),
+        }),
+      })
+      if (res.ok) {
+        const { task } = await res.json()
+        setViewTask(task)
+        setEditMode(false)
+        refetch()
+      }
+    } catch { /* skip */ }
   }
 
   const discussWithAgent = (task: Task) => {
@@ -227,23 +266,78 @@ export default function Workshop() {
             )}
           </div>
 
-          {/* Delete button */}
-          <button
-            onClick={async () => {
-              if (!confirm(`Delete "${viewTask.title}"?`)) return
-              await fetch(`/api/tasks/${viewTask.id}`, { method: 'DELETE' })
-              setViewTask(null)
-              refetch()
-            }}
-            style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-              padding: '8px 16px', borderRadius: 8, border: '1px solid rgba(255,69,58,0.3)',
-              background: 'rgba(255,69,58,0.1)', color: COLORS.red, fontSize: 12, cursor: 'pointer',
-              marginTop: 8, width: m ? '100%' : 'auto', alignSelf: 'flex-start',
-            }}
-          >
-            🗑 Delete Task
-          </button>
+          {/* Edit / Delete row */}
+          {!isExecuting && (
+            <div style={{ display: 'flex', gap: 8, flexDirection: m ? 'column' : 'row', marginTop: 8 }}>
+              <button
+                onClick={() => startEdit(viewTask)}
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                  padding: '8px 16px', borderRadius: 8, border: '1px solid rgba(0,122,255,0.3)',
+                  background: 'rgba(0,122,255,0.1)', color: COLORS.blue, fontSize: 12, cursor: 'pointer',
+                  width: m ? '100%' : 'auto',
+                }}
+              >
+                <Edit2 size={13} /> Edit Task
+              </button>
+              <button
+                onClick={async () => {
+                  if (!confirm(`Delete "${viewTask.title}"?`)) return
+                  await fetch(`/api/tasks/${viewTask.id}`, { method: 'DELETE' })
+                  setViewTask(null)
+                  refetch()
+                }}
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                  padding: '8px 16px', borderRadius: 8, border: '1px solid rgba(255,69,58,0.3)',
+                  background: 'rgba(255,69,58,0.1)', color: COLORS.red, fontSize: 12, cursor: 'pointer',
+                  width: m ? '100%' : 'auto',
+                }}
+              >
+                🗑 Delete Task
+              </button>
+            </div>
+          )}
+
+          {/* Inline Edit Form */}
+          {editMode && (
+            <div className="macos-panel" style={{ padding: m ? 14 : 20, marginTop: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                <p style={{ fontSize: 13, fontWeight: 600, color: TEXT.primary }}>Edit Task</p>
+                <button onClick={() => setEditMode(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.5)', display: 'flex', padding: 0 }}>
+                  <X size={16} />
+                </button>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: TEXT.secondary, marginBottom: 5 }}>Title *</label>
+                  <input value={editForm.title} onChange={(e) => setEditForm(p => ({ ...p, title: e.target.value }))} style={{ width: '100%', padding: '8px 12px', background: GLASS.surface, border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, fontSize: 13, color: TEXT.primary, outline: 'none', boxSizing: 'border-box' }} />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: TEXT.secondary, marginBottom: 5 }}>Description</label>
+                  <textarea value={editForm.description} onChange={(e) => setEditForm(p => ({ ...p, description: e.target.value }))} rows={3} style={{ width: '100%', padding: '8px 12px', background: GLASS.surface, border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, fontSize: 13, color: TEXT.primary, outline: 'none', resize: 'vertical', boxSizing: 'border-box' }} />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: TEXT.secondary, marginBottom: 5 }}>Priority</label>
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    {(['low', 'medium', 'high'] as const).map(p => (
+                      <button key={p} onClick={() => setEditForm(prev => ({ ...prev, priority: p }))} style={{ flex: 1, padding: '6px 0', borderRadius: 8, cursor: 'pointer', border: editForm.priority === p ? `1px solid ${priorityConfig[p].color}40` : '1px solid rgba(255,255,255,0.08)', background: editForm.priority === p ? `${priorityConfig[p].color}15` : GLASS.surface, color: editForm.priority === p ? priorityConfig[p].color : 'rgba(255,255,255,0.5)', fontSize: 12, fontWeight: 500, textTransform: 'capitalize' }}>
+                        {p}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: TEXT.secondary, marginBottom: 5 }}>Tags (comma separated)</label>
+                  <input value={editForm.tags} onChange={(e) => setEditForm(p => ({ ...p, tags: e.target.value }))} placeholder="research, email, dev..." style={{ width: '100%', padding: '8px 12px', background: GLASS.surface, border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, fontSize: 13, color: TEXT.primary, outline: 'none', boxSizing: 'border-box' }} />
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: 8, marginTop: 16, justifyContent: 'flex-end' }}>
+                <button onClick={() => setEditMode(false)} style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.15)', background: 'none', color: 'rgba(255,255,255,0.6)', fontSize: 13, cursor: 'pointer' }}>Cancel</button>
+                <button onClick={handleSaveEdit} disabled={!editForm.title.trim()} style={{ padding: '8px 16px', borderRadius: 8, border: 'none', background: editForm.title.trim() ? COLORS.blue : GLASS.border, color: '#fff', fontSize: 13, fontWeight: 600, cursor: editForm.title.trim() ? 'pointer' : 'not-allowed' }}>Save</button>
+              </div>
+            </div>
+          )}
         </div>
       </PageTransition>
     )

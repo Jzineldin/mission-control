@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
+import { createContext, useContext, useState, useEffect, type ReactNode } from 'react'
 
 const AgentContext = createContext<{ agentName: string }>({ agentName: 'Agent' })
 
@@ -15,4 +15,5 @@ export function AgentProvider({ children }: { children: ReactNode }) {
   return <AgentContext.Provider value={{ agentName }}>{children}</AgentContext.Provider>
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useAgentName = () => useContext(AgentContext).agentName

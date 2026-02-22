@@ -1,86 +1,28 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect } from 'react'
-import { motion } from 'framer-motion'
-import { Settings2, ChevronDown, Save, RefreshCw, Shield, Database, Cpu, Globe, Download, Upload, Clock, Zap } from 'lucide-react'
+import { Settings2, Save, RefreshCw, Shield, Database, Globe, Download, Upload, Clock, Zap } from 'lucide-react'
 import PageTransition from '../components/PageTransition'
 import { useIsMobile } from '../lib/useIsMobile'
 import GlassCard from '../components/GlassCard'
 import StatusBadge from '../components/StatusBadge'
 import { useApi } from '../lib/hooks'
-import { TEXT, COLORS, GLASS, accent } from '../lib/theme'
+import { TEXT, COLORS, GLASS } from '../lib/theme'
 
-interface OpenClawConfig {
-  model?: string
-  available_models?: string[]
-  gateway_port?: number
-  token?: string
-  memory_path?: string
-  skills_path?: string
-  bedrock_region?: string
+
+function formatUptime(seconds: number): string {
+  if (!seconds) return '—'
+  const d = Math.floor(seconds / 86400)
+  const h = Math.floor((seconds % 86400) / 3600)
+  const mn = Math.floor((seconds % 3600) / 60)
+  if (d > 0) return `${d}d ${h}h`
+  if (h > 0) return `${h}h ${mn}m`
+  return `${mn}m`
 }
 
 export default function Settings() {
   const isMobile = useIsMobile()
-  const { data: configData, refetch } = useApi<OpenClawConfig>('/api/settings')
-  const [selectedModel, setSelectedModel] = useState<string>('')
-  const [showDropdown, setShowDropdown] = useState(false)
-  const [saving, setSaving] = useState(false)
-  const [saveStatus, setSaveStatus] = useState<'idle' | 'success' | 'error'>('idle')
-
-  const { data: modelsData } = useApi<{ id: string; name: string }[]>('/api/models')
-
-  const availableModels = (modelsData || []).map(m => ({
-    id: m.id,
-    name: m.name,
-    description: m.name.includes('Opus') ? 'Most capable model' : m.name.includes('Sonnet') ? 'Balanced performance' : 'Fast and efficient',
-  }))
-
-  useEffect(() => {
-    if (configData?.model) {
-      setSelectedModel(configData.model)
-    }
-  }, [configData])
-
-  const handleModelSwitch = async () => {
-    if (selectedModel === configData?.model) return
-
-    setSaving(true)
-    setSaveStatus('idle')
-
-    try {
-      const response = await fetch('/api/model', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model: selectedModel })
-      })
-
-      if (response.ok) {
-        setSaveStatus('success')
-        setTimeout(() => setSaveStatus('idle'), 3000)
-        refetch()
-      } else {
-        setSaveStatus('error')
-        setTimeout(() => setSaveStatus('idle'), 3000)
-      }
-    } catch (error) {
-      setSaveStatus('error')
-      setTimeout(() => setSaveStatus('idle'), 3000)
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  const getCurrentModelName = () => {
-    if (!selectedModel) return 'Select Model'
-    const model = availableModels.find(m => m.id === selectedModel)
-    if (model) return model.name
-    // Fallback: extract a readable name from the model ID
-    const cleaned = selectedModel
-      .replace(/^(us\.)?anthropic\./, '')
-      .replace(/-v\d.*$/, '')
-      .replace(/-/g, ' ')
-      .replace(/\b\w/g, c => c.toUpperCase())
-    return cleaned || selectedModel
-  }
+  const { data: configData } = useApi<any>('/api/settings')
+  const { data: sysinfo } = useApi<any>('/api/settings/sysinfo', 0)
 
   return (
     <PageTransition>
@@ -142,10 +84,11 @@ export default function Settings() {
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                 {[
-                  { label: 'Mission Control Version', value: 'v2.0.0' },
-                  { label: 'OpenClaw Version', value: 'v1.5.2' },
-                  { label: 'Node.js Version', value: 'v20.15.0' },
-                  { label: 'Platform', value: 'Linux x64' },
+                  { label: 'Mission Control Version', value: sysinfo?.mcVersion || '—' },
+                  { label: 'OpenClaw Version', value: sysinfo?.openclawVersion || '—' },
+                  { label: 'Node.js Version', value: sysinfo?.node || '—' },
+                  { label: 'Platform', value: sysinfo?.platform || '—' },
+                  { label: 'Uptime', value: sysinfo ? formatUptime(sysinfo.uptime) : '—' },
                 ].map((item) => (
                   <div key={item.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
                     <span style={{ fontSize: 13, color: TEXT.secondary }}>{item.label}</span>
@@ -211,7 +154,7 @@ function ModelRoutingCard({ isMobile }: { isMobile: boolean }) {
         setSaveStatus('error')
         setTimeout(() => setSaveStatus('idle'), 3000)
       }
-    } catch (e) {
+    } catch (_e) {
       setSaveStatus('error')
       setTimeout(() => setSaveStatus('idle'), 3000)
     } finally {
@@ -339,7 +282,7 @@ function HeartbeatConfigCard({ isMobile }: { isMobile: boolean }) {
         setSaveStatus('error')
         setTimeout(() => setSaveStatus('idle'), 3000)
       }
-    } catch (e) {
+    } catch (_e) {
       setSaveStatus('error')
       setTimeout(() => setSaveStatus('idle'), 3000)
     } finally {
@@ -452,7 +395,7 @@ function ExportImportCard({ isMobile }: { isMobile: boolean }) {
         setImportStatus('error')
         setTimeout(() => setImportStatus('idle'), 3000)
       }
-    } catch (e) {
+    } catch (_e) {
       setImportStatus('error')
       setTimeout(() => setImportStatus('idle'), 3000)
     } finally {

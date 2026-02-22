@@ -1,6 +1,7 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { Radar, SortDesc, X, Rocket, Shield, Code, Briefcase, GraduationCap, DollarSign, Search, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Radar, SortDesc, X, Rocket, Shield, Code, Briefcase, GraduationCap, DollarSign, Search, ChevronLeft, ChevronRight, ChevronDown, Plus } from 'lucide-react'
 import PageTransition from '../components/PageTransition'
 import { useIsMobile } from '../lib/useIsMobile'
 import GlassCard from '../components/GlassCard'
@@ -67,11 +68,20 @@ export default function Scout() {
   const [toast, setToast]     = useState<string | null>(null)
 
   // Reset to page 1 whenever filter or sort changes
-  useEffect(() => { setPage(1) }, [filter, sortBy])
+  useEffect(() => { const reset = async () => { setPage(1) }; void reset() }, [filter, sortBy])
+
+  const [queriesOpen, setQueriesOpen] = useState(false)
+  const [queryOverrides, setQueryOverrides] = useState<string[] | null>(null)
+  const [newQuery, setNewQuery] = useState('')
+  const [savingConfig, setSavingConfig] = useState(false)
 
   const scoutUrl = `/api/scout?filter=${filter}&sort=${sortBy}&page=${page}&limit=${PAGE_SIZE}`
-  const { data, loading } = useApi<any>(scoutUrl, 60000)
+  const { data, loading, refetch } = useApi<any>(scoutUrl, 60000)
   const { data: cronData } = useApi<any>('/api/cron', 30000)
+  const { data: configData } = useApi<any>('/api/scout/config', 0)
+
+  const queries: string[] = queryOverrides ?? (configData?.queries || [])
+  const setQueries = (v: string[]) => setQueryOverrides(v)
 
   if (loading || !data) {
     return (
@@ -91,15 +101,29 @@ export default function Scout() {
   const handleDeploy = async (oppId: string) => {
     try {
       await fetch('/api/scout/deploy', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ opportunityId: oppId }) })
-      window.location.reload()
-    } catch {}
+      refetch()
+    } catch { /* skip */ }
   }
 
   const handleDismiss = async (oppId: string) => {
     try {
       await fetch('/api/scout/dismiss', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ opportunityId: oppId }) })
-      window.location.reload()
-    } catch {}
+      refetch()
+    } catch { /* skip */ }
+  }
+
+  const handleSaveConfig = async () => {
+    setSavingConfig(true)
+    try {
+      await fetch('/api/scout/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ queries }),
+      })
+      setToast('✅ Scan queries saved')
+      setTimeout(() => setToast(null), 3000)
+    } catch { /* skip */ }
+    setSavingConfig(false)
   }
 
   const handleRunScan = async () => {
@@ -119,7 +143,7 @@ export default function Scout() {
               setScanning(false)
               setToast('✅ Scan completed! Results refreshed.')
               setTimeout(() => setToast(null), 4000)
-              window.location.reload()
+              refetch()
             } else {
               setTimeout(checkStatus, 3000)
             }
@@ -440,6 +464,61 @@ export default function Scout() {
             </button>
           </div>
         )}
+        {/* Scan Queries */}
+        <div className="macos-panel" style={{ padding: 0, overflow: 'hidden' }}>
+          <button
+            onClick={() => setQueriesOpen(v => !v)}
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: m ? '12px 16px' : '14px 20px', background: 'none', border: 'none', cursor: 'pointer', color: TEXT.primary }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <Search size={14} style={{ color: COLORS.purple }} />
+              <span style={{ fontSize: 13, fontWeight: 600 }}>Scan Queries ({queries.length})</span>
+            </div>
+            <ChevronDown size={14} style={{ color: 'rgba(255,255,255,0.4)', transform: queriesOpen ? 'rotate(180deg)' : undefined, transition: 'transform 0.2s' }} />
+          </button>
+          {queriesOpen && (
+            <div style={{ padding: m ? '8px 16px 16px' : '8px 20px 20px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
+                {queries.length === 0 && (
+                  <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)', margin: 0 }}>No queries configured. Add some below.</p>
+                )}
+                {queries.map((q, i) => (
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px', borderRadius: 8, background: GLASS.divider, border: '1px solid rgba(255,255,255,0.1)' }}>
+                    <span style={{ fontSize: 12, color: TEXT.secondary }}>{q}</span>
+                    <button onClick={() => setQueries(queries.filter((_, idx) => idx !== i))} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.4)', padding: 0, display: 'flex' }}>
+                      <X size={12} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+                <input
+                  type="text"
+                  value={newQuery}
+                  onChange={(e) => setNewQuery(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' && newQuery.trim()) { setQueries([...queries, newQuery.trim()]); setNewQuery('') } }}
+                  placeholder="Add a search query and press Enter..."
+                  className="macos-input"
+                  style={{ flex: 1, padding: '8px 12px', fontSize: 12 }}
+                />
+                <button
+                  onClick={() => { if (newQuery.trim()) { setQueries([...queries, newQuery.trim()]); setNewQuery('') } }}
+                  style={{ padding: '8px 12px', borderRadius: 8, border: 'none', background: GLASS.border, color: 'rgba(255,255,255,0.7)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                >
+                  <Plus size={14} />
+                </button>
+              </div>
+              <button
+                onClick={handleSaveConfig}
+                disabled={savingConfig}
+                style={{ padding: '8px 16px', borderRadius: 8, border: 'none', background: savingConfig ? GLASS.border : COLORS.purple, color: '#fff', fontSize: 12, fontWeight: 600, cursor: savingConfig ? 'not-allowed' : 'pointer' }}
+              >
+                {savingConfig ? 'Saving...' : 'Save Queries'}
+              </button>
+            </div>
+          )}
+        </div>
+
       </div>
     </PageTransition>
   )

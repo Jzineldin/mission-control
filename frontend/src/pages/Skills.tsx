@@ -6,7 +6,7 @@ import { useIsMobile } from '../lib/useIsMobile'
 import GlassCard from '../components/GlassCard'
 import StatusBadge from '../components/StatusBadge'
 import { useApi } from '../lib/hooks'
-import { TEXT, COLORS, GLASS, accent } from '../lib/theme'
+import { TEXT, COLORS, GLASS } from '../lib/theme'
 
 interface Skill {
   name: string

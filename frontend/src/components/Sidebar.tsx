@@ -6,7 +6,6 @@ import {
   DollarSign,
   Clock,
   Radar,
-  FileText,
   Bot,
   Activity,
   MessageCircle,

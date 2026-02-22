@@ -9,11 +9,11 @@ export function useApi<T>(url: string, interval?: number) {
     try {
       const res = await fetch(url)
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
-      const json = await res.json()
+      const json = await res.json() as T
       setData(json)
       setError(null)
-    } catch (err: any) {
-      setError(err.message)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
     } finally {
       setLoading(false)
     }
@@ -30,17 +30,20 @@ export function useApi<T>(url: string, interval?: number) {
   return { data, loading, error, refetch: fetchData }
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AnyRecord = Record<string, any>
+
 export function useDashboardData() {
-  const [statusData, setStatusData] = useState<any>(null)
-  const [activityData, setActivityData] = useState<any>(null)
-  const [sessionsData, setSessionsData] = useState<any>(null)
+  const [statusData, setStatusData] = useState<AnyRecord | null>(null)
+  const [activityData, setActivityData] = useState<AnyRecord | null>(null)
+  const [sessionsData, setSessionsData] = useState<AnyRecord | null>(null)
   const [loading, setLoading] = useState(true)
 
   const fetchAll = async () => {
     const [statusRes, activityRes, sessionsRes] = await Promise.allSettled([
-      fetch('/api/status').then(r => { if (!r.ok) throw new Error(`${r.status}`); return r.json() }),
-      fetch('/api/activity').then(r => { if (!r.ok) throw new Error(`${r.status}`); return r.json() }),
-      fetch('/api/sessions').then(r => { if (!r.ok) throw new Error(`${r.status}`); return r.json() }),
+      fetch('/api/status').then(r => { if (!r.ok) throw new Error(`${r.status}`); return r.json() as Promise<AnyRecord> }),
+      fetch('/api/activity').then(r => { if (!r.ok) throw new Error(`${r.status}`); return r.json() as Promise<AnyRecord> }),
+      fetch('/api/sessions').then(r => { if (!r.ok) throw new Error(`${r.status}`); return r.json() as Promise<AnyRecord> }),
     ])
     if (statusRes.status === 'fulfilled')   setStatusData(statusRes.value)
     if (activityRes.status === 'fulfilled') setActivityData(activityRes.value)
@@ -49,8 +52,9 @@ export function useDashboardData() {
   }
 
   useEffect(() => {
-    fetchAll()
-    const timer = setInterval(fetchAll, 10000)
+    const run = async () => { await fetchAll() }
+    run()
+    const timer = setInterval(() => { void fetchAll() }, 10000)
     return () => clearInterval(timer)
   }, [])
 

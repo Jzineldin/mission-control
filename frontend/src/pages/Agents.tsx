@@ -7,16 +7,18 @@ import GlassCard from '../components/GlassCard'
 import StatusBadge from '../components/StatusBadge'
 import AnimatedCounter from '../components/AnimatedCounter'
 import { useApi, timeAgo } from '../lib/hooks'
-import { TEXT, COLORS, GLASS, accent } from '../lib/theme'
+import { TEXT, COLORS, GLASS } from '../lib/theme'
 
+/* eslint-disable @typescript-eslint/no-explicit-any */
 export default function Agents() {
   const m = useIsMobile()
-  const { data, loading } = useApi<any>('/api/agents', 30000)
-  const { data: sessionsData } = useApi<any>('/api/sessions', 15000) // Add real sessions data
+  const { data, loading, refetch } = useApi<any>('/api/agents', 30000)
+  const { data: sessionsData } = useApi<any>('/api/sessions', 15000)
   const { data: modelsData } = useApi<any>('/api/models', 0)
   const { data: skillsData } = useApi<any>('/api/skills', 0)
   const [selectedAgent, setSelectedAgent] = useState<string | null>(null)
   const [showCreateModal, setShowCreateModal] = useState(false)
+  const [createToast, setCreateToast] = useState<string | null>(null)
   const [createForm, setCreateForm] = useState({
     name: '',
     description: '',
@@ -76,8 +78,9 @@ export default function Agents() {
           systemPrompt: '',
           skills: []
         })
-        // Refresh the agents list
-        window.location.reload()
+        refetch()
+        setCreateToast('✅ Agent created successfully!')
+        setTimeout(() => setCreateToast(null), 3000)
       }
     } catch (error) {
       console.error('Failed to create agent:', error)
@@ -97,10 +100,10 @@ export default function Agents() {
   const getSessionGroups = () => {
     const sessions = sessionsData?.sessions || []
     const groups = {
-      main: { sessions: [], totalTokens: 0, name: 'Main Agent', icon: '👤' },
-      discord: { sessions: [], totalTokens: 0, name: 'Discord Channels', icon: '💬' },
-      subagents: { sessions: [], totalTokens: 0, name: 'Sub-agents', icon: '🤖' },
-      web: { sessions: [], totalTokens: 0, name: 'Web Interfaces', icon: '🌐' }
+      main: { sessions: [] as any[], totalTokens: 0, name: 'Main Agent', icon: '👤' },
+      discord: { sessions: [] as any[], totalTokens: 0, name: 'Discord Channels', icon: '💬' },
+      subagents: { sessions: [] as any[], totalTokens: 0, name: 'Sub-agents', icon: '🤖' },
+      web: { sessions: [] as any[], totalTokens: 0, name: 'Web Interfaces', icon: '🌐' }
     }
     
     sessions.forEach((s: any) => {
@@ -135,7 +138,7 @@ export default function Agents() {
     )
   }
 
-  const { agents, conversations } = data
+  const { agents } = data
   const sessionGroups = getSessionGroups()
   const selected = agents.find((a: any) => a.id === selectedAgent)
 
@@ -143,6 +146,11 @@ export default function Agents() {
     <>
     <PageTransition>
       <div style={{ maxWidth: 1280, margin: '0 auto', padding: m ? '16px' : '0', display: 'flex', flexDirection: 'column', gap: m ? 20 : 28 }}>
+        {createToast && (
+          <div style={{ position: 'fixed', top: 20, right: 20, padding: '12px 16px', borderRadius: 8, background: 'rgba(50,215,75,0.9)', backdropFilter: 'blur(10px)', color: '#fff', fontSize: 14, fontWeight: 500, zIndex: 1000, boxShadow: '0 4px 20px rgba(0,0,0,0.25)' }}>
+            {createToast}
+          </div>
+        )}
         {/* Header */}
         <div style={{ display: 'flex', alignItems: m ? 'flex-start' : 'center', justifyContent: 'space-between', flexDirection: m ? 'column' : 'row', gap: m ? 12 : 0 }}>
           <div>
@@ -615,7 +623,7 @@ export default function Agents() {
                 <div style={{ marginBottom: 32 }}>
                   <h3 style={{ fontSize: 14, fontWeight: 600, color: TEXT.secondary, marginBottom: 12 }}>Quick Start Templates</h3>
                   <div style={{ display: 'grid', gridTemplateColumns: m ? '1fr' : 'repeat(3, 1fr)', gap: 12 }}>
-                    {templates.map((template, i) => (
+                    {templates.map((template) => (
                       <motion.div
                         key={template.name}
                         whileHover={{ scale: 1.02 }}

@@ -1,11 +1,11 @@
-import { useState } from 'react'
+import { useState, type ElementType } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Cloud, Play, CheckCircle, AlertCircle, ChevronDown, ChevronUp, X, MessageSquare, Image, Music, Video, Box, Brain, Mic, Languages, Search } from 'lucide-react'
+import { Cloud, Play, CheckCircle, AlertCircle, X, MessageSquare, Image, Music, Video, Box, Brain, Search } from 'lucide-react'
 import PageTransition from '../components/PageTransition'
 import { useIsMobile } from '../lib/useIsMobile'
 import GlassCard from '../components/GlassCard'
 import { useApi } from '../lib/hooks'
-import { TEXT, COLORS, GLASS, accent } from '../lib/theme'
+import { TEXT, COLORS, GLASS } from '../lib/theme'
 import { useAgentName } from '../lib/AgentContext'
 
 interface AWSService {
@@ -32,10 +32,10 @@ interface AWSData {
 
 type ModelCategory = 'all' | 'text' | 'image-gen' | 'vision' | 'video' | 'embedding' | 'speech'
 
-const CATEGORY_FILTERS: { id: ModelCategory; label: string; icon: any; match: (m: BedrockModel) => boolean }[] = [
+const CATEGORY_FILTERS: { id: ModelCategory; label: string; icon: ElementType; match: (m: BedrockModel) => boolean }[] = [
   { id: 'all', label: 'All', icon: Box, match: () => true },
   { id: 'text', label: 'Text / Chat', icon: MessageSquare, match: (m) => {
-    const inp = m.inputModalities || []; const out = m.outputModalities || []
+    const out = m.outputModalities || []
     return out.includes('TEXT') && !out.includes('IMAGE') && !out.includes('VIDEO') && !out.includes('EMBEDDING')
   }},
   { id: 'vision', label: 'Vision', icon: Brain, match: (m) => {
@@ -71,6 +71,7 @@ export default function AWS() {
   const agentName = useAgentName()
   const { data: awsData, loading: awsLoading } = useApi<AWSData>('/api/aws/services', 60000)
   const { data: modelsData, loading: modelsLoading } = useApi<BedrockModel[]>('/api/aws/bedrock-models', 120000)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: costData } = useApi<any>('/api/aws/costs', 60000)
   const [category, setCategory] = useState<ModelCategory>('all')
   const [searchQuery, setSearchQuery] = useState('')
@@ -132,9 +133,9 @@ export default function AWS() {
         setActionStatus('error')
         setActionMessage(data.error || 'Failed to switch model')
       }
-    } catch (e: any) {
+    } catch (e) {
       setActionStatus('error')
-      setActionMessage(e.message)
+      setActionMessage(e instanceof Error ? e.message : String(e))
     }
   }
 
@@ -158,9 +159,9 @@ export default function AWS() {
         setActionStatus('error')
         setActionMessage(data.error || 'Image generation failed')
       }
-    } catch (e: any) {
+    } catch (e) {
       setActionStatus('error')
-      setActionMessage(e.message)
+      setActionMessage(e instanceof Error ? e.message : String(e))
     }
   }
 
@@ -171,7 +172,7 @@ export default function AWS() {
       setTestResults(prev => ({ ...prev, [name]: res.ok ? 'success' : 'error' }))
     } catch { setTestResults(prev => ({ ...prev, [name]: 'error' })) }
     setTestingService(null)
-    setTimeout(() => setTestResults(prev => { const { [name]: _, ...rest } = prev; return rest }), 3000)
+    setTimeout(() => setTestResults(prev => { const rest = Object.fromEntries(Object.entries(prev).filter(([k]) => k !== name)); return rest }), 3000)
   }
 
   return (
@@ -266,6 +267,7 @@ export default function AWS() {
                 {/* Service Breakdown */}
                 <div style={{ padding: 14, borderRadius: 12, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
                   <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', marginBottom: 10, textTransform: 'uppercase', letterSpacing: 1 }}>By Service</p>
+                  {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                   {(costData?.services || []).map((svc: any) => (
                     <div key={svc.name} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
                       <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.55)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', paddingRight: 12 }}>{svc.name}</span>
@@ -282,7 +284,9 @@ export default function AWS() {
                   <div style={{ padding: 14, borderRadius: 12, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
                     <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', marginBottom: 10, textTransform: 'uppercase', letterSpacing: 1 }}>Daily Spend</p>
                     <div style={{ display: 'flex', alignItems: 'flex-end', gap: 3, height: 60 }}>
-                      {costData.daily.map((d: any, i: number) => {
+                      {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                  {costData.daily.map((d: any, i: number) => {
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
                         const maxCost = Math.max(...costData.daily.map((x: any) => x.cost), 1)
                         const height = Math.max((d.cost / maxCost) * 100, 2)
                         const isToday = i === costData.daily.length - 1

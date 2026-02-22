@@ -1,5 +1,6 @@
 'use strict';
 const path = require('path');
+const { execSync } = require('child_process');
 const express = require('express');
 const multer = require('multer');
 const {
@@ -27,6 +28,29 @@ router.get('/', async (req, res) => {
     console.error('[Settings GET]', error.message);
     res.status(500).json({ error: 'Failed to load settings' });
   }
+});
+
+// ── GET /api/settings/sysinfo ─────────────────────────────────────────────────
+
+router.get('/sysinfo', (req, res) => {
+  let openclawVersion = 'unknown';
+  try {
+    openclawVersion = execSync('openclaw --version 2>/dev/null', { timeout: 3000, encoding: 'utf8' }).trim();
+  } catch { /* openclaw not in PATH */ }
+
+  let mcVersion = 'unknown';
+  try {
+    const pkg = require('../package.json');
+    mcVersion = pkg.version || 'unknown';
+  } catch { /* no package.json */ }
+
+  res.json({
+    node: process.version,
+    platform: `${process.platform} ${process.arch}`,
+    uptime: Math.round(process.uptime()),
+    mcVersion,
+    openclawVersion,
+  });
 });
 
 // ── POST /api/settings/budget ─────────────────────────────────────────────────

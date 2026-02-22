@@ -19,6 +19,8 @@ function parseCronJobs(parsed) {
     target: j.sessionTarget || 'main',
     payload: j.payload?.kind || '?',
     description: j.payload?.text?.substring(0, 120) || '',
+    lastOutput: j.state?.lastOutput || j.state?.result || j.state?.output || '',
+    lastStatus: j.state?.lastStatus || 'idle',
     history: [],
     enabled: j.enabled !== false,
   }));

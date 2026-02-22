@@ -105,15 +105,17 @@ export default function ChatWidget() {
                   setMessages(prev => prev.map(m => m.id === assistantId ? { ...m, content: accumulated } : m))
                   if (!open) setUnread(prev => prev + 1)
                 }
-              } catch {}
+              } catch { /* skip malformed SSE chunk */ }
             }
           }
         }
       }
       setMessages(prev => prev.map(m => m.id === assistantId ? { ...m, streaming: false } : m))
-    } catch (err: any) {
-      if (err.name !== 'AbortError') {
-        setMessages(prev => prev.map(m => m.id === assistantId ? { ...m, content: `⚠️ ${err.message}`, streaming: false } : m))
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      const isAbort = err instanceof Error && err.name === 'AbortError'
+      if (!isAbort) {
+        setMessages(prev => prev.map(m => m.id === assistantId ? { ...m, content: `⚠️ ${msg}`, streaming: false } : m))
       }
     } finally {
       setIsStreaming(false)

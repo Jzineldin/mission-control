@@ -2,21 +2,31 @@ import { useState, useRef } from 'react'
 import { motion } from 'framer-motion'
 import {
   FileText, Upload, Search, File, FileCode, FileSpreadsheet,
-  Database, HardDrive, Layers, CheckCircle, AlertCircle
+  Database, HardDrive, Layers, CheckCircle, AlertCircle, Trash2
 } from 'lucide-react'
 import PageTransition from '../components/PageTransition'
 import { useIsMobile } from '../lib/useIsMobile'
 import GlassCard from '../components/GlassCard'
 import AnimatedCounter from '../components/AnimatedCounter'
 import { useApi } from '../lib/hooks'
-import { TEXT, COLORS, GLASS, accent } from '../lib/theme'
+import { TEXT, COLORS, GLASS } from '../lib/theme'
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const typeIcons: Record<string, any> = { md: FileText, csv: FileSpreadsheet, js: FileCode, json: FileCode, txt: FileText, pdf: File, default: File }
 const typeColors: Record<string, string> = { md: COLORS.blue, csv: COLORS.green, js: COLORS.orange, json: COLORS.orange, txt: COLORS.gray, pdf: COLORS.red, default: COLORS.gray }
 
 export default function Docs() {
   const m = useIsMobile()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: docsData, refetch } = useApi<any>('/api/docs', 30000)
+
+  const handleDelete = async (name: string) => {
+    if (!confirm(`Delete "${name}"?`)) return
+    try {
+      await fetch(`/api/docs/${encodeURIComponent(name)}`, { method: 'DELETE' })
+      refetch()
+    } catch { /* skip */ }
+  }
   const [search, setSearch] = useState('')
   const [dragOver, setDragOver] = useState(false)
   const [uploading, setUploading] = useState(false)
@@ -24,10 +34,13 @@ export default function Docs() {
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const docs = docsData?.documents || []
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const filteredDocs = docs.filter((d: any) =>
     d.name.toLowerCase().includes(search.toLowerCase())
   )
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const totalChunks = docs.reduce((acc: number, d: any) => acc + (d.chunks || 0), 0)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const totalSize = docs.reduce((acc: number, d: any) => acc + (d.sizeBytes || 0), 0)
 
   const handleUpload = async (files: FileList | null) => {
@@ -169,6 +182,7 @@ export default function Docs() {
 
         {/* Document Grid */}
         <div style={{ display: 'grid', gridTemplateColumns: m ? '1fr' : 'repeat(auto-fill, minmax(280px, 1fr))', gap: m ? 10 : 16 }}>
+          {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
           {filteredDocs.map((doc: any, i: number) => {
             const ext = doc.name.split('.').pop() || 'default'
             const Icon = typeIcons[ext] || typeIcons.default
@@ -191,6 +205,13 @@ export default function Docs() {
                     <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginTop: 2 }}>{doc.size} · {doc.chunks || 0} chunks</p>
                   </div>
                   <span style={{ fontSize: 10, fontFamily: 'monospace', textTransform: 'uppercase', color: TEXT.dim, flexShrink: 0 }}>{ext}</span>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); handleDelete(doc.name) }}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, color: 'rgba(255,69,58,0.5)', display: 'flex', flexShrink: 0 }}
+                    title="Delete document"
+                  >
+                    <Trash2 size={14} />
+                  </button>
                 </div>
               </motion.div>
             )

@@ -4,7 +4,7 @@ const path = require('path');
 const express = require('express');
 const { TASKS_FILE, OPENCLAW_DIR, GATEWAY_PORT, GATEWAY_TOKEN, SUB_AGENT_MODEL } = require('../lib/config');
 const cache = require('../lib/cache');
-const { readJSON, writeJSON, generateId } = require('../lib/helpers');
+const { readJSON, writeJSON, generateId, getLastAssistantMessage } = require('../lib/helpers');
 
 const router = express.Router();
 
@@ -87,6 +87,34 @@ router.delete('/:taskId', async (req, res) => {
     res.json({ ok: true, deleted: taskId });
   } catch (e) {
     console.error('[Tasks delete]', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── PATCH /api/tasks/:taskId ──────────────────────────────────────────────────
+
+router.patch('/:taskId', async (req, res) => {
+  try {
+    const { taskId } = req.params;
+    const { title, description, priority, tags } = req.body;
+    const tasks = await readJSON(TASKS_FILE, { columns: {} });
+
+    let found = null;
+    for (const col of Object.keys(tasks.columns)) {
+      const task = tasks.columns[col].find(t => t.id === taskId);
+      if (task) { found = task; break; }
+    }
+    if (!found) return res.status(404).json({ error: 'Task not found' });
+
+    if (title !== undefined) found.title = title;
+    if (description !== undefined) found.description = description;
+    if (priority !== undefined) found.priority = priority;
+    if (tags !== undefined) found.tags = tags;
+
+    await writeJSON(TASKS_FILE, tasks);
+    res.json({ ok: true, task: found });
+  } catch (e) {
+    console.error('[Tasks patch]', e.message);
     res.status(500).json({ error: e.message });
   }
 });
@@ -233,23 +261,10 @@ async function fetchTaskResult(childKey, gwPort, gwToken) {
       {}
     );
     const sessionId = sessionsJson[childKey]?.sessionId || '';
-    const transcriptPath = path.join(OPENCLAW_DIR, 'agents/main/sessions', `${sessionId}.jsonl`);
-    if (sessionId && fs.existsSync(transcriptPath)) {
-      const lines = (await fs.promises.readFile(transcriptPath, 'utf8')).trim().split('\n');
-      for (let i = lines.length - 1; i >= 0; i--) {
-        try {
-          const evt = JSON.parse(lines[i]);
-          if (evt.type === 'message' && evt.message?.role === 'assistant') {
-            const content = evt.message.content;
-            const text = Array.isArray(content)
-              ? content.filter(c => c.type === 'text').map(c => c.text).join('\n')
-              : typeof content === 'string' ? content : '';
-            if (text) return text;
-          }
-        } catch {
-          // skip malformed line
-        }
-      }
+    if (sessionId) {
+      const transcriptPath = path.join(OPENCLAW_DIR, 'agents/main/sessions', `${sessionId}.jsonl`);
+      const text = await getLastAssistantMessage(transcriptPath);
+      if (text) return text;
     }
   } catch (e) {
     console.error('[Task result] Transcript read failed:', e.message);
@@ -266,7 +281,7 @@ async function markTaskDone(taskId, resultText) {
       const doneTask = tasks.columns.inProgress.splice(idx, 1)[0];
       doneTask.status = 'done';
       doneTask.completed = new Date().toISOString();
-      doneTask.result = (resultText || 'Task completed (no output captured)').substring(0, 3000);
+      doneTask.result = (resultText || 'Task completed (no output captured)').substring(0, 10000);
       tasks.columns.done.unshift(doneTask);
       await writeJSON(TASKS_FILE, tasks);
       console.log(`[Task execute] Done: ${taskId} — ${doneTask.result.substring(0, 80)}...`);

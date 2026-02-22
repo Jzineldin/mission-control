@@ -1,19 +1,13 @@
-import { useState } from 'react'
-import { Clock, Play, Pause, AlertTriangle, CheckCircle, XCircle, Plus, Trash2, RotateCcw } from 'lucide-react'
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import React, { useState } from 'react'
+import { Clock, Play, Pause, AlertTriangle, Plus, Trash2, RotateCcw, ChevronDown } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import PageTransition from '../components/PageTransition'
 import { useIsMobile } from '../lib/useIsMobile'
 import GlassCard from '../components/GlassCard'
 import StatusBadge from '../components/StatusBadge'
 import { useApi, timeAgo, formatDate } from '../lib/hooks'
-import { TEXT, COLORS, GLASS, accent } from '../lib/theme'
-
-const statusIcons: Record<string, any> = {
-  success: CheckCircle,
-  failed: XCircle,
-  ok: CheckCircle,
-  error: XCircle,
-}
+import { TEXT, COLORS, GLASS } from '../lib/theme'
 
 // Cron expression presets
 const CRON_PRESETS = [
@@ -36,6 +30,8 @@ interface CronJob {
   target: string
   payload: string
   description: string
+  lastOutput: string
+  lastStatus: string
   history: any[]
 }
 
@@ -501,6 +497,16 @@ export default function Cron() {
   const { data, loading, refetch } = useApi<any>('/api/cron', 30000)
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
+  const [expandedJobs, setExpandedJobs] = useState<Set<string>>(new Set())
+
+  const toggleExpand = (jobId: string) => {
+    setExpandedJobs(prev => {
+      const next = new Set(prev)
+      if (next.has(jobId)) next.delete(jobId)
+      else next.add(jobId)
+      return next
+    })
+  }
 
   const handleToggle = async (jobId: string, enabled: boolean) => {
     setActionLoading(`toggle-${jobId}`)
@@ -693,7 +699,7 @@ export default function Cron() {
                         </div>
                         <ToggleSwitch 
                           enabled={job.enabled} 
-                          onChange={(enabled) => handleToggle(job.id, job.enabled)} 
+                          onChange={(_enabled) => handleToggle(job.id, job.enabled)} 
                         />
                       </div>
                       
@@ -765,7 +771,22 @@ export default function Cron() {
                         >
                           <Trash2 size={12} />
                         </button>
+                        <button
+                          onClick={() => toggleExpand(job.id)}
+                          style={{ padding: '6px 8px', background: GLASS.border, border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, color: 'rgba(255,255,255,0.5)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                        >
+                          <ChevronDown size={12} style={{ transform: expandedJobs.has(job.id) ? 'rotate(180deg)' : undefined, transition: 'transform 0.2s' }} />
+                        </button>
                       </div>
+                      {expandedJobs.has(job.id) && (
+                        <div style={{ marginTop: 10, padding: '8px 12px', borderRadius: 8, background: GLASS.divider }}>
+                          {job.lastOutput ? (
+                            <pre style={{ fontSize: 11, color: TEXT.tertiary, whiteSpace: 'pre-wrap', wordBreak: 'break-word', maxHeight: 120, overflowY: 'auto', margin: 0 }}>{job.lastOutput}</pre>
+                          ) : (
+                            <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', margin: 0 }}>No output captured for last run</p>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </GlassCard>
                 </motion.div>
@@ -780,14 +801,14 @@ export default function Cron() {
                 ))}
               </div>
               {jobs.map((job: CronJob, i: number) => (
+                <React.Fragment key={job.id}>
                 <motion.div
-                  key={job.id}
                   initial={{ opacity: 0, x: -10 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: 0.25 + i * 0.04 }}
                   style={{
                     padding: '16px 24px', display: 'grid', gridTemplateColumns: '3fr 2fr 1fr 2fr 2fr 1fr 2fr', gap: 16, alignItems: 'center',
-                    borderBottom: '1px solid rgba(255,255,255,0.04)', transition: 'background 0.15s',
+                    borderBottom: expandedJobs.has(job.id) ? 'none' : '1px solid rgba(255,255,255,0.04)', transition: 'background 0.15s',
                   }}
                   onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.02)' }}
                   onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent' }}
@@ -803,7 +824,7 @@ export default function Cron() {
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       <ToggleSwitch 
                         enabled={job.enabled} 
-                        onChange={(enabled) => handleToggle(job.id, job.enabled)} 
+                        onChange={(_enabled) => handleToggle(job.id, job.enabled)} 
                       />
                       <StatusBadge status={job.enabled ? job.status : 'disabled'} />
                     </div>
@@ -890,8 +911,25 @@ export default function Cron() {
                     >
                       <Trash2 size={14} />
                     </button>
+                    <button
+                      onClick={() => toggleExpand(job.id)}
+                      title="Last output"
+                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 32, height: 28, background: GLASS.border, border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, color: 'rgba(255,255,255,0.5)', cursor: 'pointer', transition: 'all 0.15s' }}
+                    >
+                      <ChevronDown size={12} style={{ transform: expandedJobs.has(job.id) ? 'rotate(180deg)' : undefined, transition: 'transform 0.2s' }} />
+                    </button>
                   </div>
                 </motion.div>
+                {expandedJobs.has(job.id) && (
+                  <div style={{ padding: '8px 24px 14px', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                    {job.lastOutput ? (
+                      <pre style={{ fontSize: 11, color: TEXT.tertiary, whiteSpace: 'pre-wrap', wordBreak: 'break-word', maxHeight: 160, overflowY: 'auto', margin: 0, background: GLASS.divider, padding: '8px 12px', borderRadius: 8 }}>{job.lastOutput}</pre>
+                    ) : (
+                      <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', margin: 0 }}>No output captured for last run</p>
+                    )}
+                  </div>
+                )}
+                </React.Fragment>
               ))}
             </GlassCard>
           )}

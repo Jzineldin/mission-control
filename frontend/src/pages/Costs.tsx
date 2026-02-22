@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react'
-import { DollarSign, TrendingUp, TrendingDown, Target, Calendar, Zap, Settings, AlertCircle } from 'lucide-react'
+import { DollarSign, TrendingUp, Target, Calendar, Zap, Settings, AlertCircle } from 'lucide-react'
 import PageTransition from '../components/PageTransition'
 import GlassCard from '../components/GlassCard'
 import AnimatedCounter from '../components/AnimatedCounter'
 import { useIsMobile } from '../lib/useIsMobile'
-import { TEXT, COLORS, GLASS, accent } from '../lib/theme'
+import { TEXT, COLORS, GLASS } from '../lib/theme'
 
 interface AWSSCostData {
   period: { start: string; end: string }
@@ -17,6 +17,7 @@ interface AWSSCostData {
 
 interface TokenData {
   daily: Array<{ date: string; total: number }>
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   summary: any
   byService: Array<{ name: string; cost: number }>
   sessions: Array<{ sessionId: string; cost: number; model: string; tokens: number; timestamp: number }>
@@ -34,6 +35,7 @@ interface SessionData {
 interface ConfigData {
   modules: {
     aws?: boolean
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     [key: string]: any
   }
 }
@@ -199,7 +201,7 @@ export default function Costs() {
       model: s.model?.replace('us.anthropic.', '')?.replace(/claude-(\w+)-[\d-]+.*/, 'Claude $1') || 'Unknown',
       tokens: s.totalTokens,
       cost: estimateCost(s.totalTokens, s.model),
-      timestamp: s.updatedAt ? new Date(s.updatedAt).getTime() / 1000 : Date.now() / 1000
+      timestamp: s.updatedAt ? new Date(s.updatedAt).getTime() / 1000 : 0
     }))
 
   return (
@@ -559,7 +561,7 @@ export default function Costs() {
                   gap: m ? '2px' : '4px', 
                   paddingTop: '20px' 
                 }}>
-                  {awsCosts.daily.map((day, i) => {
+                  {awsCosts.daily.map((day, _i) => {
                     const maxCost = Math.max(...awsCosts.daily.map(d => d.cost), 10)
                     const height = Math.max((day.cost / maxCost) * (m ? 140 : 200), 2)
                     return (
@@ -628,7 +630,7 @@ export default function Costs() {
               </h3>
               <div style={{ display: 'flex', flexDirection: 'column', gap: m ? '12px' : '16px' }}>
                 {hasAwsData && awsCosts ? (
-                  awsCosts.services.slice(0, m ? 5 : 8).map((service, i) => {
+                  awsCosts.services.slice(0, m ? 5 : 8).map((service, _i) => {
                     const percentage = (service.cost / awsCosts.total) * 100
                     return (
                       <div key={service.name} style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -670,7 +672,7 @@ export default function Costs() {
                   // Token-based breakdown by channel/session type
                   Object.entries({
                     'OpenClaw Sessions': totalTokens > 0 ? estimateCost(totalTokens, 'sonnet') : 0
-                  }).map(([name, cost], i) => {
+                  }).map(([name, cost], _i) => {
                     if (cost === 0) return null
                     return (
                       <div key={name} style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -729,7 +731,7 @@ export default function Costs() {
               gridTemplateColumns: m ? '1fr' : 'repeat(auto-fit, minmax(300px, 1fr))', 
               gap: m ? '12px' : '16px' 
             }}>
-              {topSessions.length > 0 ? topSessions.map((session, i) => (
+              {topSessions.length > 0 ? topSessions.map((session, _i) => (
                 <div key={session.sessionId} style={{ 
                   padding: m ? '12px' : '16px', 
                   background: GLASS.borderSubtle, 

@@ -13,6 +13,7 @@ import { useDashboardData, timeAgo } from '../lib/hooks'
 import { useIsMobile } from '../lib/useIsMobile'
 import { TEXT, COLORS, GLASS, accent } from '../lib/theme'
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const feedIcons: Record<string, any> = {
   check: CheckCircle,
   search: Search,
@@ -33,7 +34,7 @@ function QuickActionsBar() {
   const [loading, setLoading] = useState<string | null>(null)
   const [result, setResult] = useState<string | null>(null)
 
-  const handleQuickAction = async (endpoint: string, label: string) => {
+  const handleQuickAction = async (endpoint: string, _label: string) => {
     if (loading) return
 
     if (endpoint === '/quick/emails') {
@@ -68,6 +69,7 @@ function QuickActionsBar() {
       }
 
       setTimeout(() => setResult(null), 10000)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (e: any) {
       setResult(`❌ ${e.message}`)
       setTimeout(() => setResult(null), 10000)
@@ -196,6 +198,7 @@ export default function Dashboard() {
   const { agent, heartbeat, tokenUsage } = data
   const feed = activityData?.feed || []
   const sessions = sessionsData?.sessions || []
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const activeSessions = sessions.filter((s: any) => s.isActive).length
   const totalSessions = sessions.length
 
@@ -232,6 +235,7 @@ export default function Dashboard() {
                 </p>
                 {sessions.length > 0 && (
                   <p style={{ fontSize: 10, color: TEXT.dim, marginTop: 4 }}>
+                    {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                     Last active: {timeAgo(sessions.sort((a: any, b: any) => new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime())[0]?.updatedAt || '')}
                   </p>
                 )}
@@ -320,7 +324,8 @@ export default function Dashboard() {
                       <Bell size={28} style={{ marginBottom: 8, opacity: 0.3 }} />
                       <p style={{ fontSize: 12 }}>No activity yet</p>
                     </div>
-                  ) : feed.map((item: any, i: number) => {
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  ) : feed.map((item: any, _i: number) => {
                     const Icon = feedIcons[item.icon] || Activity
                     const color = feedColors[item.type] || COLORS.gray
                     const isRunning = item.type === 'task_running'
@@ -410,6 +415,7 @@ export default function Dashboard() {
                 <h3 style={{ fontSize: 13, fontWeight: 600, color: TEXT.primary, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
                   <Radio size={13} style={{ color: COLORS.purple }} /> Channels
                 </h3>
+                {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                 {agent.channels?.length > 0 ? agent.channels.map((ch: any) => (
                   <div key={ch.name} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0', borderBottom: `1px solid ${GLASS.borderSubtle}` }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flex: 1 }}>

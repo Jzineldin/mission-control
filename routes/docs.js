@@ -55,4 +55,21 @@ router.post('/upload', upload.array('files', 20), async (req, res) => {
   }
 });
 
+// ── DELETE /api/docs/:filename ────────────────────────────────────────────────
+
+router.delete('/:filename', async (req, res) => {
+  try {
+    const safeName = path.basename(req.params.filename);
+    if (!safeName || safeName.startsWith('.')) {
+      return res.status(400).json({ error: 'Invalid filename' });
+    }
+    await fs.promises.unlink(path.join(DOCS_DIR, safeName));
+    res.json({ ok: true });
+  } catch (err) {
+    if (err.code === 'ENOENT') return res.status(404).json({ error: 'File not found' });
+    console.error('[Docs delete]', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;

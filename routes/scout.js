@@ -2,7 +2,7 @@
 const path = require('path');
 const { execFile } = require('child_process');
 const express = require('express');
-const { SCOUT_FILE, TASKS_FILE } = require('../lib/config');
+const { SCOUT_FILE, TASKS_FILE, mcConfig, MC_CONFIG_PATH } = require('../lib/config');
 const { readJSON, writeJSON, generateId } = require('../lib/helpers');
 
 const router = express.Router();
@@ -184,6 +184,34 @@ router.post('/scan', (req, res) => {
 
 router.get('/status', (req, res) => {
   res.json({ scanning: scoutScanRunning, status: scoutScanRunning ? 'scanning' : 'idle' });
+});
+
+// ── GET /api/scout/config ─────────────────────────────────────────────────────
+
+router.get('/config', (req, res) => {
+  res.json({
+    queries: mcConfig.scout?.queries || [],
+    schedule: mcConfig.scout?.schedule || 'daily',
+  });
+});
+
+// ── POST /api/scout/config ────────────────────────────────────────────────────
+
+router.post('/config', async (req, res) => {
+  try {
+    const { queries, schedule } = req.body;
+    if (!Array.isArray(queries) || !queries.every(q => typeof q === 'string')) {
+      return res.status(400).json({ error: 'queries must be an array of strings' });
+    }
+    mcConfig.scout = mcConfig.scout || {};
+    mcConfig.scout.queries = queries;
+    if (schedule) mcConfig.scout.schedule = schedule;
+    await writeJSON(MC_CONFIG_PATH, mcConfig);
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('[Scout config]', e.message);
+    res.status(500).json({ error: e.message });
+  }
 });
 
 module.exports = router;

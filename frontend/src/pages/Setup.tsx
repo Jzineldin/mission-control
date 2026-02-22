@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { CheckCircle, ArrowRight, ArrowLeft, Settings, Zap, Search } from 'lucide-react'
 import PageTransition from '../components/PageTransition'
 import { useIsMobile } from '../lib/useIsMobile'
-import { TEXT, COLORS, GLASS, accent } from '../lib/theme'
+import { COLORS } from '../lib/theme'
 
 interface SetupData {
   dashboardName: string
@@ -117,7 +117,7 @@ export default function Setup() {
       setLoading(true)
 
       // Combine template queries with custom queries
-      let allQueries = [...setupData.scout.queries]
+      const allQueries = [...setupData.scout.queries]
       customQueries.forEach(q => {
         if (q.trim()) {
           allQueries.push({ q: q.trim(), category: 'custom', source: 'web', weight: 0.8 })

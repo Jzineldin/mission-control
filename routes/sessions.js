@@ -4,7 +4,7 @@ const path = require('path');
 const express = require('express');
 const { OPENCLAW_DIR, HIDDEN_SESSIONS_FILE, GATEWAY_PORT, GATEWAY_TOKEN } = require('../lib/config');
 const cache = require('../lib/cache');
-const { readJSON, writeJSON, gatewayInvoke } = require('../lib/helpers');
+const { readJSON, writeJSON, gatewayInvoke, getLastAssistantMessage } = require('../lib/helpers');
 const { fetchSessions } = require('../lib/gateway');
 
 const router = express.Router();
@@ -164,23 +164,7 @@ router.post('/:sessionKey/send', async (req, res) => {
         const sessionId = sessions[sessionKey]?.sessionId || '';
         if (sessionId) {
           const transcriptPath = path.join(OPENCLAW_DIR, 'agents/main/sessions', `${sessionId}.jsonl`);
-          if (fs.existsSync(transcriptPath)) {
-            const lines = (await fs.promises.readFile(transcriptPath, 'utf8')).trim().split('\n');
-            for (let i = lines.length - 1; i >= 0; i--) {
-              try {
-                const evt = JSON.parse(lines[i]);
-                if (evt.type === 'message' && evt.message?.role === 'assistant') {
-                  const content = evt.message.content;
-                  resultText = Array.isArray(content)
-                    ? content.filter(c => c.type === 'text').map(c => c.text).join('\n')
-                    : typeof content === 'string' ? content : '';
-                  if (resultText) break;
-                }
-              } catch {
-                // skip malformed line
-              }
-            }
-          }
+          resultText = await getLastAssistantMessage(transcriptPath);
         }
       } catch (e) {
         console.error('[Session send] Transcript fallback failed:', e.message);

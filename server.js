@@ -7,7 +7,7 @@ const { execSync } = require('child_process');
 // ── Config & shared state ─────────────────────────────────────────────────────
 const { TASKS_FILE, OPENCLAW_DIR } = require('./lib/config');
 const cache = require('./lib/cache');
-const { readJSON, writeJSON } = require('./lib/helpers');
+const { readJSON, writeJSON, getLastAssistantMessage } = require('./lib/helpers');
 
 // ── Route modules ─────────────────────────────────────────────────────────────
 const chatRouter        = require('./routes/chat');
@@ -82,31 +82,14 @@ app.listen(PORT, BIND_HOST, async () => {
         if (!sessionId) continue;
 
         const transcriptPath = path.join(OPENCLAW_DIR, 'agents/main/sessions', `${sessionId}.jsonl`);
-        if (!fs.existsSync(transcriptPath)) continue;
-
-        const lines = (await fs.promises.readFile(transcriptPath, 'utf8')).trim().split('\n');
-        let resultText = '';
-        for (let i = lines.length - 1; i >= 0; i--) {
-          try {
-            const evt = JSON.parse(lines[i]);
-            if (evt.type === 'message' && evt.message?.role === 'assistant') {
-              const content = evt.message.content;
-              resultText = Array.isArray(content)
-                ? content.filter(c => c.type === 'text').map(c => c.text).join('\n')
-                : typeof content === 'string' ? content : '';
-              if (resultText) break;
-            }
-          } catch {
-            // skip malformed JSONL line
-          }
-        }
+        const resultText = await getLastAssistantMessage(transcriptPath);
 
         if (resultText) {
           const idx = tasks.columns.inProgress.indexOf(task);
           if (idx >= 0) tasks.columns.inProgress.splice(idx, 1);
           task.status = 'done';
           task.completed = new Date().toISOString();
-          task.result = resultText.substring(0, 3000);
+          task.result = resultText.substring(0, 10000);
           tasks.columns.done.unshift(task);
           recovered++;
         }
