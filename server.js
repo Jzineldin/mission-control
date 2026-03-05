@@ -2,7 +2,6 @@
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
-const { execSync } = require('child_process');
 
 // ── Config & shared state ─────────────────────────────────────────────────────
 const { TASKS_FILE, OPENCLAW_DIR } = require('./lib/config');
@@ -15,7 +14,6 @@ const statusRouter      = require('./routes/status');
 const { refreshStatusCache } = require('./routes/status');
 const sessionsRouter    = require('./routes/sessions');
 const cronRouter        = require('./routes/cron');
-const { parseCronJobs } = require('./routes/cron');
 const activityRouter    = require('./routes/activity');
 const tasksRouter       = require('./routes/tasks');
 const costsRouter       = require('./routes/costs');
@@ -106,17 +104,6 @@ app.listen(PORT, BIND_HOST, async () => {
 
   // Pre-warm caches in background — don't block startup
   setTimeout(() => refreshStatusCache(), 50);
-
-  setTimeout(() => {
-    try {
-      const cronRaw = execSync('openclaw cron list --json 2>&1', { timeout: 10000, encoding: 'utf8' });
-      cache.cron = { jobs: parseCronJobs(JSON.parse(cronRaw)) };
-      cache.cronTime = Date.now();
-      console.log(`[Startup] Pre-warmed ${cache.cron.jobs.length} cron jobs`);
-    } catch (e) {
-      console.warn('[Startup] Cron pre-warm failed:', e.message);
-    }
-  }, 100);
 
   setTimeout(async () => {
     try {

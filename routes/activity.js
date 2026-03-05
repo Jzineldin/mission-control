@@ -84,8 +84,10 @@ router.get('/', async (req, res) => {
 
     // 3. Cron job last runs
     try {
-      const cronOutput = execSync('openclaw cron list --json 2>/dev/null || echo "[]"', { timeout: 5000 }).toString();
-      const crons = JSON.parse(cronOutput);
+      const cronRaw = execSync('openclaw cron list --json 2>/dev/null', { timeout: 5000, encoding: 'utf8' });
+      // Strip any non-JSON prefix (doctor warnings can print to stdout)
+      const jsonStart = cronRaw.indexOf('{');
+      const crons = JSON.parse(jsonStart >= 0 ? cronRaw.slice(jsonStart) : cronRaw);
       for (const job of (Array.isArray(crons) ? crons : crons.jobs || [])) {
         if (job.lastRun || job.lastRunAt) {
           feed.push({
