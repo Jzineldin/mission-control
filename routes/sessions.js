@@ -25,7 +25,7 @@ router.get('/', async (req, res) => {
       return res.json(cache.sessions);
     }
 
-    const sessionData = await fetchSessions(25);
+    const sessionData = await fetchSessions(200);
     const sessions = sessionData.sessions || [];
 
     let result = {
@@ -33,9 +33,12 @@ router.get('/', async (req, res) => {
       sessions: sessions.map(s => {
         const key = s.key || '';
         const type = key.includes(':subagent:') ? 'sub-agent'
+          : key.includes(':cron:') ? 'cron'
           : key.includes(':discord:') ? 'discord'
           : key.includes(':openai') ? 'web'
-          : key.includes(':main:main') ? 'main'
+          : key.includes(':telegram:') ? 'telegram'
+          : key.includes(':whatsapp:') ? 'whatsapp'
+          : key.match(/agent:\w+:main$/) ? 'main'
           : 'other';
         return {
           key: s.key,
@@ -72,16 +75,23 @@ router.get('/:sessionKey/history', async (req, res) => {
     let sessionKey;
     try { sessionKey = decodeURIComponent(req.params.sessionKey); }
     catch { return res.status(400).json({ error: 'Invalid session key encoding' }); }
-    const cfg = await readJSON(path.join(OPENCLAW_DIR, 'openclaw.json'), {});
-    const gwToken = cfg.gateway?.auth?.token || process.env.MC_GATEWAY_TOKEN || GATEWAY_TOKEN;
-    const gwPort = cfg.gateway?.port || GATEWAY_PORT;
+    // Extract agentId from key: "agent:<agentId>:..."
+    const keyParts = sessionKey.split(':');
+    const agentId = keyParts.length >= 2 ? keyParts[1] : 'main';
 
-    const parsed = await gatewayInvoke(gwPort, gwToken, 'sessions_list', { limit: 100, messageLimit: 0 });
-    const session = (parsed?.sessions || []).find(s => s.key === sessionKey);
+    // Read the session record from the agent's sessions.json on disk
+    const sessionsPath = path.join(OPENCLAW_DIR, 'agents', agentId, 'sessions', 'sessions.json');
+    const sessionsMap = await readJSON(sessionsPath, {});
+    const session = sessionsMap[sessionKey];
 
-    if (!session?.transcriptPath) return res.json({ messages: [], info: 'No transcript found' });
+    if (!session) return res.json({ messages: [], info: 'Session not found' });
 
-    const transcriptFile = path.join(OPENCLAW_DIR, 'agents/main/sessions', session.transcriptPath);
+    // Use sessionFile (absolute path) if present, otherwise build from sessionId
+    let transcriptFile = session.sessionFile;
+    if (!transcriptFile && session.sessionId) {
+      transcriptFile = path.join(OPENCLAW_DIR, 'agents', agentId, 'sessions', `${session.sessionId}.jsonl`);
+    }
+    if (!transcriptFile) return res.json({ messages: [], info: 'No transcript found' });
     if (!fs.existsSync(transcriptFile)) return res.json({ messages: [], info: 'Transcript file missing' });
 
     const raw = await fs.promises.readFile(transcriptFile, 'utf8');
