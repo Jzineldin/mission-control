@@ -231,13 +231,17 @@ async function main() {
       console.log(`   ${results.length} results found`);
       
       for (const result of results) {
+        const now = new Date().toISOString();
         const scored = {
+          id: `scout-${Date.now()}-${Math.random().toString(36).slice(2,7)}`,
           ...result,
           query: query.q,
           category: query.category,
           source: query.source,
           score: scoreOpportunity(result, query),
-          scannedAt: new Date().toISOString(),
+          found: now,
+          scannedAt: now,
+          status: 'new',
         };
         
         if (scored.score >= 35) { // Only keep decent opportunities

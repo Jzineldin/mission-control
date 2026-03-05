@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { Radar, SortDesc, X, Rocket, Shield, Code, Briefcase, GraduationCap, DollarSign, Search, ChevronLeft, ChevronRight, ChevronDown, Plus } from 'lucide-react'
+import { Radar, SortDesc, X, Rocket, Shield, Code, Briefcase, GraduationCap, DollarSign, Search, ChevronLeft, ChevronRight, ChevronDown, Plus, ExternalLink } from 'lucide-react'
 import PageTransition from '../components/PageTransition'
 import { useIsMobile } from '../lib/useIsMobile'
 import GlassCard from '../components/GlassCard'
@@ -74,6 +74,7 @@ export default function Scout() {
   const [queryOverrides, setQueryOverrides] = useState<string[] | null>(null)
   const [newQuery, setNewQuery] = useState('')
   const [savingConfig, setSavingConfig] = useState(false)
+  const [selectedOpp, setSelectedOpp] = useState<any>(null)
 
   const scoutUrl = `/api/scout?filter=${filter}&sort=${sortBy}&page=${page}&limit=${PAGE_SIZE}`
   const { data, loading, refetch } = useApi<any>(scoutUrl, 60000)
@@ -327,7 +328,8 @@ export default function Scout() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.05 + i * 0.02 }}
                 className="macos-panel"
-                style={{ padding: m ? 14 : '18px 22px', opacity: opp.status === 'dismissed' ? 0.4 : 1 }}
+                style={{ padding: m ? 14 : '18px 22px', opacity: opp.status === 'dismissed' ? 0.4 : 1, cursor: 'pointer' }}
+                onClick={() => setSelectedOpp(opp)}
               >
                 {m ? (
                   <div>
@@ -520,6 +522,143 @@ export default function Scout() {
         </div>
 
       </div>
+
+      {/* Detail Drawer */}
+      {selectedOpp && (
+        <>
+          {/* Backdrop */}
+          <div
+            style={{
+              position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
+              backdropFilter: 'blur(4px)', zIndex: 1000,
+            }}
+            onClick={() => setSelectedOpp(null)}
+          />
+          {/* Drawer Panel */}
+          <motion.div
+            initial={{ x: '100%' }}
+            animate={{ x: 0 }}
+            exit={{ x: '100%' }}
+            transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+            style={{
+              position: 'fixed', top: 0, right: 0, bottom: 0,
+              width: m ? '100%' : 480,
+              background: 'rgba(28,28,30,0.97)',
+              backdropFilter: 'blur(20px)',
+              borderLeft: '1px solid rgba(255,255,255,0.1)',
+              zIndex: 1001,
+              display: 'flex', flexDirection: 'column',
+              overflowY: 'auto',
+            }}
+          >
+            {/* Drawer Header */}
+            <div style={{ padding: '20px 24px', borderBottom: '1px solid rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div style={{
+                width: 44, height: 44, borderRadius: 12, flexShrink: 0,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                background: `${scoreColor(selectedOpp.score)}20`, border: `1px solid ${scoreColor(selectedOpp.score)}40`,
+              }}>
+                <span style={{ fontSize: 17, fontWeight: 700, color: scoreColor(selectedOpp.score) }}>{selectedOpp.score}</span>
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <h2 style={{ fontSize: 15, fontWeight: 600, color: '#fff', margin: 0, lineHeight: 1.3 }}>{selectedOpp.title}</h2>
+              </div>
+              <button
+                onClick={() => setSelectedOpp(null)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.5)', padding: 4, display: 'flex' }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Drawer Body */}
+            <div style={{ flex: 1, padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 20 }}>
+              {/* Tags */}
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                <span className="macos-badge" style={{ fontSize: 11 }}>{selectedOpp.category}</span>
+                <span className="macos-badge" style={{ fontSize: 11 }}>{selectedOpp.source}</span>
+                {selectedOpp.status && (
+                  <span className="macos-badge" style={{ fontSize: 11 }}>{selectedOpp.status}</span>
+                )}
+                {getFreshnessInfo(selectedOpp.found) && (
+                  <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 6, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: getFreshnessInfo(selectedOpp.found)?.color, fontWeight: 500 }}>
+                    {getFreshnessInfo(selectedOpp.found)?.badge}
+                  </span>
+                )}
+              </div>
+
+              {/* Description */}
+              {(selectedOpp.description || selectedOpp.summary) && (
+                <div>
+                  <p style={{ fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', marginBottom: 8 }}>Description</p>
+                  <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.75)', lineHeight: 1.6, margin: 0 }}>
+                    {selectedOpp.description || selectedOpp.summary}
+                  </p>
+                </div>
+              )}
+
+              {/* URL */}
+              {selectedOpp.url && (
+                <div>
+                  <p style={{ fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', marginBottom: 8 }}>Source URL</p>
+                  <a
+                    href={selectedOpp.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: COLORS.blue, textDecoration: 'none', wordBreak: 'break-all' }}
+                    onMouseEnter={e => e.currentTarget.style.textDecoration = 'underline'}
+                    onMouseLeave={e => e.currentTarget.style.textDecoration = 'none'}
+                  >
+                    <ExternalLink size={12} style={{ flexShrink: 0 }} />
+                    {selectedOpp.url}
+                  </a>
+                </div>
+              )}
+
+              {/* Search Query */}
+              {selectedOpp.query && (
+                <div>
+                  <p style={{ fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', marginBottom: 8 }}>Search Query</p>
+                  <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', fontFamily: 'monospace', lineHeight: 1.5, margin: 0, padding: '8px 12px', background: 'rgba(255,255,255,0.04)', borderRadius: 8, border: '1px solid rgba(255,255,255,0.06)' }}>
+                    {selectedOpp.query}
+                  </p>
+                </div>
+              )}
+
+              {/* Published */}
+              {selectedOpp.published && (
+                <div>
+                  <p style={{ fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', marginBottom: 4 }}>Published</p>
+                  <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', margin: 0 }}>{selectedOpp.published}</p>
+                </div>
+              )}
+            </div>
+
+            {/* Drawer Footer — action buttons */}
+            {selectedOpp.status === 'new' && (
+              <div style={{ padding: '16px 24px', borderTop: '1px solid rgba(255,255,255,0.08)', display: 'flex', gap: 10 }}>
+                <button
+                  onClick={() => { handleDeploy(selectedOpp.id); setSelectedOpp(null); }}
+                  style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '12px', borderRadius: 10, border: 'none', cursor: 'pointer', color: '#fff', background: COLORS.blue, fontSize: 13, fontWeight: 600 }}
+                >
+                  <Rocket size={14} /> Add to Workshop
+                </button>
+                <button
+                  onClick={() => { handleDismiss(selectedOpp.id); setSelectedOpp(null); }}
+                  style={{ width: 48, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '12px', borderRadius: 10, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.05)', cursor: 'pointer', color: 'rgba(255,255,255,0.5)' }}
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            )}
+            {selectedOpp.status === 'deployed' && (
+              <div style={{ padding: '16px 24px', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+                <span style={{ fontSize: 13, color: COLORS.green, fontWeight: 600 }}>✓ Already in Workshop</span>
+              </div>
+            )}
+          </motion.div>
+        </>
+      )}
     </PageTransition>
   )
 }
