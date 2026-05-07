@@ -199,8 +199,10 @@ function createCronService({
   getOpenclawDefaultModelKey,
   calendarFile,
   homeDir = process.env.HOME || '/Users/yordamkocatepe',
+  hermesProfile = process.env.HERMES_PROFILE || 'hmudur',
 }) {
-  const cronRunsDir = path.join(homeDir, '.openclaw', 'cron', 'runs');
+  const openclawCronRunsDir = path.join(homeDir, '.openclaw', 'cron', 'runs');
+  const hermesCronJobsFile = path.join(homeDir, '.hermes', 'profiles', hermesProfile, 'cron', 'jobs.json');
   const maxHistoryRuns = 10;
 
   function normalizeCronRunStatus(job = {}) {
@@ -212,8 +214,9 @@ function createCronService({
     return 'idle';
   }
 
-  function readRunHistory(jobId = '') {
-    const runFile = path.join(cronRunsDir, `${jobId}.jsonl`);
+  function readRunHistory(jobId = '', scheduler = 'openclaw') {
+    if (scheduler !== 'openclaw') return [];
+    const runFile = path.join(openclawCronRunsDir, `${jobId}.jsonl`);
     try {
       const content = fs.readFileSync(runFile, 'utf8');
       const lines = content.trim().split('\n').filter(Boolean);
@@ -236,34 +239,170 @@ function createCronService({
     }
   }
 
+  function isHermesJob(job = {}) {
+    return String(job.scheduler || job.source || '').toLowerCase() === 'hermes';
+  }
+
+  function isOpenclawJob(job = {}) {
+    return !isHermesJob(job);
+  }
+
+  function getCronJobSourceId(job = {}) {
+    return String(job.sourceId || job.id || '');
+  }
+
+  function getCronJobApiId(job = {}) {
+    const scheduler = isHermesJob(job) ? 'hermes' : 'openclaw';
+    const sourceId = getCronJobSourceId(job);
+    return sourceId.includes(':') ? sourceId : `${scheduler}:${sourceId}`;
+  }
+
+  function getCronJobActions(job = {}) {
+    if (isHermesJob(job)) {
+      return { run: false, toggle: true, delete: false, model: true };
+    }
+    return { run: true, toggle: true, delete: true, model: true };
+  }
+
   function mapCronJobForApi(job = {}) {
+    const scheduler = isHermesJob(job) ? 'hermes' : 'openclaw';
+    const sourceId = getCronJobSourceId(job);
     return {
-      id: job.id,
+      id: getCronJobApiId(job),
+      sourceId,
       name: job.name || String(job.id || '').substring(0, 8) || 'Unnamed job',
-      schedule: job.schedule?.expr || job.schedule?.kind || '?',
+      scheduler,
+      schedulerLabel: scheduler === 'hermes' ? 'Hermes' : 'OpenClaw',
+      schedule: job.schedule?.expr || job.schedule?.display || job.schedule_display || job.schedule?.kind || '?',
       status: normalizeCronRunStatus(job),
       lastRun: job.state?.lastRunAtMs ? new Date(job.state.lastRunAtMs).toISOString() : null,
       nextRun: job.state?.nextRunAtMs ? new Date(job.state.nextRunAtMs).toISOString() : null,
       duration: job.state?.lastDurationMs ? `${job.state.lastDurationMs}ms` : null,
       target: job.sessionTarget || 'main',
       payload: job.payload?.kind || '?',
-      model: job.payload?.model || job.model || getOpenclawDefaultModelKey() || '',
+      model: job.payload?.model || job.model || (scheduler === 'openclaw' ? getOpenclawDefaultModelKey() : '') || '',
       thinking: job.payload?.thinking || '',
-      description: job.payload?.text?.substring(0, 120) || job.payload?.message?.substring(0, 120) || '',
-      history: readRunHistory(job.id),
+      description: job.payload?.text?.substring(0, 120) || job.payload?.message?.substring(0, 120) || job.prompt?.substring(0, 120) || '',
+      history: readRunHistory(sourceId, scheduler),
       enabled: job.enabled !== false,
+      actions: getCronJobActions(job),
     };
   }
 
-  async function fetchCronJobsLive() {
+  function toMsOrNull(value) {
+    if (!value) return null;
+    if (typeof value === 'number' && Number.isFinite(value)) return value;
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? null : parsed.getTime();
+  }
+
+  function normalizeHermesCronJob(job = {}) {
+    const lastStatus = job.last_status || job.lastStatus || job.state;
+    return {
+      ...job,
+      scheduler: 'hermes',
+      sourceId: job.id,
+      schedule: {
+        kind: job.schedule?.kind || 'cron',
+        expr: job.schedule?.expr || job.schedule_display || job.schedule?.display || '?',
+        display: job.schedule_display || job.schedule?.display || job.schedule?.expr || '?',
+      },
+      sessionTarget: job.deliver || job.sessionTarget || 'origin',
+      payload: {
+        kind: job.prompt ? 'agentTurn' : (job.payload?.kind || 'cron'),
+        message: job.prompt || job.payload?.message || '',
+        model: [job.provider, job.model].filter(Boolean).join('/') || job.model || '',
+        thinking: job.thinking || job.payload?.thinking || '',
+      },
+      state: {
+        lastRunAtMs: toMsOrNull(job.last_run_at || job.lastRunAt),
+        nextRunAtMs: toMsOrNull(job.next_run_at || job.nextRunAt),
+        lastStatus,
+        lastRunStatus: lastStatus,
+        lastDurationMs: job.last_duration_ms || job.lastDurationMs || null,
+      },
+    };
+  }
+
+  function readHermesCronJobsFromDisk() {
+    try {
+      const parsed = JSON.parse(fs.readFileSync(hermesCronJobsFile, 'utf8'));
+      const jobs = Array.isArray(parsed) ? parsed : (Array.isArray(parsed?.jobs) ? parsed.jobs : []);
+      return jobs.map((job) => normalizeHermesCronJob(job));
+    } catch {
+      return [];
+    }
+  }
+
+  function splitHermesModelRef(modelRef = '') {
+    const normalized = String(modelRef || '').trim();
+    if (!normalized || normalized === 'default') return { provider: null, model: null, base_url: null };
+    if (normalized === 'custom/qwen3.6:35b-a3b-nvfp4' || normalized === 'ollama/qwen3.6:35b-a3b-nvfp4') {
+      return { provider: 'custom', model: 'qwen3.6:35b-a3b-nvfp4', base_url: 'http://127.0.0.1:11434/v1' };
+    }
+    if (normalized === 'openai-codex/openai/gpt-5.5' || normalized === 'openai/gpt-5.5') {
+      return { provider: 'openai-codex', model: 'openai/gpt-5.5', base_url: null };
+    }
+    const slash = normalized.indexOf('/');
+    if (slash > 0) {
+      const provider = normalized.slice(0, slash);
+      const model = normalized.slice(slash + 1);
+      if (provider === 'openai-codex') return { provider, model, base_url: null };
+      if (provider === 'custom' || provider === 'ollama') return { provider: 'custom', model, base_url: 'http://127.0.0.1:11434/v1' };
+      return { provider, model, base_url: null };
+    }
+    return { provider: null, model: normalized, base_url: null };
+  }
+
+  function updateHermesCronJobModel(sourceId = '', modelRef = '') {
+    const parsed = JSON.parse(fs.readFileSync(hermesCronJobsFile, 'utf8'));
+    const jobs = Array.isArray(parsed) ? parsed : (Array.isArray(parsed?.jobs) ? parsed.jobs : []);
+    const job = jobs.find((candidate) => String(candidate.id) === String(sourceId));
+    if (!job) {
+      const error = new Error(`Hermes cron job not found: ${sourceId}`);
+      error.statusCode = 404;
+      throw error;
+    }
+
+    const next = splitHermesModelRef(modelRef);
+    job.provider = next.provider;
+    job.model = next.model;
+    job.base_url = next.base_url;
+
+    const output = Array.isArray(parsed) ? jobs : { ...parsed, jobs };
+    fs.writeFileSync(hermesCronJobsFile, `${JSON.stringify(output, null, 2)}\n`, 'utf8');
+    return normalizeHermesCronJob(job);
+  }
+
+  function updateHermesCronJobEnabled(sourceId = '', enabled = true) {
+    const parsed = JSON.parse(fs.readFileSync(hermesCronJobsFile, 'utf8'));
+    const jobs = Array.isArray(parsed) ? parsed : (Array.isArray(parsed?.jobs) ? parsed.jobs : []);
+    const job = jobs.find((candidate) => String(candidate.id) === String(sourceId));
+    if (!job) {
+      const error = new Error(`Hermes cron job not found: ${sourceId}`);
+      error.statusCode = 404;
+      throw error;
+    }
+
+    job.enabled = enabled !== false;
+
+    const output = Array.isArray(parsed) ? jobs : { ...parsed, jobs };
+    fs.writeFileSync(hermesCronJobsFile, `${JSON.stringify(output, null, 2)}
+`, 'utf8');
+    return normalizeHermesCronJob(job);
+  }
+
+
+  async function fetchOpenclawCronJobsLive() {
     try {
       const { stdout, stderr } = await openclawExec(['cron', 'list', '--json', '--all'], 15000);
       const raw = [stdout, stderr].filter(Boolean).join('\n');
       if (raw.trim()) {
         try {
           const result = extractJsonPayload(raw);
-          if ((Array.isArray(result) && result.length > 0) || (result?.jobs?.length > 0)) {
-            return result;
+          const jobs = Array.isArray(result) ? result : (Array.isArray(result?.jobs) ? result.jobs : []);
+          if (jobs.length > 0) {
+            return jobs.map((job) => ({ ...job, scheduler: 'openclaw', sourceId: job.id }));
           }
         } catch {}
       }
@@ -272,7 +411,7 @@ function createCronService({
     try {
       const { stdout } = await openclawExec(['cron', 'list'], 15000);
       const jobs = parseCronTableOutput(stdout);
-      if (jobs.length > 0) return { jobs };
+      if (jobs.length > 0) return jobs.map((job) => ({ ...job, scheduler: 'openclaw', sourceId: job.id }));
     } catch {}
 
     const controller = new AbortController();
@@ -293,15 +432,26 @@ function createCronService({
       const data = await response.json();
       const details = data?.result?.details;
       if (details?.jobs || Array.isArray(details)) {
-        return Array.isArray(details) ? { jobs: details } : details;
+        const jobs = Array.isArray(details) ? details : details.jobs;
+        return (jobs || []).map((job) => ({ ...job, scheduler: 'openclaw', sourceId: job.id }));
       }
       const textResult = data?.result?.content?.[0]?.text || '{}';
-      return extractJsonPayload(textResult);
+      const result = extractJsonPayload(textResult);
+      const jobs = Array.isArray(result) ? result : (Array.isArray(result?.jobs) ? result.jobs : []);
+      return jobs.map((job) => ({ ...job, scheduler: 'openclaw', sourceId: job.id }));
     } catch {
-      return { jobs: [] };
+      return [];
     } finally {
       clearTimeout(timer);
     }
+  }
+
+  async function fetchCronJobsLive() {
+    const [openclawJobs, hermesJobs] = await Promise.all([
+      fetchOpenclawCronJobsLive().catch(() => []),
+      Promise.resolve(readHermesCronJobsFromDisk()).catch(() => []),
+    ]);
+    return { jobs: [...openclawJobs, ...hermesJobs] };
   }
 
   function toIsoOrNull(value) {
@@ -518,6 +668,8 @@ function createCronService({
     fetchCronJobsLive,
     normalizeCronRunStatus,
     mapCronJobForApi,
+    updateHermesCronJobModel,
+    updateHermesCronJobEnabled,
     toIsoOrNull,
     normalizeCalendarEntry,
     readCalendarDataSafe,
