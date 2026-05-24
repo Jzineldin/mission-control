@@ -16,6 +16,31 @@ function clone(value) {
   assert.equal(displayCostLabel({ costSource: 'included', costStatus: 'included' }), 'included');
 })();
 
+(function testLocalIncludedCostKeepsLocalBillingMode() {
+  const usage = normalizeUsageCosts({
+    daily: [{ date: '2026-05-24', cost: 0, totalCost: 0, tokens: 10, totalTokens: 10 }],
+    dailyByModel: [{
+      date: '2026-05-24',
+      totalCost: 0,
+      totalTokens: 10,
+      'ollama/qwen3.6:35b-a3b-nvfp4': 0,
+      'ollama/qwen3.6:35b-a3b-nvfp4_tokens': 10,
+      'ollama/qwen3.6:35b-a3b-nvfp4_costSource': 'included',
+    }],
+    byService: [{
+      name: 'ollama/qwen3.6:35b-a3b-nvfp4',
+      cost: 0,
+      tokens: 10,
+      costSource: 'included',
+      costStatus: 'included',
+      billingModes: 'local_included',
+    }],
+  });
+
+  assert.equal(usage.byService[0].billingModes, 'local_included');
+  assert.match(usage.byService[0].costNote, /Local model/);
+})();
+
 (function testImplausibleApiMicroCostIsNotTreatedAsSpend() {
   assert.equal(isImplausibleCloudCost({ name: 'openai-codex/gpt-5.5', tokens: 8_595_100, cost: 0.000009005297, costSource: 'api' }), true);
 

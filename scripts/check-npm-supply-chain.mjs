@@ -107,11 +107,17 @@ function addFinding(findings, lockfile, name, version) {
   findings.push({ lockfile: relative(repoRoot, lockfile), package: name, version });
 }
 
+function packageNameFromLockPath(key) {
+  const marker = 'node_modules/';
+  const index = String(key || '').lastIndexOf(marker);
+  return index >= 0 ? String(key).slice(index + marker.length) : String(key || '');
+}
+
 function scanPackageLock(lockfile, iocs, findings) {
   const data = JSON.parse(readFileSync(lockfile, 'utf8'));
   const seen = [];
   for (const [key, meta] of Object.entries(data.packages || {})) {
-    if (key.startsWith('node_modules/')) seen.push([key.slice('node_modules/'.length), String(meta?.version || '')]);
+    if (key.includes('node_modules/')) seen.push([packageNameFromLockPath(key), String(meta?.version || '')]);
   }
   for (const [name, meta] of Object.entries(data.dependencies || {})) {
     seen.push([name, String(meta?.version || '')]);
@@ -137,7 +143,7 @@ function scanTextLock(lockfile, iocs, findings) {
   }
 }
 
-export { extractItemsFromJs, parseVersions };
+export { extractItemsFromJs, packageNameFromLockPath, parseVersions };
 
 async function main() {
   const iocs = await loadIocs();

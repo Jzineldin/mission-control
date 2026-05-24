@@ -14,7 +14,7 @@ function sanitizeMessage(value) {
   return String(value || 'Unknown error')
     .replace(/Bearer\s+[A-Za-z0-9._~+/=-]+/gi, 'Bearer [redacted]')
     .replace(/sk-[A-Za-z0-9_-]+/g, 'sk-[redacted]')
-    .replace(/\/Users\/[^/\s]+/g, '~')
+    .replace(/\/(?:Users|home)\/[^/\s]+/g, '~')
     .slice(0, 220);
 }
 
@@ -132,6 +132,17 @@ function formatPercent(value) {
   return `${Math.round(percent)}%`;
 }
 
+function liveHealthStatus(liveHealth, healthUnavailable = false) {
+  if (healthUnavailable) return 'critical';
+  if (!liveHealth) return 'warning';
+  const rawStatus = String(liveHealth.status || '').toLowerCase();
+  const score = Number(liveHealth.score);
+  if (/critical|fail|error|unavailable/.test(rawStatus)) return 'critical';
+  if (Number.isFinite(score) && score < 90) return 'warning';
+  if (/warn|degrad|unknown/.test(rawStatus)) return 'warning';
+  return 'healthy';
+}
+
 function numberFromText(text, pattern) {
   const match = String(text || '').match(pattern);
   if (!match) return null;
@@ -139,8 +150,15 @@ function numberFromText(text, pattern) {
   return Number.isFinite(value) ? value : null;
 }
 
+function normalizeHealthScore(score) {
+  if (score === null || score === undefined) return null;
+  const value = Number(score);
+  if (!Number.isFinite(value)) return null;
+  return value > 0 && value <= 10 ? value * 10 : value;
+}
+
 function normalizeHealthPayload(healthPayload, jobsPayload, checkedAt) {
-  const score = findNumber(healthPayload, ['health_score', 'healthScore', 'score']);
+  const score = normalizeHealthScore(findNumber(healthPayload, ['health_score', 'healthScore', 'score']));
   const pages = findNumber(healthPayload, ['pages', 'page_count', 'total_pages']);
   const chunks = findNumber(healthPayload, ['chunks', 'chunk_count', 'total_chunks']);
   const embedded = findNumber(healthPayload, ['embedded', 'embedded_chunks', 'embedded_count']);
@@ -338,9 +356,13 @@ function buildGBrainOverview(live = {}) {
   const missing = liveHealth?.metrics?.missingEmbeddings ?? null;
   const coverage = liveHealth?.metrics?.embeddingCoverage ?? null;
   const queue = liveHealth?.metrics?.queue || {};
-  const queueValue = [queue.waiting, queue.active, queue.stalled].every(Number.isFinite)
+  const hasLiveQueueCounters = [queue.waiting, queue.active, queue.stalled].every(Number.isFinite);
+  const queueUnavailable = Boolean(liveHealth && !hasLiveQueueCounters);
+  const healthStatus = liveHealthStatus(liveHealth, healthUnavailable);
+  const queueStatus = healthUnavailable ? 'critical' : queueUnavailable ? 'warning' : healthStatus;
+  const queueValue = hasLiveQueueCounters
     ? `${queue.waiting} / ${queue.active} / ${queue.stalled}`
-    : '0 / 0 / 0';
+    : liveHealth ? 'Unavailable' : '0 / 0 / 0';
   const sourceCount = liveSources?.count ?? null;
   const sourceWarnings = liveSources?.warningCount ?? null;
   const nodes = [
@@ -348,7 +370,7 @@ function buildGBrainOverview(live = {}) {
       id: 'gbrain-core',
       label: 'GBrain Core',
       kind: 'core',
-      status: healthUnavailable ? 'critical' : liveHealth ? 'healthy' : 'warning',
+      status: healthStatus,
       summary: 'Postgres-backed local shared memory for Hermes, OpenClaw, and Codex.',
       proof: {
         label: liveHealth || healthUnavailable ? 'Live health probe' : 'Hermes audit',
@@ -457,7 +479,7 @@ function buildGBrainOverview(live = {}) {
       id: 'queues',
       label: 'Embedding Queues',
       kind: 'queue',
-      status: healthUnavailable ? 'critical' : liveHealth ? 'healthy' : 'warning',
+      status: queueStatus,
       summary: 'Embedding coverage and minion queue are clean in the latest audit.',
       proof: {
         label: liveHealth || healthUnavailable ? 'Live queue probe' : 'Queue audit',
@@ -465,6 +487,8 @@ function buildGBrainOverview(live = {}) {
         verifiedAt: liveCheckedAt || AUDIT_VERIFIED_AT,
         detail: healthUnavailable
           ? `Read-only jobs probe is unavailable because health is unavailable: ${live.health.error}`
+          : queueUnavailable
+          ? 'Read-only health probe refreshed, but jobs stats counters were unavailable.'
           : liveHealth
           ? 'Read-only health and jobs probes refreshed embedding and queue counters.'
           : 'Embed coverage 100%; missing embeddings 0; 0 waiting, 0 active, 0 stalled.',
@@ -472,9 +496,9 @@ function buildGBrainOverview(live = {}) {
       metrics: [
         { label: 'Coverage', value: coverage !== null ? formatPercent(coverage) : '100%' },
         { label: 'Missing', value: missing !== null ? formatCount(missing) : '0' },
-        { label: 'Stalled', value: Number.isFinite(queue.stalled) ? formatCount(queue.stalled) : '0' },
+        { label: 'Stalled', value: Number.isFinite(queue.stalled) ? formatCount(queue.stalled) : liveHealth ? 'Unavailable' : '0' },
       ],
-      risks: [],
+      risks: queueUnavailable ? ['Live jobs stats counters were not available; do not treat queue depth as clean.'] : [],
       nextSafeAction: 'Refresh at a conservative interval to avoid false negatives or extra load.',
     },
     {
@@ -500,7 +524,7 @@ function buildGBrainOverview(live = {}) {
     { id: 'edge-openclaw-gbrain', from: 'openclaw', to: 'gbrain-core', label: 'tool read', status: 'healthy', proofNodeId: 'openclaw' },
     { id: 'edge-codex-gbrain', from: 'codex', to: 'gbrain-core', label: 'source sync', status: 'healthy', proofNodeId: 'codex' },
     { id: 'edge-sources-gbrain', from: 'sources', to: 'gbrain-core', label: 'sync', status: sourcesUnavailable ? 'critical' : liveSources && sourceWarnings === 0 ? 'healthy' : 'warning', proofNodeId: 'sources' },
-    { id: 'edge-queues-gbrain', from: 'queues', to: 'gbrain-core', label: 'embed', status: healthUnavailable ? 'critical' : liveHealth ? 'healthy' : 'warning', proofNodeId: 'queues' },
+    { id: 'edge-queues-gbrain', from: 'queues', to: 'gbrain-core', label: 'embed', status: queueStatus, proofNodeId: 'queues' },
     { id: 'edge-google-gbrain', from: 'google-bridge', to: 'gbrain-core', label: 'bridge', status: 'warning', proofNodeId: 'google-bridge' },
   ];
 
@@ -513,21 +537,21 @@ function buildGBrainOverview(live = {}) {
     subtitle: 'Shared memory for Hermes, OpenClaw, and Codex',
     trust: {
       label: healthUnavailable ? 'Live check unavailable' : liveHealth ? 'Live with caveats' : 'Trusted with caveats',
-      status: healthUnavailable ? 'critical' : 'warning',
+      status: healthUnavailable ? 'critical' : healthStatus === 'healthy' ? 'warning' : healthStatus,
       score: healthScore ?? 90,
       lastVerifiedAt: liveCheckedAt || AUDIT_VERIFIED_AT,
       source: liveAttemptedAt ? 'gbrain health --json' : AUDIT_REPORT_PATH,
     },
     cockpit: {
-      health: { label: 'Health', value: healthValue, status: healthUnavailable ? 'critical' : liveHealth ? 'healthy' : 'warning', proofNodeId: 'gbrain-core' },
+      health: { label: 'Health', value: healthValue, status: healthStatus, proofNodeId: 'gbrain-core' },
       embeddings: {
         label: 'Embeddings',
         value: healthUnavailable ? 'Unavailable' : coverage !== null ? formatPercent(coverage) : '100%',
         detail: healthUnavailable ? 'health probe unavailable' : `${missing !== null ? formatCount(missing) : '0'} missing`,
-        status: healthUnavailable ? 'critical' : liveHealth ? 'healthy' : 'warning',
+        status: healthStatus,
         proofNodeId: 'queues',
       },
-      queue: { label: 'Queue', value: healthUnavailable ? 'Unavailable' : queueValue, detail: 'waiting / active / stalled', status: healthUnavailable ? 'critical' : liveHealth ? 'healthy' : 'warning', proofNodeId: 'queues' },
+      queue: { label: 'Queue', value: healthUnavailable ? 'Unavailable' : queueValue, detail: queueUnavailable ? 'jobs stats unavailable' : 'waiting / active / stalled', status: queueStatus, proofNodeId: 'queues' },
       autopilot: { label: 'Autopilot', value: 'Read-only', detail: 'No mutation controls in v1', status: 'inactive', proofNodeId: 'gbrain-core' },
       bridge: { label: 'Bridge proof', value: '2 passed', detail: 'Hermes + OpenClaw read smokes', status: 'healthy', proofNodeId: 'hermes' },
       caveats: {
@@ -591,4 +615,6 @@ module.exports = {
   buildLiveGBrainHealth,
   buildLiveGBrainSources,
   buildGBrainRouter,
+  sanitizeMessage,
+  liveHealthStatus,
 };

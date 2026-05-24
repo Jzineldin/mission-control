@@ -42,6 +42,19 @@ function assertOpenclawCronAction(id, schedulerHint = '') {
   return assertSafeCronSourceId(ref.sourceId);
 }
 
+function isUsableCronSnapshot(snapshot) {
+  if (!snapshot || !Array.isArray(snapshot.jobs) || snapshot.jobs.length === 0) return false;
+  return snapshot.jobs.every((job) => {
+    if (!job.scheduler && !job.actions) return true;
+    if (job.scheduler === 'hermes') return job.actions?.model === true && job.actions?.toggle === true;
+    return true;
+  });
+}
+
+function hasCronModelPatch(body = {}) {
+  return Object.prototype.hasOwnProperty.call(body || {}, 'model') || !!body?.thinking;
+}
+
 function cleanOpenclawError(error) {
   const raw = [error?.stderr, error?.stdout, error?.message]
     .filter(Boolean)
@@ -103,7 +116,7 @@ function buildCronRouter({
   router.get('/api/cron', async (req, res) => {
     try {
       const snapshot = readRuntimeSnapshot('cron', runtimeSnapshotTtl.cron);
-      if (snapshot && Array.isArray(snapshot.jobs) && snapshot.jobs.length > 0 && snapshot.jobs.every((job) => job.scheduler && job.actions && (job.scheduler !== 'hermes' || (job.actions.model === true && job.actions.toggle === true)))) {
+      if (isUsableCronSnapshot(snapshot)) {
         return res.json(snapshot);
       }
 
@@ -213,9 +226,10 @@ function buildCronRouter({
   router.patch('/api/cron/:id/model', async (req, res) => {
     try {
       const { id } = req.params;
-      const { model, thinking, scheduler } = req.body || {};
+      const body = req.body || {};
+      const { model, thinking, scheduler } = body;
       const ref = parseCronJobRef(id, scheduler);
-      if (!model && !thinking) {
+      if (!hasCronModelPatch(body)) {
         return res.status(400).json({ error: 'Provide at least model or thinking' });
       }
 
@@ -232,6 +246,10 @@ function buildCronRouter({
           message: `Hermes cron model updated to ${normalizedModel || 'default'}`,
           job: cronService.mapCronJobForApi(updated),
         });
+      }
+
+      if (!normalizedModel && !thinking) {
+        return res.status(400).json({ error: 'Provide at least model or thinking' });
       }
 
       const args = ['cron', 'edit', assertSafeCronSourceId(ref.sourceId)];
@@ -258,4 +276,6 @@ function buildCronRouter({
 
 module.exports = {
   buildCronRouter,
+  hasCronModelPatch,
+  isUsableCronSnapshot,
 };

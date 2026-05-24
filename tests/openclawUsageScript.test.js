@@ -40,6 +40,24 @@ function writeUsageLine(file, timestamp, totalTokens) {
   })}\n`);
 }
 
+function writeTokenCountLine(file, timestamp, totalTokens) {
+  fs.appendFileSync(file, `${JSON.stringify({
+    timestamp,
+    type: 'event_msg',
+    payload: {
+      type: 'token_count',
+      info: {
+        last_token_usage: {
+          input_tokens: totalTokens - 1,
+          output_tokens: 1,
+          cached_input_tokens: 0,
+          total_tokens: totalTokens,
+        },
+      },
+    },
+  })}\n`);
+}
+
 async function runBehaviorTests() {
   await withTempHome(async (home) => {
     const today = new Date();
@@ -60,8 +78,10 @@ async function runBehaviorTests() {
     const trajectoryFile = path.join(nestedDir, 'rollout-test.trajectory.jsonl');
     const timestamp = today.toISOString();
 
+    fs.appendFileSync(sessionFile, `${JSON.stringify({ type: 'session_meta', payload: { model_provider: 'openai-codex', model: 'gpt-test' } })}\n`);
     writeUsageLine(sessionFile, timestamp, 11);
     writeUsageLine(sessionFile, timestamp, 13);
+    writeTokenCountLine(sessionFile, timestamp, 17);
     writeUsageLine(trajectoryFile, timestamp, 999);
 
     const files = listSessionFiles(today.getTime() - 60_000);
@@ -69,8 +89,8 @@ async function runBehaviorTests() {
     assert.ok(files[0].sessionKey.includes('alpha/agent/codex-home/sessions'), 'session key should preserve nested identity');
 
     const summary = await buildForPeriod('day');
-    assert.equal(summary.summary.recordsScanned, 2, 'usage records should come from the nested session file');
-    assert.equal(summary.summary.periodTokens, 24, 'nested usage records should contribute to totals');
+    assert.equal(summary.summary.recordsScanned, 3, 'usage records should come from both supported JSONL shapes');
+    assert.equal(summary.summary.periodTokens, 41, 'message and token_count usage records should contribute to totals');
     assert.equal(summary.byService[0].sessions, 1, 'multiple usage records in one file should count as one session');
   });
 }

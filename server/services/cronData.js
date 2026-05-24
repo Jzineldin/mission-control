@@ -1,6 +1,14 @@
 const fs = require('fs');
 const path = require('path');
 
+function writeJsonFileAtomic(filePath, value) {
+  const tmpPath = `${filePath}.${process.pid}.${Date.now()}.tmp`;
+  const existingMode = fs.existsSync(filePath) ? fs.statSync(filePath).mode & 0o777 : null;
+  fs.writeFileSync(tmpPath, `${JSON.stringify(value, null, 2)}\n`, 'utf8');
+  if (existingMode !== null) fs.chmodSync(tmpPath, existingMode);
+  fs.renameSync(tmpPath, filePath);
+}
+
 function parseJsonCandidates(raw = '') {
   const text = String(raw || '').trim();
   if (!text) return [];
@@ -198,7 +206,7 @@ function createCronService({
   gatewayToken,
   getOpenclawDefaultModelKey,
   calendarFile,
-  homeDir = process.env.HOME || '/Users/yordamkocatepe',
+  homeDir = process.env.MC_USER_HOME || process.env.HOME || '/Users/yordamkocatepe',
   hermesProfile = process.env.HERMES_PROFILE || 'hmudur',
 }) {
   const openclawCronRunsDir = path.join(homeDir, '.openclaw', 'cron', 'runs');
@@ -340,7 +348,7 @@ function createCronService({
     if (normalized === 'custom/qwen3.6:35b-a3b-nvfp4' || normalized === 'ollama/qwen3.6:35b-a3b-nvfp4') {
       return { provider: 'custom', model: 'qwen3.6:35b-a3b-nvfp4', base_url: 'http://127.0.0.1:11434/v1' };
     }
-    if (normalized === 'openai-codex/openai/gpt-5.5' || normalized === 'openai/gpt-5.5') {
+    if (normalized === 'openai-codex/gpt-5.5' || normalized === 'openai-codex/openai/gpt-5.5' || normalized === 'openai/gpt-5.5') {
       return { provider: 'openai-codex', model: 'openai/gpt-5.5', base_url: null };
     }
     const slash = normalized.indexOf('/');
@@ -354,42 +362,35 @@ function createCronService({
     return { provider: null, model: normalized, base_url: null };
   }
 
-  function updateHermesCronJobModel(sourceId = '', modelRef = '') {
+  function patchHermesCronJob(sourceId = '', patch = {}) {
     const parsed = JSON.parse(fs.readFileSync(hermesCronJobsFile, 'utf8'));
     const jobs = Array.isArray(parsed) ? parsed : (Array.isArray(parsed?.jobs) ? parsed.jobs : []);
-    const job = jobs.find((candidate) => String(candidate.id) === String(sourceId));
-    if (!job) {
+    const index = jobs.findIndex((candidate) => String(candidate.id) === String(sourceId));
+    if (index === -1) {
       const error = new Error(`Hermes cron job not found: ${sourceId}`);
       error.statusCode = 404;
       throw error;
     }
 
-    const next = splitHermesModelRef(modelRef);
-    job.provider = next.provider;
-    job.model = next.model;
-    job.base_url = next.base_url;
+    const nextJob = { ...jobs[index], ...patch };
+    const nextJobs = jobs.slice();
+    nextJobs[index] = nextJob;
+    const output = Array.isArray(parsed) ? nextJobs : { ...parsed, jobs: nextJobs };
+    writeJsonFileAtomic(hermesCronJobsFile, output);
+    return normalizeHermesCronJob(nextJob);
+  }
 
-    const output = Array.isArray(parsed) ? jobs : { ...parsed, jobs };
-    fs.writeFileSync(hermesCronJobsFile, `${JSON.stringify(output, null, 2)}\n`, 'utf8');
-    return normalizeHermesCronJob(job);
+  function updateHermesCronJobModel(sourceId = '', modelRef = '') {
+    const next = splitHermesModelRef(modelRef);
+    return patchHermesCronJob(sourceId, {
+      provider: next.provider,
+      model: next.model,
+      base_url: next.base_url,
+    });
   }
 
   function updateHermesCronJobEnabled(sourceId = '', enabled = true) {
-    const parsed = JSON.parse(fs.readFileSync(hermesCronJobsFile, 'utf8'));
-    const jobs = Array.isArray(parsed) ? parsed : (Array.isArray(parsed?.jobs) ? parsed.jobs : []);
-    const job = jobs.find((candidate) => String(candidate.id) === String(sourceId));
-    if (!job) {
-      const error = new Error(`Hermes cron job not found: ${sourceId}`);
-      error.statusCode = 404;
-      throw error;
-    }
-
-    job.enabled = enabled !== false;
-
-    const output = Array.isArray(parsed) ? jobs : { ...parsed, jobs };
-    fs.writeFileSync(hermesCronJobsFile, `${JSON.stringify(output, null, 2)}
-`, 'utf8');
-    return normalizeHermesCronJob(job);
+    return patchHermesCronJob(sourceId, { enabled: enabled !== false });
   }
 
 

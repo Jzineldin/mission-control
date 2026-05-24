@@ -4,6 +4,7 @@ const {
   buildGBrainOverview,
   buildLiveGBrainHealth,
   buildLiveGBrainSources,
+  sanitizeMessage,
 } = require('../server/routes/gbrain');
 
 (function testOverviewIsReadOnlyAndEvidenceBacked() {
@@ -54,6 +55,15 @@ const {
   assert.equal(overview.cockpit.embeddings.value, '100%');
 })();
 
+(function testSanitizeMessageRedactsMacAndLinuxHomePaths() {
+  const message = sanitizeMessage('failed in /Users/example/.gbrain and /home/alice/.gbrain with sk-secret');
+
+  assert.doesNotMatch(message, /\/Users\/example/);
+  assert.doesNotMatch(message, /\/home\/alice/);
+  assert.doesNotMatch(message, /sk-secret/);
+  assert.match(message, /~/);
+})();
+
 async function testLiveHealthNormalizesReadOnlyProbe() {
   const execFilePromise = async (bin, args) => {
     assert.equal(bin, 'gbrain');
@@ -61,7 +71,7 @@ async function testLiveHealthNormalizesReadOnlyProbe() {
       return {
         stdout: JSON.stringify({
           status: 'healthy',
-          health_score: 100,
+          health_score: 10,
           pages: 12,
           chunks: 34,
           embedded: 34,
@@ -82,6 +92,7 @@ async function testLiveHealthNormalizesReadOnlyProbe() {
 
   assert.equal(health.ok, true);
   assert.equal(health.mode, 'live-read-only');
+  assert.equal(health.score, 100);
   assert.equal(health.metrics.pages, 12);
   assert.equal(overview.mode, 'live-read-only');
   assert.equal(overview.cockpit.health.value, '100/100');
@@ -187,9 +198,11 @@ async function testLiveHealthFallsBackToTextOutput() {
   assert.equal(health.metrics.missingEmbeddings, 1);
   assert.equal(health.metrics.queue.waiting, 0);
   assert.equal(overview.cockpit.health.value, '70/100');
+  assert.equal(overview.cockpit.health.status, 'warning');
   assert.equal(overview.cockpit.embeddings.value, '100%');
   assert.equal(overview.cockpit.embeddings.detail, '1 missing');
   assert.equal(overview.cockpit.queue.value, '0 / 0 / 0');
+  assert.equal(overview.nodes.find((node) => node.id === 'gbrain-core')?.status, 'warning');
 }
 
 async function testOverviewUsesLiveSourcePageTotalWhenHealthOmitsPages() {
@@ -227,6 +240,36 @@ async function testOverviewUsesLiveSourcePageTotalWhenHealthOmitsPages() {
 
   assert.equal(core.metrics.find((metric) => metric.label === 'Pages')?.value, '123');
   assert.equal(sources.metrics.find((metric) => metric.label === 'Source pages')?.value, '123');
+}
+
+async function testOverviewDoesNotDefaultMissingLiveQueueToZero() {
+  const checkedAt = '2026-05-24T12:20:00.000Z';
+  const overview = buildGBrainOverview({
+    health: {
+      ok: true,
+      mode: 'live-read-only',
+      checkedAt,
+      status: 'healthy',
+      score: 100,
+      metrics: {
+        pages: 10,
+        chunks: 20,
+        embedded: 20,
+        missingEmbeddings: 0,
+        embeddingCoverage: 100,
+        queue: { waiting: null, active: null, stalled: null },
+      },
+    },
+  });
+
+  const queues = overview.nodes.find((node) => node.id === 'queues');
+
+  assert.equal(overview.cockpit.queue.value, 'Unavailable');
+  assert.equal(overview.cockpit.queue.detail, 'jobs stats unavailable');
+  assert.equal(overview.cockpit.queue.status, 'warning');
+  assert.equal(queues.status, 'warning');
+  assert.equal(queues.metrics.find((metric) => metric.label === 'Stalled')?.value, 'Unavailable');
+  assert.match(queues.proof.detail, /jobs stats counters were unavailable/i);
 }
 
 async function testLiveFailureIsSafeJson() {
@@ -289,6 +332,7 @@ async function testOverviewShowsLiveAttemptWhenRuntimeUnavailable() {
   await testLiveSourcesFallsBackToTextOutput();
   await testLiveHealthFallsBackToTextOutput();
   await testOverviewUsesLiveSourcePageTotalWhenHealthOmitsPages();
+  await testOverviewDoesNotDefaultMissingLiveQueueToZero();
   await testLiveFailureIsSafeJson();
   await testOverviewShowsLiveAttemptWhenRuntimeUnavailable();
 

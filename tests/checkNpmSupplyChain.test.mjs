@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 
-import { decodeJsString, extractItemsFromJs } from '../scripts/check-npm-supply-chain.mjs';
+import { decodeJsString, extractItemsFromJs, packageNameFromLockPath } from '../scripts/check-npm-supply-chain.mjs';
 
 (function testPlainTextRoundTrips() {
   assert.equal(decodeJsString('hello world'), 'hello world');
@@ -49,6 +49,12 @@ import { decodeJsString, extractItemsFromJs } from '../scripts/check-npm-supply-
   assert.equal(items[0].package_name, 'tanstack-evil');
   assert.equal(items[0].package_manager, 'npm');
   assert.equal(items[0].vulnerable, '{=1.2.3, =1.2.4}');
+})();
+
+(function testPackageLockPathExtractionHandlesNestedAndScopedPackages() {
+  assert.equal(packageNameFromLockPath('node_modules/pkg'), 'pkg');
+  assert.equal(packageNameFromLockPath('node_modules/parent/node_modules/pkg'), 'pkg');
+  assert.equal(packageNameFromLockPath('node_modules/parent/node_modules/@scope/pkg'), '@scope/pkg');
 })();
 
 console.log('checkNpmSupplyChain tests passed');

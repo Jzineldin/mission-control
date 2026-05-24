@@ -70,20 +70,29 @@ function usageNumber(usage, keys) {
   return 0;
 }
 
-function extractUsageRecord(obj, fallbackTimestampMs, sessionKey) {
+function normalizeUsageNumbers(usage = {}) {
+  const input = usageNumber(usage, ['input', 'inputTokens', 'promptTokens', 'input_tokens']);
+  const output = usageNumber(usage, ['output', 'outputTokens', 'completionTokens', 'output_tokens']);
+  const cacheRead = usageNumber(usage, ['cacheRead', 'cacheReadTokens', 'cachedInputTokens', 'cached_input_tokens', 'cache_read_tokens']);
+  const cacheWrite = usageNumber(usage, ['cacheWrite', 'cacheWriteTokens', 'cache_write_tokens']);
+  const totalTokens = usageNumber(usage, ['totalTokens', 'tokens', 'total_tokens']) || input + output + cacheRead + cacheWrite;
+  const totalCost = usageCostTotal(usage.cost);
+  return { input, output, cacheRead, cacheWrite, totalTokens, totalCost };
+}
+
+function extractUsageRecord(obj, fallbackTimestampMs, sessionKey, context = {}) {
   if (!obj || typeof obj !== 'object') return null;
   const message = obj.message && typeof obj.message === 'object' ? obj.message : null;
-  if (!message || !message.usage || typeof message.usage !== 'object') return null;
-  const usage = message.usage;
-  const input = usageNumber(usage, ['input', 'inputTokens', 'promptTokens']);
-  const output = usageNumber(usage, ['output', 'outputTokens', 'completionTokens']);
-  const cacheRead = usageNumber(usage, ['cacheRead', 'cacheReadTokens', 'cachedInputTokens']);
-  const cacheWrite = usageNumber(usage, ['cacheWrite', 'cacheWriteTokens']);
-  const totalTokens = usageNumber(usage, ['totalTokens', 'tokens']) || input + output + cacheRead + cacheWrite;
-  const totalCost = usageCostTotal(usage.cost);
+  const tokenCount = obj.type === 'event_msg' && obj.payload?.type === 'token_count'
+    ? obj.payload?.info?.last_token_usage
+    : null;
+  const usage = message?.usage || tokenCount;
+  if (!usage || typeof usage !== 'object') return null;
+
+  const { input, output, cacheRead, cacheWrite, totalTokens, totalCost } = normalizeUsageNumbers(usage);
   if (totalTokens <= 0 && totalCost <= 0) return null;
 
-  const timestampRaw = message.timestamp || obj.timestamp;
+  const timestampRaw = message?.timestamp || obj.timestamp;
   const timestampMs = typeof timestampRaw === 'number'
     ? (timestampRaw < 10_000_000_000 ? timestampRaw * 1000 : timestampRaw)
     : Date.parse(timestampRaw || '') || fallbackTimestampMs;
@@ -91,8 +100,8 @@ function extractUsageRecord(obj, fallbackTimestampMs, sessionKey) {
   return {
     timestampMs,
     date: dayKey(new Date(timestampMs)),
-    provider: message.provider || message.api || 'unknown',
-    model: message.model || message.modelId || 'unknown',
+    provider: message?.provider || message?.api || context.provider || 'unknown',
+    model: message?.model || message?.modelId || context.model || 'unknown',
     input,
     output,
     cacheRead,
@@ -187,6 +196,7 @@ async function scanUsageRecords(range) {
   for (const file of scanFiles) {
     const stream = fs.createReadStream(file.path, { encoding: 'utf8' });
     const rl = readline.createInterface({ input: stream, crlfDelay: Infinity });
+    const context = { provider: '', model: '' };
     for await (const line of rl) {
       if (!line || line.charCodeAt(0) !== 123) continue;
       let obj;
@@ -195,7 +205,11 @@ async function scanUsageRecords(range) {
       } catch {
         continue;
       }
-      const record = extractUsageRecord(obj, file.mtimeMs, file.sessionKey);
+      if (obj.type === 'session_meta' && obj.payload && typeof obj.payload === 'object') {
+        context.provider = obj.payload.model_provider || obj.payload.provider || context.provider;
+        context.model = obj.payload.model || obj.payload.model_id || context.model;
+      }
+      const record = extractUsageRecord(obj, file.mtimeMs, file.sessionKey, context);
       if (!record || record.timestampMs < range.startMs || record.timestampMs > range.endMs) continue;
       records.push(record);
     }

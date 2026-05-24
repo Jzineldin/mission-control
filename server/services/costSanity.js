@@ -118,8 +118,13 @@ function normalizeServiceCost(item = {}) {
     out.cost = 0;
     out.costSource = 'included';
     out.costStatus = 'included';
-    out.billingModes = 'subscription_included';
-    out.costNote = 'Subscription-included or implausible micro-cost; not treated as billable spend';
+    if (isLocalModel(out.name) || String(out.billingModes || '').toLowerCase().includes('local')) {
+      out.billingModes = 'local_included';
+      out.costNote = 'Local model usage; not treated as billable cloud spend';
+    } else {
+      out.billingModes = 'subscription_included';
+      out.costNote = 'Subscription-included or implausible micro-cost; not treated as billable spend';
+    }
     return out;
   }
 
