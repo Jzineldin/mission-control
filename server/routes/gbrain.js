@@ -143,6 +143,26 @@ function liveHealthStatus(liveHealth, healthUnavailable = false) {
   return 'healthy';
 }
 
+function liveSourceStatus(liveSources, sourcesUnavailable = false) {
+  if (sourcesUnavailable) return 'critical';
+  if (!liveSources) return 'warning';
+  if (liveSources.count > 0 && liveSources.healthyCount === liveSources.count && liveSources.warningCount === 0) return 'healthy';
+  return 'warning';
+}
+
+function isHealthySourceStatus(status) {
+  const lower = String(status || '').toLowerCase();
+  if (/never[-_\s]?synced/.test(lower)) return false;
+  return /\b(ok|clean|healthy|synced)\b/.test(lower);
+}
+
+function isWarningSourceStatus(status) {
+  const lower = String(status || '').toLowerCase();
+  if (!lower) return true;
+  if (/warn|corrupt|dirty|missing|error|fail|never[-_\s]?synced/i.test(lower)) return true;
+  return !isHealthySourceStatus(lower);
+}
+
 function numberFromText(text, pattern) {
   const match = String(text || '').match(pattern);
   if (!match) return null;
@@ -244,8 +264,8 @@ function normalizeSourcesPayload(payload, checkedAt) {
     checkedAt,
     count: sources.length,
     totalPages,
-    healthyCount: sources.filter((source) => /ok|clean|healthy|synced/i.test(source.status)).length,
-    warningCount: sources.filter((source) => /warn|corrupt|dirty|missing|error|fail/i.test(source.status)).length,
+    healthyCount: sources.filter((source) => isHealthySourceStatus(source.status)).length,
+    warningCount: sources.filter((source) => isWarningSourceStatus(source.status)).length,
     sources,
   };
 }
@@ -281,8 +301,8 @@ function normalizeSourcesText(output, checkedAt) {
     checkedAt,
     count: sources.length,
     totalPages,
-    healthyCount: sources.filter((source) => /ok|clean|healthy|synced/i.test(source.status)).length,
-    warningCount: sources.filter((source) => /warn|corrupt|dirty|missing|error|fail/i.test(source.status)).length,
+    healthyCount: sources.filter((source) => isHealthySourceStatus(source.status)).length,
+    warningCount: sources.filter((source) => isWarningSourceStatus(source.status)).length,
     sources,
   };
 }
@@ -360,6 +380,7 @@ function buildGBrainOverview(live = {}) {
   const queueUnavailable = Boolean(liveHealth && !hasLiveQueueCounters);
   const healthStatus = liveHealthStatus(liveHealth, healthUnavailable);
   const queueStatus = healthUnavailable ? 'critical' : queueUnavailable ? 'warning' : healthStatus;
+  const sourceStatus = liveSourceStatus(liveSources, sourcesUnavailable);
   const queueValue = hasLiveQueueCounters
     ? `${queue.waiting} / ${queue.active} / ${queue.stalled}`
     : liveHealth ? 'Unavailable' : '0 / 0 / 0';
@@ -452,7 +473,7 @@ function buildGBrainOverview(live = {}) {
       id: 'sources',
       label: 'Source Systems',
       kind: 'source',
-      status: sourcesUnavailable ? 'critical' : liveSources && sourceWarnings === 0 ? 'healthy' : 'warning',
+      status: sourceStatus,
       summary: 'Project sources feeding the shared brain, verified by the saved audit with one source-status caveat.',
       proof: {
         label: liveSources || sourcesUnavailable ? 'Live source probe' : 'Source list captured',
@@ -523,7 +544,7 @@ function buildGBrainOverview(live = {}) {
     { id: 'edge-hermes-gbrain', from: 'hermes', to: 'gbrain-core', label: 'read', status: 'healthy', proofNodeId: 'hermes' },
     { id: 'edge-openclaw-gbrain', from: 'openclaw', to: 'gbrain-core', label: 'tool read', status: 'healthy', proofNodeId: 'openclaw' },
     { id: 'edge-codex-gbrain', from: 'codex', to: 'gbrain-core', label: 'source sync', status: 'healthy', proofNodeId: 'codex' },
-    { id: 'edge-sources-gbrain', from: 'sources', to: 'gbrain-core', label: 'sync', status: sourcesUnavailable ? 'critical' : liveSources && sourceWarnings === 0 ? 'healthy' : 'warning', proofNodeId: 'sources' },
+    { id: 'edge-sources-gbrain', from: 'sources', to: 'gbrain-core', label: 'sync', status: sourceStatus, proofNodeId: 'sources' },
     { id: 'edge-queues-gbrain', from: 'queues', to: 'gbrain-core', label: 'embed', status: queueStatus, proofNodeId: 'queues' },
     { id: 'edge-google-gbrain', from: 'google-bridge', to: 'gbrain-core', label: 'bridge', status: 'warning', proofNodeId: 'google-bridge' },
   ];

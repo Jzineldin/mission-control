@@ -133,6 +133,32 @@ async function testLiveSourcesDoNotExposeLocalPaths() {
   });
 }
 
+async function testLiveSourcesCountsUnknownStatusesAsWarnings() {
+  const execFilePromise = async (bin, args) => {
+    assert.equal(bin, 'gbrain');
+    assert.deepEqual(args, ['sources', 'list', '--json']);
+    return {
+      stdout: JSON.stringify({
+        sources: [
+          { id: 'mission-control', status: 'clean', pages: 10 },
+          { id: 'clawd', status: 'unknown', pages: 0 },
+          { id: 'hermes', federated: false, pages: 0 },
+        ],
+      }),
+      stderr: '',
+    };
+  };
+
+  const sources = await buildLiveGBrainSources({ execFilePromise });
+  const overview = buildGBrainOverview({ sources });
+  const sourceNode = overview.nodes.find((node) => node.id === 'sources');
+
+  assert.equal(sources.count, 3);
+  assert.equal(sources.healthyCount, 1);
+  assert.equal(sources.warningCount, 2);
+  assert.equal(sourceNode.status, 'warning');
+}
+
 async function testLiveSourcesFallsBackToTextOutput() {
   const calls = [];
   const execFilePromise = async (bin, args) => {
@@ -242,6 +268,32 @@ async function testOverviewUsesLiveSourcePageTotalWhenHealthOmitsPages() {
   assert.equal(sources.metrics.find((metric) => metric.label === 'Source pages')?.value, '123');
 }
 
+async function testOverviewDoesNotMarkUnknownLiveSourcesHealthy() {
+  const checkedAt = '2026-05-24T12:18:00.000Z';
+  const overview = buildGBrainOverview({
+    sources: {
+      ok: true,
+      mode: 'live-read-only',
+      checkedAt,
+      count: 2,
+      totalPages: 0,
+      healthyCount: 0,
+      warningCount: 0,
+      sources: [
+        { id: 'mission-control', status: 'unknown', pages: null, chunks: null },
+        { id: 'clawd', status: 'isolated', pages: null, chunks: null },
+      ],
+    },
+  });
+
+  const sources = overview.nodes.find((node) => node.id === 'sources');
+  const edge = overview.edges.find((item) => item.id === 'edge-sources-gbrain');
+
+  assert.equal(sources.status, 'warning');
+  assert.equal(edge.status, 'warning');
+  assert.equal(overview.cockpit.caveats.detail, 'Static caveats plus live source warnings');
+}
+
 async function testOverviewDoesNotDefaultMissingLiveQueueToZero() {
   const checkedAt = '2026-05-24T12:20:00.000Z';
   const overview = buildGBrainOverview({
@@ -329,9 +381,11 @@ async function testOverviewShowsLiveAttemptWhenRuntimeUnavailable() {
 (async () => {
   await testLiveHealthNormalizesReadOnlyProbe();
   await testLiveSourcesDoNotExposeLocalPaths();
+  await testLiveSourcesCountsUnknownStatusesAsWarnings();
   await testLiveSourcesFallsBackToTextOutput();
   await testLiveHealthFallsBackToTextOutput();
   await testOverviewUsesLiveSourcePageTotalWhenHealthOmitsPages();
+  await testOverviewDoesNotMarkUnknownLiveSourcesHealthy();
   await testOverviewDoesNotDefaultMissingLiveQueueToZero();
   await testLiveFailureIsSafeJson();
   await testOverviewShowsLiveAttemptWhenRuntimeUnavailable();
