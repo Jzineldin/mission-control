@@ -17,3 +17,5 @@ SPEC.md
 
 data/
 documents/
+.gstack/
+.gbrain-source

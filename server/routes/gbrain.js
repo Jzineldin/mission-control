@@ -1,32 +1,382 @@
 const express = require('express');
+const util = require('util');
+const os = require('os');
+const { execFile } = require('child_process');
 
 const AUDIT_REPORT_PATH = '~/hermes-workspace/reports/gbrain-full-audit-20260524.md';
 const DESIGN_HANDOFF_PATH = 'docs/gbrain-hybrid-brain-view-handoff-20260524.md';
 const AUDIT_VERIFIED_AT = '2026-05-24T00:00:00.000Z';
+const DEFAULT_COMMAND_TIMEOUT_MS = 7000;
 
-function buildGBrainOverview() {
+const defaultExecFilePromise = util.promisify(execFile);
+
+function sanitizeMessage(value) {
+  return String(value || 'Unknown error')
+    .replace(/Bearer\s+[A-Za-z0-9._~+/=-]+/gi, 'Bearer [redacted]')
+    .replace(/sk-[A-Za-z0-9_-]+/g, 'sk-[redacted]')
+    .replace(/\/Users\/[^/\s]+/g, '~')
+    .slice(0, 220);
+}
+
+function parseJsonFromOutput(output) {
+  const text = String(output || '').trim();
+  if (!text) return null;
+  try {
+    return JSON.parse(text);
+  } catch {}
+
+  const firstBrace = text.indexOf('{');
+  const lastBrace = text.lastIndexOf('}');
+  if (firstBrace >= 0 && lastBrace > firstBrace) {
+    try {
+      return JSON.parse(text.slice(firstBrace, lastBrace + 1));
+    } catch {}
+  }
+
+  const firstBracket = text.indexOf('[');
+  const lastBracket = text.lastIndexOf(']');
+  if (firstBracket >= 0 && lastBracket > firstBracket) {
+    try {
+      return JSON.parse(text.slice(firstBracket, lastBracket + 1));
+    } catch {}
+  }
+
+  return null;
+}
+
+async function runGBrain(execFilePromise, args) {
+  try {
+    const pathEntries = [
+      `${os.homedir()}/.bun/bin`,
+      '/opt/homebrew/bin',
+      '/usr/local/bin',
+      process.env.PATH || '',
+    ].filter(Boolean);
+    const result = await execFilePromise('gbrain', args, {
+      timeout: DEFAULT_COMMAND_TIMEOUT_MS,
+      maxBuffer: 1024 * 1024,
+      env: {
+        ...process.env,
+        PATH: pathEntries.join(':'),
+      },
+    });
+    return { ok: true, stdout: result.stdout || '', stderr: result.stderr || '' };
+  } catch (error) {
+    return {
+      ok: false,
+      stdout: error?.stdout || '',
+      stderr: error?.stderr || '',
+      error: sanitizeMessage(error?.stderr || error?.stdout || error?.message),
+    };
+  }
+}
+
+function findNumber(payload, keys) {
+  const wanted = new Set(keys.map((key) => key.toLowerCase()));
+  const seen = new Set();
+  const stack = [payload];
+
+  while (stack.length) {
+    const item = stack.pop();
+    if (!item || typeof item !== 'object' || seen.has(item)) continue;
+    seen.add(item);
+
+    if (Array.isArray(item)) {
+      for (const child of item) stack.push(child);
+      continue;
+    }
+
+    for (const [key, value] of Object.entries(item)) {
+      if (wanted.has(key.toLowerCase())) {
+        const number = Number(value);
+        if (Number.isFinite(number)) return number;
+      }
+      if (value && typeof value === 'object') stack.push(value);
+    }
+  }
+
+  return null;
+}
+
+function findString(payload, keys) {
+  const wanted = new Set(keys.map((key) => key.toLowerCase()));
+  const seen = new Set();
+  const stack = [payload];
+
+  while (stack.length) {
+    const item = stack.pop();
+    if (!item || typeof item !== 'object' || seen.has(item)) continue;
+    seen.add(item);
+
+    if (Array.isArray(item)) {
+      for (const child of item) stack.push(child);
+      continue;
+    }
+
+    for (const [key, value] of Object.entries(item)) {
+      if (wanted.has(key.toLowerCase()) && typeof value === 'string') return value;
+      if (value && typeof value === 'object') stack.push(value);
+    }
+  }
+
+  return '';
+}
+
+function formatCount(value) {
+  return Number.isFinite(value) ? new Intl.NumberFormat('en-US').format(value) : '—';
+}
+
+function formatPercent(value) {
+  if (!Number.isFinite(value)) return '—';
+  const percent = value <= 1 ? value * 100 : value;
+  return `${Math.round(percent)}%`;
+}
+
+function numberFromText(text, pattern) {
+  const match = String(text || '').match(pattern);
+  if (!match) return null;
+  const value = Number(String(match[1]).replace(/,/g, ''));
+  return Number.isFinite(value) ? value : null;
+}
+
+function normalizeHealthPayload(healthPayload, jobsPayload, checkedAt) {
+  const score = findNumber(healthPayload, ['health_score', 'healthScore', 'score']);
+  const pages = findNumber(healthPayload, ['pages', 'page_count', 'total_pages']);
+  const chunks = findNumber(healthPayload, ['chunks', 'chunk_count', 'total_chunks']);
+  const embedded = findNumber(healthPayload, ['embedded', 'embedded_chunks', 'embedded_count']);
+  const missing = findNumber(healthPayload, ['missing_embeddings', 'missingEmbeddings', 'missing']);
+  const coverage = findNumber(healthPayload, ['embed_coverage', 'embedding_coverage', 'coverage']);
+  const waiting = findNumber(jobsPayload, ['waiting', 'queued', 'pending']);
+  const active = findNumber(jobsPayload, ['active', 'running', 'processing']);
+  const stalled = findNumber(jobsPayload, ['stalled', 'dead']);
+  const rawStatus = findString(healthPayload, ['status', 'health_status']);
+  const status = rawStatus || (score !== null && score >= 90 ? 'healthy' : 'unknown');
+
+  return {
+    ok: true,
+    mode: 'live-read-only',
+    checkedAt,
+    status,
+    score,
+    metrics: {
+      pages,
+      chunks,
+      embedded,
+      missingEmbeddings: missing,
+      embeddingCoverage: coverage,
+      queue: { waiting, active, stalled },
+    },
+  };
+}
+
+function normalizeHealthText(healthOutput, jobsOutput, checkedAt) {
+  const healthText = String(healthOutput || '');
+  const jobsText = String(jobsOutput || '');
+  const score = numberFromText(healthText, /Health score:\s*(\d+(?:\.\d+)?)\s*\/\s*10/i);
+  const coveragePercent = numberFromText(healthText, /Embed coverage:\s*(\d+(?:\.\d+)?)%/i);
+  const missing = numberFromText(healthText, /Missing embeddings:\s*(\d+)/i);
+  const waiting = numberFromText(jobsText, /Queue health:\s*(\d+)\s+waiting/i);
+  const active = numberFromText(jobsText, /Queue health:\s*\d+\s+waiting,\s*(\d+)\s+active/i);
+  const stalled = numberFromText(jobsText, /Queue health:\s*\d+\s+waiting,\s*\d+\s+active,\s*(\d+)\s+stalled/i);
+
+  if (score === null && coveragePercent === null && missing === null) return null;
+
+  return {
+    ok: true,
+    mode: 'live-read-only',
+    checkedAt,
+    status: score !== null && score >= 7 ? 'healthy' : 'warning',
+    score: score !== null ? score * 10 : null,
+    metrics: {
+      pages: null,
+      chunks: null,
+      embedded: null,
+      missingEmbeddings: missing,
+      embeddingCoverage: coveragePercent !== null ? coveragePercent : null,
+      queue: { waiting, active, stalled },
+    },
+  };
+}
+
+function normalizeSourcesPayload(payload, checkedAt) {
+  const rawSources = Array.isArray(payload)
+    ? payload
+    : payload?.sources || payload?.data || payload?.items || [];
+  const sources = rawSources
+    .filter((source) => source && typeof source === 'object')
+    .map((source) => {
+      const pages = Number.isFinite(Number(source.pages || source.page_count)) ? Number(source.pages || source.page_count) : null;
+      const status = source.status
+        || source.clone_state
+        || source.cloneState
+        || (source.last_sync_at ? 'synced' : source.federated === false ? 'isolated' : 'unknown');
+      return {
+        id: String(source.id || source.name || source.source || 'unknown'),
+        status: String(status),
+        pages,
+        chunks: Number.isFinite(Number(source.chunks || source.chunk_count)) ? Number(source.chunks || source.chunk_count) : null,
+      };
+    })
+    .filter((source) => source.id && source.id !== 'unknown');
+  const totalPages = sources.reduce((sum, source) => sum + (source.pages || 0), 0);
+
+  return {
+    ok: true,
+    mode: 'live-read-only',
+    checkedAt,
+    count: sources.length,
+    totalPages,
+    healthyCount: sources.filter((source) => /ok|clean|healthy|synced/i.test(source.status)).length,
+    warningCount: sources.filter((source) => /warn|corrupt|dirty|missing|error|fail/i.test(source.status)).length,
+    sources,
+  };
+}
+
+function normalizeSourcesText(output, checkedAt) {
+  const sources = String(output || '')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line && !/^id\b|^-+|SOURCES/i.test(line))
+    .map((line) => {
+      const columns = line.split(/\s+/);
+      const id = columns[0] || '';
+      if (!id || id.includes('/') || id === 'sources' || id.startsWith('─')) return null;
+      const pageMatch = line.match(/\s(\d[\d,]*)\s+pages\b/i);
+      const synced = /last sync\s+([^\s]+)/i.test(line);
+      const neverSynced = /never synced/i.test(line);
+      const statusColumn = columns.find((column) => /ok|clean|healthy|synced|warn|corrupt|dirty|missing|error|fail/i.test(column));
+      const kind = columns.find((column, index) => index > 0 && !column.includes('/')) || 'unknown';
+      const status = neverSynced ? 'never-synced' : synced ? 'synced' : statusColumn || kind;
+      return {
+        id,
+        status,
+        pages: pageMatch ? Number(pageMatch[1].replace(/,/g, '')) : null,
+        chunks: null,
+      };
+    })
+    .filter(Boolean);
+  const totalPages = sources.reduce((sum, source) => sum + (source.pages || 0), 0);
+
+  return {
+    ok: sources.length > 0,
+    mode: 'live-read-only',
+    checkedAt,
+    count: sources.length,
+    totalPages,
+    healthyCount: sources.filter((source) => /ok|clean|healthy|synced/i.test(source.status)).length,
+    warningCount: sources.filter((source) => /warn|corrupt|dirty|missing|error|fail/i.test(source.status)).length,
+    sources,
+  };
+}
+
+async function buildLiveGBrainHealth(options = {}) {
+  const execFilePromise = options.execFilePromise || defaultExecFilePromise;
+  const checkedAt = new Date().toISOString();
+  const [healthResult, jobsResult] = await Promise.all([
+    runGBrain(execFilePromise, ['health', '--json']),
+    runGBrain(execFilePromise, ['jobs', 'stats', '--json']),
+  ]);
+  const healthPayload = parseJsonFromOutput(healthResult.stdout);
+  const jobsPayload = parseJsonFromOutput(jobsResult.stdout);
+
+  if (healthResult.ok && healthPayload) {
+    return normalizeHealthPayload(healthPayload, jobsPayload, checkedAt);
+  }
+
+  const textHealth = healthResult.ok ? normalizeHealthText(healthResult.stdout, jobsResult.stdout, checkedAt) : null;
+  if (!textHealth?.ok) {
+    return {
+      ok: false,
+      mode: 'live-read-only',
+      checkedAt,
+      status: 'unavailable',
+      error: healthResult.error || 'gbrain health did not return JSON',
+    };
+  }
+
+  return textHealth;
+}
+
+async function buildLiveGBrainSources(options = {}) {
+  const execFilePromise = options.execFilePromise || defaultExecFilePromise;
+  const checkedAt = new Date().toISOString();
+  const result = await runGBrain(execFilePromise, ['sources', 'list', '--json']);
+  const payload = parseJsonFromOutput(result.stdout);
+
+  if (result.ok && payload) {
+    return normalizeSourcesPayload(payload, checkedAt);
+  }
+
+  const fallbackResult = await runGBrain(execFilePromise, ['sources', 'list']);
+  const textSources = fallbackResult.ok ? normalizeSourcesText(fallbackResult.stdout, checkedAt) : null;
+  if (!textSources?.ok) {
+    return {
+      ok: false,
+      mode: 'live-read-only',
+      checkedAt,
+      status: 'unavailable',
+      error: result.error || fallbackResult?.error || 'gbrain sources list did not return parseable output',
+      sources: [],
+    };
+  }
+
+  return textSources;
+}
+
+function buildGBrainOverview(live = {}) {
+  const liveHealth = live.health?.ok ? live.health : null;
+  const liveSources = live.sources?.ok ? live.sources : null;
+  const liveAttemptedAt = live.health?.checkedAt || live.sources?.checkedAt || null;
+  const liveCheckedAt = liveHealth?.checkedAt || liveSources?.checkedAt || liveAttemptedAt;
+  const healthUnavailable = Boolean(live.health && !live.health.ok);
+  const sourcesUnavailable = Boolean(live.sources && !live.sources.ok);
+  const healthScore = liveHealth?.score ?? null;
+  const healthValue = healthUnavailable ? 'Unavailable' : healthScore !== null ? `${healthScore}/100` : '9/10';
+  const pages = liveHealth?.metrics?.pages ?? liveSources?.totalPages ?? null;
+  const chunks = liveHealth?.metrics?.chunks ?? null;
+  const embedded = liveHealth?.metrics?.embedded ?? null;
+  const missing = liveHealth?.metrics?.missingEmbeddings ?? null;
+  const coverage = liveHealth?.metrics?.embeddingCoverage ?? null;
+  const queue = liveHealth?.metrics?.queue || {};
+  const queueValue = [queue.waiting, queue.active, queue.stalled].every(Number.isFinite)
+    ? `${queue.waiting} / ${queue.active} / ${queue.stalled}`
+    : '0 / 0 / 0';
+  const sourceCount = liveSources?.count ?? null;
+  const sourceWarnings = liveSources?.warningCount ?? null;
   const nodes = [
     {
       id: 'gbrain-core',
       label: 'GBrain Core',
       kind: 'core',
-      status: 'healthy',
+      status: healthUnavailable ? 'critical' : liveHealth ? 'healthy' : 'warning',
       summary: 'Postgres-backed local shared memory for Hermes, OpenClaw, and Codex.',
       proof: {
-        label: 'Hermes audit',
-        source: AUDIT_REPORT_PATH,
-        verifiedAt: AUDIT_VERIFIED_AT,
-        detail: 'Installed GBrain 0.40.2.0; engine is Postgres-backed; health 9/10.',
+        label: liveHealth || healthUnavailable ? 'Live health probe' : 'Hermes audit',
+        source: liveHealth || healthUnavailable ? 'gbrain health --json' : AUDIT_REPORT_PATH,
+        verifiedAt: liveCheckedAt || AUDIT_VERIFIED_AT,
+        detail: healthUnavailable
+          ? `Read-only health probe is unavailable: ${live.health.error}`
+          : liveHealth
+          ? `Read-only health probe returned ${liveHealth.status}.`
+          : 'Installed GBrain 0.40.2.0; engine is Postgres-backed; health 9/10.',
       },
       metrics: [
-        { label: 'Pages', value: '15,713' },
-        { label: 'Chunks', value: '191,638' },
-        { label: 'Embedded', value: '191,638' },
+        { label: 'Pages', value: pages !== null ? formatCount(pages) : '15,713' },
+        { label: 'Chunks', value: chunks !== null ? formatCount(chunks) : '191,638' },
+        { label: 'Embedded', value: embedded !== null ? formatCount(embedded) : '191,638' },
       ],
       risks: [
-        'Green state is based on the latest saved audit, not a live mutation or repair run.',
+        liveHealth
+          ? 'Live probe is read-only and does not prove write or repair paths.'
+          : healthUnavailable
+          ? 'Live GBrain health probe could not reach the local runtime.'
+          : 'Green state is based on the latest saved audit, not a live mutation or repair run.',
       ],
-      nextSafeAction: 'Add a live read-only health endpoint after the UI model settles.',
+      nextSafeAction: liveHealth
+        ? 'Keep write and repair controls outside this read-only surface.'
+        : healthUnavailable
+        ? 'Restore local GBrain database connectivity, then refresh this page.'
+        : 'Restore local GBrain database connectivity, then refresh the live health probe.',
     },
     {
       id: 'hermes',
@@ -80,34 +430,49 @@ function buildGBrainOverview() {
       id: 'sources',
       label: 'Source Systems',
       kind: 'source',
-      status: 'warning',
+      status: sourcesUnavailable ? 'critical' : liveSources && sourceWarnings === 0 ? 'healthy' : 'warning',
       summary: 'Project sources feeding the shared brain, verified by the saved audit with one source-status caveat.',
       proof: {
-        label: 'Source list captured',
-        source: AUDIT_REPORT_PATH,
-        verifiedAt: AUDIT_VERIFIED_AT,
-        detail: 'Sources include clawd, hermes-agent, gbrain, codex-memories, finance-analyzer, mission-control, PDFQuickFix, JapaneseBuddy, gstack.',
+        label: liveSources || sourcesUnavailable ? 'Live source probe' : 'Source list captured',
+        source: liveSources || sourcesUnavailable ? 'gbrain sources list' : AUDIT_REPORT_PATH,
+        verifiedAt: liveSources?.checkedAt || live.sources?.checkedAt || AUDIT_VERIFIED_AT,
+        detail: sourcesUnavailable
+          ? `Read-only source probe is unavailable: ${live.sources.error}`
+          : liveSources
+          ? `Read-only source probe returned ${sourceCount} registered source${sourceCount === 1 ? '' : 's'}.`
+          : 'Sources include clawd, hermes-agent, gbrain, codex-memories, finance-analyzer, mission-control, PDFQuickFix, JapaneseBuddy, gstack.',
       },
-      metrics: [{ label: 'Known sources', value: '9' }],
+      metrics: [
+        { label: 'Known sources', value: sourceCount !== null ? String(sourceCount) : '9' },
+        ...(liveSources?.totalPages ? [{ label: 'Source pages', value: formatCount(liveSources.totalPages) }] : []),
+      ],
       risks: ['sources_status clawd can report clone_state: corrupted even when git fsck and dry-run sync are clean. Treat this as a diagnostic mismatch, not missing proof.'],
-      nextSafeAction: 'Add structured source freshness later; keep this node evidence-backed with a visible caveat.',
+      nextSafeAction: liveSources
+        ? 'Add per-source freshness thresholds after the live shape is stable.'
+        : sourcesUnavailable
+        ? 'Restore local GBrain database connectivity, then refresh this page.'
+        : 'Restore local GBrain database connectivity, then refresh the live source probe.',
     },
     {
       id: 'queues',
       label: 'Embedding Queues',
       kind: 'queue',
-      status: 'healthy',
+      status: healthUnavailable ? 'critical' : liveHealth ? 'healthy' : 'warning',
       summary: 'Embedding coverage and minion queue are clean in the latest audit.',
       proof: {
-        label: 'Queue audit',
-        source: AUDIT_REPORT_PATH,
-        verifiedAt: AUDIT_VERIFIED_AT,
-        detail: 'Embed coverage 100%; missing embeddings 0; 0 waiting, 0 active, 0 stalled.',
+        label: liveHealth || healthUnavailable ? 'Live queue probe' : 'Queue audit',
+        source: liveHealth || healthUnavailable ? 'gbrain jobs stats --json' : AUDIT_REPORT_PATH,
+        verifiedAt: liveCheckedAt || AUDIT_VERIFIED_AT,
+        detail: healthUnavailable
+          ? `Read-only jobs probe is unavailable because health is unavailable: ${live.health.error}`
+          : liveHealth
+          ? 'Read-only health and jobs probes refreshed embedding and queue counters.'
+          : 'Embed coverage 100%; missing embeddings 0; 0 waiting, 0 active, 0 stalled.',
       },
       metrics: [
-        { label: 'Coverage', value: '100%' },
-        { label: 'Missing', value: '0' },
-        { label: 'Stalled', value: '0' },
+        { label: 'Coverage', value: coverage !== null ? formatPercent(coverage) : '100%' },
+        { label: 'Missing', value: missing !== null ? formatCount(missing) : '0' },
+        { label: 'Stalled', value: Number.isFinite(queue.stalled) ? formatCount(queue.stalled) : '0' },
       ],
       risks: [],
       nextSafeAction: 'Refresh at a conservative interval to avoid false negatives or extra load.',
@@ -134,32 +499,48 @@ function buildGBrainOverview() {
     { id: 'edge-hermes-gbrain', from: 'hermes', to: 'gbrain-core', label: 'read', status: 'healthy', proofNodeId: 'hermes' },
     { id: 'edge-openclaw-gbrain', from: 'openclaw', to: 'gbrain-core', label: 'tool read', status: 'healthy', proofNodeId: 'openclaw' },
     { id: 'edge-codex-gbrain', from: 'codex', to: 'gbrain-core', label: 'source sync', status: 'healthy', proofNodeId: 'codex' },
-    { id: 'edge-sources-gbrain', from: 'sources', to: 'gbrain-core', label: 'sync', status: 'warning', proofNodeId: 'sources' },
-    { id: 'edge-queues-gbrain', from: 'queues', to: 'gbrain-core', label: 'embed', status: 'healthy', proofNodeId: 'queues' },
+    { id: 'edge-sources-gbrain', from: 'sources', to: 'gbrain-core', label: 'sync', status: sourcesUnavailable ? 'critical' : liveSources && sourceWarnings === 0 ? 'healthy' : 'warning', proofNodeId: 'sources' },
+    { id: 'edge-queues-gbrain', from: 'queues', to: 'gbrain-core', label: 'embed', status: healthUnavailable ? 'critical' : liveHealth ? 'healthy' : 'warning', proofNodeId: 'queues' },
     { id: 'edge-google-gbrain', from: 'google-bridge', to: 'gbrain-core', label: 'bridge', status: 'warning', proofNodeId: 'google-bridge' },
   ];
 
   return {
     ok: true,
-    mode: 'read-only-fixture',
-    refreshedAt: AUDIT_VERIFIED_AT,
-    evidenceFreshness: 'saved-audit',
+    mode: liveAttemptedAt ? 'live-read-only' : 'read-only-fixture',
+    refreshedAt: liveCheckedAt || AUDIT_VERIFIED_AT,
+    evidenceFreshness: liveAttemptedAt ? 'live-read-only' : 'saved-audit',
     title: 'GBrain',
     subtitle: 'Shared memory for Hermes, OpenClaw, and Codex',
     trust: {
-      label: 'Trusted with caveats',
-      status: 'warning',
-      score: 90,
-      lastVerifiedAt: AUDIT_VERIFIED_AT,
-      source: AUDIT_REPORT_PATH,
+      label: healthUnavailable ? 'Live check unavailable' : liveHealth ? 'Live with caveats' : 'Trusted with caveats',
+      status: healthUnavailable ? 'critical' : 'warning',
+      score: healthScore ?? 90,
+      lastVerifiedAt: liveCheckedAt || AUDIT_VERIFIED_AT,
+      source: liveAttemptedAt ? 'gbrain health --json' : AUDIT_REPORT_PATH,
     },
     cockpit: {
-      health: { label: 'Health', value: '9/10', status: 'healthy', proofNodeId: 'gbrain-core' },
-      embeddings: { label: 'Embeddings', value: '100%', detail: '0 missing', status: 'healthy', proofNodeId: 'queues' },
-      queue: { label: 'Queue', value: '0 / 0 / 0', detail: 'waiting / active / stalled', status: 'healthy', proofNodeId: 'queues' },
+      health: { label: 'Health', value: healthValue, status: healthUnavailable ? 'critical' : liveHealth ? 'healthy' : 'warning', proofNodeId: 'gbrain-core' },
+      embeddings: {
+        label: 'Embeddings',
+        value: healthUnavailable ? 'Unavailable' : coverage !== null ? formatPercent(coverage) : '100%',
+        detail: healthUnavailable ? 'health probe unavailable' : `${missing !== null ? formatCount(missing) : '0'} missing`,
+        status: healthUnavailable ? 'critical' : liveHealth ? 'healthy' : 'warning',
+        proofNodeId: 'queues',
+      },
+      queue: { label: 'Queue', value: healthUnavailable ? 'Unavailable' : queueValue, detail: 'waiting / active / stalled', status: healthUnavailable ? 'critical' : liveHealth ? 'healthy' : 'warning', proofNodeId: 'queues' },
       autopilot: { label: 'Autopilot', value: 'Read-only', detail: 'No mutation controls in v1', status: 'inactive', proofNodeId: 'gbrain-core' },
       bridge: { label: 'Bridge proof', value: '2 passed', detail: 'Hermes + OpenClaw read smokes', status: 'healthy', proofNodeId: 'hermes' },
-      caveats: { label: 'Caveats', value: '2', detail: 'Google bridge doctor mismatch; clawd clone_state mismatch', status: 'warning', proofNodeId: 'google-bridge' },
+      caveats: {
+        label: 'Caveats',
+        value: sourceWarnings !== null ? String(2 + sourceWarnings) : '2',
+        detail: sourcesUnavailable
+          ? 'Static caveats; source probe unavailable'
+          : liveAttemptedAt
+          ? 'Static caveats plus live source warnings'
+          : 'Google bridge doctor mismatch; clawd clone_state mismatch',
+        status: 'warning',
+        proofNodeId: 'google-bridge',
+      },
     },
     nodes,
     edges,
@@ -170,16 +551,36 @@ function buildGBrainOverview() {
     warnings: [],
     handoff: {
       source: DESIGN_HANDOFF_PATH,
-      recommendedNextSlice: 'Add live health/source endpoints after the static overview proves the UI model.',
+      recommendedNextSlice: liveHealth || liveSources
+        ? 'Live health/source endpoints are connected read-only; next slice is freshness thresholds.'
+        : liveAttemptedAt
+        ? 'Live health/source endpoints are connected read-only, but the local GBrain runtime is unavailable.'
+        : 'Live health/source endpoints are present but the local GBrain runtime is unavailable.',
+    },
+    live: {
+      health: live.health || null,
+      sources: live.sources || null,
     },
   };
 }
 
-function buildGBrainRouter() {
+function buildGBrainRouter(options = {}) {
   const router = express.Router();
 
-  router.get('/api/gbrain/overview', (req, res) => {
-    res.json(buildGBrainOverview());
+  router.get('/api/gbrain/overview', async (req, res) => {
+    const [health, sources] = await Promise.all([
+      buildLiveGBrainHealth(options),
+      buildLiveGBrainSources(options),
+    ]);
+    res.json(buildGBrainOverview({ health, sources }));
+  });
+
+  router.get('/api/gbrain/health', async (req, res) => {
+    res.json(await buildLiveGBrainHealth(options));
+  });
+
+  router.get('/api/gbrain/sources', async (req, res) => {
+    res.json(await buildLiveGBrainSources(options));
   });
 
   return router;
@@ -187,5 +588,7 @@ function buildGBrainRouter() {
 
 module.exports = {
   buildGBrainOverview,
+  buildLiveGBrainHealth,
+  buildLiveGBrainSources,
   buildGBrainRouter,
 };
