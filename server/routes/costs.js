@@ -4,6 +4,7 @@ const path = require('path');
 const os = require('os');
 const util = require('util');
 const { exec } = require('child_process');
+const { normalizeUsageCosts } = require('../services/costSanity');
 
 function buildCostsRouter({ mcConfig, projectRoot, sessionsService }) {
   const router = express.Router();
@@ -518,23 +519,25 @@ function buildCostsRouter({ mcConfig, projectRoot, sessionsService }) {
   }
 
   function detailedCostsResult(period, combinedUsage, meta = {}) {
-    const rangeRows = combinedUsage.daily || [];
+    const normalizedUsage = normalizeUsageCosts(combinedUsage);
+    const rangeRows = normalizedUsage.daily || [];
     return attachCostsMeta({
-      source: combinedUsage.source,
+      source: normalizedUsage.source,
       period: {
         key: period,
-        start: combinedUsage.periodRange?.start || (rangeRows[0]?.date || null),
-        end: combinedUsage.periodRange?.end || (rangeRows[rangeRows.length - 1]?.date || null),
+        start: normalizedUsage.periodRange?.start || (rangeRows[0]?.date || null),
+        end: normalizedUsage.periodRange?.end || (rangeRows[rangeRows.length - 1]?.date || null),
       },
       daily: rangeRows,
       summary: {
-        ...(combinedUsage.summary || {}),
+        ...(normalizedUsage.summary || {}),
         budget: mcConfig.budget || { monthly: 0, warning: 0 },
       },
-      dailyByModel: combinedUsage.dailyByModel || [],
-      modelKeys: combinedUsage.modelKeys || [],
-      byService: combinedUsage.byService || [],
-      agents: combinedUsage.agents || [],
+      dailyByModel: normalizedUsage.dailyByModel || [],
+      modelKeys: normalizedUsage.modelKeys || [],
+      byService: normalizedUsage.byService || [],
+      agents: normalizedUsage.agents || [],
+      costReliability: normalizedUsage.costReliability,
       budget: mcConfig.budget || { monthly: 0 },
     }, meta);
   }
@@ -634,7 +637,8 @@ function buildCostsRouter({ mcConfig, projectRoot, sessionsService }) {
         const ttl = cached.detailed ? costsCacheTtl : costsFallbackCacheTtl;
         const isFresh = ageMs < ttl;
         if (!isFresh && !refreshing) refreshCostsCache(cacheKey, period);
-        return res.json(attachCostsMeta(cached.value, {
+        const normalizedCachedValue = normalizeUsageCosts(cached.value);
+        return res.json(attachCostsMeta(normalizedCachedValue, {
           refreshing: refreshing || !isFresh,
           stale: Boolean(cached.value?.meta?.stale) || !isFresh,
           ageMs,

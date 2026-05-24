@@ -1,0 +1,413 @@
+.page {
+  max-width: 1440px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.topBar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.titleRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.titleRow h1 {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.95);
+  font-size: 30px;
+  font-weight: 760;
+  letter-spacing: 0;
+}
+
+.subtitle {
+  margin-top: 5px;
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.trustBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  padding: 7px 11px;
+  border: 1px solid rgba(255, 214, 10, 0.28);
+  border-radius: 8px;
+  background: rgba(255, 214, 10, 0.1);
+  color: rgba(255, 255, 255, 0.88);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.trustDot,
+.statusDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--status-color);
+  box-shadow: 0 0 14px color-mix(in srgb, var(--status-color) 70%, transparent);
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: minmax(230px, 0.68fr) minmax(520px, 1.6fr) minmax(300px, 0.82fr);
+  gap: 12px;
+  align-items: stretch;
+}
+
+.rail,
+.mapPanel,
+.drawer {
+  min-height: 630px;
+}
+
+.panelHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 13px 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.panelTitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: rgba(255, 255, 255, 0.86);
+  font-size: 12px;
+  font-weight: 720;
+}
+
+.panelMeta {
+  color: rgba(255, 255, 255, 0.42);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.metricList {
+  display: grid;
+  gap: 9px;
+  padding: 12px;
+}
+
+.metricButton {
+  width: 100%;
+  display: grid;
+  gap: 5px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.035);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.metricButton:hover {
+  border-color: rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.metricTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.metricLabel {
+  color: rgba(255, 255, 255, 0.58);
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.metricValue {
+  color: rgba(255, 255, 255, 0.94);
+  font-size: 18px;
+  font-weight: 760;
+}
+
+.metricDetail {
+  color: rgba(255, 255, 255, 0.48);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.mapCanvas {
+  position: relative;
+  min-height: 560px;
+  margin: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 8px;
+  overflow: hidden;
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.032) 1px, transparent 1px),
+    radial-gradient(circle at 50% 44%, rgba(10, 132, 255, 0.16), transparent 34%),
+    rgba(5, 9, 13, 0.42);
+  background-size: 48px 48px, 48px 48px, auto, auto;
+}
+
+.edgeLayer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.edgeLine {
+  stroke: var(--status-color);
+  stroke-width: 0.35;
+  stroke-linecap: round;
+  opacity: 0.72;
+}
+
+.edgeLabel {
+  fill: rgba(255, 255, 255, 0.7);
+  font-size: 1.55px;
+  font-weight: 650;
+}
+
+.node {
+  position: absolute;
+  left: var(--node-x);
+  top: var(--node-y);
+  width: var(--node-size);
+  min-height: var(--node-size);
+  transform: translate(-50%, -50%);
+  display: grid;
+  place-items: center;
+  gap: 5px;
+  border: 1px solid color-mix(in srgb, var(--status-color) 48%, rgba(255, 255, 255, 0.08));
+  border-radius: 8px;
+  padding: 10px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--status-color) 14%, transparent), rgba(255, 255, 255, 0.045)),
+    rgba(10, 14, 19, 0.92);
+  color: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.3);
+  text-align: center;
+  cursor: pointer;
+}
+
+.nodeActive {
+  border-color: color-mix(in srgb, var(--status-color) 82%, white 10%);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--status-color) 40%, transparent), 0 18px 48px rgba(0, 0, 0, 0.38);
+}
+
+.coreNode {
+  width: 142px;
+  min-height: 142px;
+  border-radius: 50%;
+}
+
+.nodeIcon {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--status-color) 18%, rgba(255, 255, 255, 0.05));
+  color: var(--status-color);
+}
+
+.coreNode .nodeIcon {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+}
+
+.nodeLabel {
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 12px;
+  font-weight: 740;
+  line-height: 1.2;
+}
+
+.nodeKind {
+  color: rgba(255, 255, 255, 0.48);
+  font-size: 10px;
+  text-transform: uppercase;
+}
+
+.drawerBody {
+  display: grid;
+  gap: 13px;
+  padding: 14px;
+}
+
+.selectedTitle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.selectedTitle h2 {
+  margin: 0;
+  color: white;
+  font-size: 19px;
+  line-height: 1.2;
+}
+
+.summary {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.section {
+  display: grid;
+  gap: 7px;
+}
+
+.section h3 {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.52);
+  font-size: 11px;
+  font-weight: 740;
+  text-transform: uppercase;
+}
+
+.proofBox,
+.riskBox {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.proofLabel {
+  color: rgba(255, 255, 255, 0.86);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.proofDetail,
+.riskBox li,
+.nextAction {
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.proofPath {
+  margin-top: 6px;
+  color: rgba(255, 255, 255, 0.38);
+  font-size: 10px;
+  overflow-wrap: anywhere;
+}
+
+.miniMetrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.miniMetric {
+  min-width: 0;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 9px;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.miniMetric span {
+  display: block;
+  color: rgba(255, 255, 255, 0.44);
+  font-size: 10px;
+}
+
+.miniMetric strong {
+  display: block;
+  margin-top: 4px;
+  overflow: hidden;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 14px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.riskBox ul {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding-left: 16px;
+}
+
+.warningStrip {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 14px 14px;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.error {
+  padding: 12px;
+  color: #ff6b6b;
+}
+
+@media (max-width: 1120px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+
+  .rail,
+  .mapPanel,
+  .drawer {
+    min-height: auto;
+  }
+
+  .mapCanvas {
+    min-height: 620px;
+  }
+}
+
+@media (max-width: 720px) {
+  .topBar {
+    flex-direction: column;
+  }
+
+  .trustBadge {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .mapCanvas {
+    min-height: 720px;
+  }
+
+  .node {
+    width: 104px;
+    min-height: 104px;
+    padding: 8px;
+  }
+
+  .coreNode {
+    width: 126px;
+    min-height: 126px;
+  }
+
+  .edgeLabel {
+    display: none;
+  }
+
+  .miniMetrics {
+    grid-template-columns: 1fr 1fr;
+  }
+}

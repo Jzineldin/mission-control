@@ -1,54 +1,19 @@
 #!/usr/bin/env node
 /**
  * openclaw-usage-summary.js
- * Unified token cost tracker — mirrors OpenClaw Gateway real token consumption.
- * API: session-cost-usage-CqgbAyAJ.js (loadCostUsageSummary + discoverAllSessions + loadSessionCostSummary)
+ * Fast, bounded OpenClaw token/cost summary for Mission Control.
+ *
+ * The official OpenClaw session-cost-usage bundle currently walks every session
+ * with loadSessionCostSummary and can hang for minutes on Yordam's session corpus.
+ * This script reads the persisted session JSONL usage records directly instead:
+ * one pass over recent files, no gateway calls, no per-session bundle fan-out.
  */
 const path = require('node:path');
 const fs = require('node:fs');
+const readline = require('node:readline');
+const costSanity = require('../server/services/costSanity');
 
-function readOpenclawConfig() {
-  const configPath = path.join(process.env.HOME || '/home/ubuntu', '.openclaw', 'openclaw.json');
-  try {
-    return JSON.parse(fs.readFileSync(configPath, 'utf8'));
-  } catch {
-    return {};
-  }
-}
-
-async function loadUsageModule() {
-  const distDir = '/opt/homebrew/lib/node_modules/openclaw/dist';
-  // Pick the bundle that has all 6 exports (n=loadCostUsageSummary, t=discoverAllSessions, r=loadSessionCostSummary)
-  const candidates = fs.readdirSync(distDir)
-    .filter((entry) => entry.startsWith('session-cost-usage-') && entry.endsWith('.js'));
-  // Prefer the one with 6 exports (CqgbAyAJ), fall back to scanning each
-  for (const candidate of candidates) {
-    try {
-      const mod = await import(`file://${path.join(distDir, candidate)}`);
-      const keys = Object.keys(mod);
-      if (keys.length >= 6) {
-        return {
-          summary: mod.n,   // loadCostUsageSummary
-          discover: mod.t,  // discoverAllSessions
-          session: mod.r,   // loadSessionCostSummary
-          _module: candidate,
-        };
-      }
-    } catch {}
-  }
-  throw new Error('session-cost-usage bundle with full API not found in ' + distDir);
-}
-
-function usageDirAgents() {
-  const base = path.join(process.env.HOME || '/home/ubuntu', '.openclaw', 'agents');
-  try {
-    return fs.readdirSync(base, { withFileTypes: true })
-      .filter((d) => d.isDirectory() && !d.name.startsWith('.'))
-      .map((d) => d.name);
-  } catch {
-    return ['main'];
-  }
-}
+const VALID_PERIODS = new Set(['day', '7d', 'month']);
 
 function dayKey(date) {
   return date.toLocaleDateString('en-CA', { timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC' });
@@ -72,7 +37,6 @@ function rangeForPeriod(period) {
     }
     return { startMs: start.getTime(), endMs: now.getTime(), keys, startKey: keys[0], endKey: keys[keys.length - 1] };
   }
-  // month
   start.setHours(0, 0, 0, 0);
   start.setDate(1);
   const keys = [];
@@ -84,251 +48,247 @@ function rangeForPeriod(period) {
   return { startMs: start.getTime(), endMs: now.getTime(), keys, startKey: keys[0], endKey: keys[keys.length - 1] };
 }
 
-// Fallback pricing per 1M output tokens (OpenRouter/OpenAI prices, 2026-04)
-const FALLBACK_PRICING = {
-  'openai-codex/gpt-5.4-mini': 4.5,
-  'openai-codex/gpt-5.4': 15,
-  'openai-codex/gpt-5.3-codex-spark': 14,
-  'anthropic/claude-opus-4-6': 25,
-  'anthropic/claude-sonnet-4-6': 15,
-  'anthropic/claude-haiku': 5,
-  'nvidia/llama-3.3-nemotron-super-49b-v1.5': 0.4,
-  'nvidia/nemotron-3-super-120b-a12b': 0.5,
-  'minimax/minimax-m2.7': 1.2,
-  'minimax/minimax-m2.5': 1.25,
-  'minimax/minimax-m2.1': 0.95,
-  'minimax/minimax-m2': 1.0,
-  'minimax/minimax-m2-her': 1.2,
-  'xiaomi/mimo-v2-omni': 2.0,
-  'xiaomi/mimo-v2-pro': 3.0,
-  'xiaomi/mimo-v2-flash': 0.29,
-  '__default': 5,
-};
-
-function isLocalModel(name) {
-  if (!name) return false;
-  return name.toLowerCase().includes('ollama/') || name.toLowerCase().includes('localhost');
-}
-
-function lookupFallbackPricing(name) {
-  if (!name || isLocalModel(name)) return 0;
-  const lower = name.toLowerCase();
-  for (const [key, rate] of Object.entries(FALLBACK_PRICING)) {
-    if (key === '__default') continue;
-    if (lower.includes(key.toLowerCase())) return rate;
-  }
-  if (lower.includes('gpt-5.4-mini') || lower.includes('gpt-5.4-nano')) return FALLBACK_PRICING['openai-codex/gpt-5.4-mini'];
-  if (lower.includes('gpt-5.4') && !lower.includes('mini')) return FALLBACK_PRICING['openai-codex/gpt-5.4'];
-  if (lower.includes('gpt-5.3-codex') || lower.includes('gpt-5.3')) return FALLBACK_PRICING['openai-codex/gpt-5.3-codex-spark'];
-  if (lower.includes('minimax-m2.7')) return FALLBACK_PRICING['minimax/minimax-m2.7'];
-  if (lower.includes('minimax-m2.5')) return FALLBACK_PRICING['minimax/minimax-m2.5'];
-  if (lower.includes('minimax-m2.1')) return FALLBACK_PRICING['minimax/minimax-m2.1'];
-  if (lower.includes('minimax-m2-her')) return FALLBACK_PRICING['minimax/minimax-m2-her'];
-  if (lower.includes('minimax-m2')) return FALLBACK_PRICING['minimax/minimax-m2'];
-  return null;
-}
-
 function modelName(provider, model) {
   const p = String(provider || '').trim();
   const m = String(model || '').trim();
   if (!p && !m) return 'unknown';
   if (!p) return m;
   if (!m) return p;
-  return p + '/' + m;
+  return `${p}/${m}`;
+}
+
+function usageCostTotal(cost) {
+  if (typeof cost === 'number') return Number.isFinite(cost) ? cost : 0;
+  if (!cost || typeof cost !== 'object') return 0;
+  return Number(cost.total || cost.totalCost || cost.usd || 0) || 0;
+}
+
+function usageNumber(usage, keys) {
+  for (const key of keys) {
+    if (usage[key] !== undefined && usage[key] !== null) return Number(usage[key]) || 0;
+  }
+  return 0;
+}
+
+function extractUsageRecord(obj, fallbackTimestampMs) {
+  if (!obj || typeof obj !== 'object') return null;
+  const message = obj.message && typeof obj.message === 'object' ? obj.message : null;
+  if (!message || !message.usage || typeof message.usage !== 'object') return null;
+  const usage = message.usage;
+  const input = usageNumber(usage, ['input', 'inputTokens', 'promptTokens']);
+  const output = usageNumber(usage, ['output', 'outputTokens', 'completionTokens']);
+  const cacheRead = usageNumber(usage, ['cacheRead', 'cacheReadTokens', 'cachedInputTokens']);
+  const cacheWrite = usageNumber(usage, ['cacheWrite', 'cacheWriteTokens']);
+  const totalTokens = usageNumber(usage, ['totalTokens', 'tokens']) || input + output + cacheRead + cacheWrite;
+  const totalCost = usageCostTotal(usage.cost);
+  if (totalTokens <= 0 && totalCost <= 0) return null;
+
+  const timestampRaw = message.timestamp || obj.timestamp;
+  const timestampMs = typeof timestampRaw === 'number'
+    ? (timestampRaw < 10_000_000_000 ? timestampRaw * 1000 : timestampRaw)
+    : Date.parse(timestampRaw || '') || fallbackTimestampMs;
+
+  return {
+    timestampMs,
+    date: dayKey(new Date(timestampMs)),
+    provider: message.provider || message.api || 'unknown',
+    model: message.model || message.modelId || 'unknown',
+    input,
+    output,
+    cacheRead,
+    cacheWrite,
+    totalTokens,
+    totalCost,
+  };
+}
+
+function listSessionFiles(startMs) {
+  const agentsBase = path.join(process.env.HOME || '/home/ubuntu', '.openclaw', 'agents');
+  const files = [];
+  let agents = [];
+  try {
+    agents = fs.readdirSync(agentsBase, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory() && !entry.name.startsWith('.'))
+      .map((entry) => entry.name);
+  } catch {
+    return files;
+  }
+
+  for (const agentId of agents) {
+    const sessionsDir = path.join(agentsBase, agentId, 'sessions');
+    let entries = [];
+    try {
+      entries = fs.readdirSync(sessionsDir, { withFileTypes: true });
+    } catch {
+      continue;
+    }
+    for (const entry of entries) {
+      if (!entry.isFile() || !entry.name.endsWith('.jsonl') || entry.name.endsWith('.trajectory.jsonl')) continue;
+      const fullPath = path.join(sessionsDir, entry.name);
+      try {
+        const stat = fs.statSync(fullPath);
+        // mtime is a coarse prefilter only; each usage record is checked by timestamp below.
+        if (stat.mtimeMs >= startMs - 24 * 60 * 60 * 1000) {
+          files.push({ agentId, path: fullPath, mtimeMs: stat.mtimeMs });
+        }
+      } catch {}
+    }
+  }
+  return files;
+}
+
+async function scanUsageRecords(range) {
+  const files = listSessionFiles(range.startMs);
+  const records = [];
+  const maxFiles = Number(process.env.MC_OPENCLAW_USAGE_MAX_FILES || 20000);
+  const scanFiles = files
+    .sort((a, b) => b.mtimeMs - a.mtimeMs)
+    .slice(0, Number.isFinite(maxFiles) && maxFiles > 0 ? maxFiles : 20000);
+
+  for (const file of scanFiles) {
+    const stream = fs.createReadStream(file.path, { encoding: 'utf8' });
+    const rl = readline.createInterface({ input: stream, crlfDelay: Infinity });
+    for await (const line of rl) {
+      if (!line || line.charCodeAt(0) !== 123) continue;
+      let obj;
+      try {
+        obj = JSON.parse(line);
+      } catch {
+        continue;
+      }
+      const record = extractUsageRecord(obj, file.mtimeMs);
+      if (!record || record.timestampMs < range.startMs || record.timestampMs > range.endMs) continue;
+      records.push(record);
+    }
+  }
+  return { records, filesScanned: scanFiles.length, filesAvailable: files.length };
+}
+
+function createTotalsBucket(name) {
+  return { name, cost: 0, tokens: 0, input: 0, output: 0, cacheRead: 0, cacheWrite: 0, sessions: 0 };
 }
 
 async function buildForPeriod(period) {
-  const cfg = readOpenclawConfig();
-  const usage = await loadUsageModule();
   const r = rangeForPeriod(period);
-  const agents = usageDirAgents();
+  const { records, filesScanned, filesAvailable } = await scanUsageRecords(r);
+  const dailyMap = new Map(r.keys.map((date) => [date, {
+    date,
+    cost: 0,
+    totalCost: 0,
+    tokens: 0,
+    totalTokens: 0,
+    input: 0,
+    output: 0,
+    cacheRead: 0,
+    cacheWrite: 0,
+  }]));
+  const modelTotals = new Map();
+  const modelDailyTotals = new Map();
 
-  // Primary source: loadCostUsageSummary (mirrors Gateway real token counts)
-  const summaryData = await usage.summary({
-    startMs: r.startMs,
-    endMs: r.endMs,
-    config: cfg,
-  });
+  for (const record of records) {
+    const daily = dailyMap.get(record.date);
+    if (!daily) continue;
+    daily.cost += record.totalCost;
+    daily.totalCost = daily.cost;
+    daily.tokens += record.totalTokens;
+    daily.totalTokens = daily.tokens;
+    daily.input += record.input;
+    daily.output += record.output;
+    daily.cacheRead += record.cacheRead;
+    daily.cacheWrite += record.cacheWrite;
 
-  const dailyMap = {};
-  if (summaryData && summaryData.daily) {
-    for (const d of summaryData.daily) {
-      dailyMap[d.date] = d;
-    }
+    const name = modelName(record.provider, record.model);
+    const model = modelTotals.get(name) || createTotalsBucket(name);
+    model.cost += record.totalCost;
+    model.tokens += record.totalTokens;
+    model.input += record.input;
+    model.output += record.output;
+    model.cacheRead += record.cacheRead;
+    model.cacheWrite += record.cacheWrite;
+    model.sessions += 1;
+    modelTotals.set(name, model);
+
+    const dailyKey = `${record.date}::${name}`;
+    const dailyModel = modelDailyTotals.get(dailyKey) || { date: record.date, name, cost: 0, tokens: 0 };
+    dailyModel.cost += record.totalCost;
+    dailyModel.tokens += record.totalTokens;
+    modelDailyTotals.set(dailyKey, dailyModel);
   }
 
-  // Build daily rows
-  const daily = r.keys.map((date) => {
-    const src = dailyMap[date];
-    if (src) {
-      return {
-        date,
-        cost: src.totalCost || 0,
-        totalCost: src.totalCost || 0,
-        tokens: src.totalTokens || 0,
-        totalTokens: src.totalTokens || 0,
-        input: src.input || 0,
-        output: src.output || 0,
-        cacheRead: src.cacheRead || 0,
-        cacheWrite: src.cacheWrite || 0,
-      };
-    }
-    return { date, cost: 0, totalCost: 0, tokens: 0, totalTokens: 0, input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
-  });
-
-  // Per-session model breakdown (aggregated across all sessions for today)
-  // Discover sessions in range
-  const allSessions = [];
-  for (const agentId of agents) {
-    const sessions = await usage.discover({ startMs: r.startMs });
-    for (const s of sessions || []) {
-      if (s && s.sessionId) allSessions.push(s);
-    }
-  }
-
-  // Deduplicate
-  const seen = new Set();
-  const uniqueSessions = [];
-  for (const s of allSessions) {
-    const k = s.sessionId;
-    if (!seen.has(k)) {
-      seen.add(k);
-      uniqueSessions.push(s);
-    }
-  }
-
-  // Aggregate model usage from sessions
-  const modelTotals = {};
-  const modelDailyTotals = {};
-  const todayKey = dayKey(new Date());
-  const chunkSize = 20;
-
-  for (let i = 0; i < uniqueSessions.length; i += chunkSize) {
-    const chunk = uniqueSessions.slice(i, i + chunkSize);
-    const results = await Promise.all(chunk.map((s) =>
-      usage.session({ sessionId: s.sessionId, config: cfg, startMs: r.startMs, endMs: r.endMs })
-    ));
-    for (const s of results) {
-      if (!s || !s.modelUsage) continue;
-      for (let j = 0; j < s.modelUsage.length; j++) {
-        const mu = s.modelUsage[j];
-        const name = modelName(mu.provider, mu.model);
-        if (!modelTotals[name]) {
-          modelTotals[name] = { name, cost: 0, tokens: 0, sessions: new Set() };
-        }
-        modelTotals[name].tokens += Number(mu.totals && mu.totals.totalTokens || 0);
-        modelTotals[name].cost += Number(mu.totals && mu.totals.totalCost || 0);
-        modelTotals[name].sessions.add(s.sessionId);
-      }
-      // Daily model usage
-      if (s.dailyModelUsage) {
-        for (let j = 0; j < s.dailyModelUsage.length; j++) {
-          const dm = s.dailyModelUsage[j];
-          if (!r.keys.includes(String(dm.date || ''))) continue;
-          const name = modelName(dm.provider, dm.model);
-          const dk = dm.date + '::' + name;
-          if (!modelDailyTotals[dk]) modelDailyTotals[dk] = { date: dm.date, name, cost: 0, tokens: 0 };
-          modelDailyTotals[dk].tokens += Number(dm.tokens || 0);
-          modelDailyTotals[dk].cost += Number(dm.cost || 0);
-        }
-      }
-    }
-  }
-
-  // Build byService list — apply fallback pricing when cost=0 but tokens>0 (local/cloud-free tier)
-  let byServiceList = Object.values(modelTotals)
-    .filter((x) => x.tokens > 0 || x.cost > 0)
+  const daily = r.keys.map((date) => dailyMap.get(date));
+  let byServiceList = Array.from(modelTotals.values())
+    .filter((item) => item.tokens > 0 || item.cost > 0)
     .sort((a, b) => b.tokens - a.tokens)
-    .map((x) => {
-      let cost = x.cost;
-      let costSource = cost > 0 ? 'api' : 'fallback_estimate';
-      if ((cost === 0 || cost === undefined) && x.tokens > 0) {
-        const rate = lookupFallbackPricing(x.name);
-        if (rate !== null && rate > 0) {
-          cost = x.tokens * rate / 1_000_000;
-        }
-      }
-      return {
-        name: x.name,
-        cost,
-        tokens: x.tokens,
-        sessions: x.sessions.size,
+    .map((item) => {
+      const normalized = costSanity.normalizeServiceCost({
+        name: item.name,
+        cost: item.cost,
+        tokens: item.tokens,
+        sessions: item.sessions,
         percentage: 0,
-        costSource,
-      };
+        costSource: item.cost > 0 ? 'api' : 'unknown',
+      });
+      return normalized;
     });
 
-  const periodCost = byServiceList.reduce((sum, x) => sum + x.cost, 0);
+  const periodTokens = byServiceList.reduce((sum, item) => sum + Number(item.tokens || 0), 0);
   for (const item of byServiceList) {
-    item.percentage = periodCost > 0 ? Math.round((item.cost / periodCost) * 100) : 0;
+    item.percentage = periodTokens > 0 ? Math.round((Number(item.tokens || 0) / periodTokens) * 100) : 0;
   }
 
-  // Build dailyByModel
   const dailyByModel = daily.map((row) => {
     const out = { date: row.date, totalCost: row.cost, totalTokens: row.tokens };
     for (const svc of byServiceList) {
-      const key = row.date + '::' + svc.name;
-      const b = modelDailyTotals[key] || { cost: 0, tokens: 0 };
-      let cost = b.cost;
-      if ((cost === 0 || cost === undefined) && b.tokens > 0) {
-        const rate = lookupFallbackPricing(svc.name);
-        if (rate !== null && rate > 0) cost = b.tokens * rate / 1_000_000;
-      }
-      out[svc.name] = cost;
-      out[svc.name + '_tokens'] = b.tokens || 0;
-      out[svc.name + '_costSource'] = (cost === 0 || cost === undefined) ? 'fallback_estimate' : 'api';
+      const key = `${row.date}::${svc.name}`;
+      const b = modelDailyTotals.get(key) || { cost: 0, tokens: 0 };
+      out[svc.name] = Number(b.cost || 0);
+      out[`${svc.name}_tokens`] = Number(b.tokens || 0);
+      out[`${svc.name}_costSource`] = svc.costSource || (b.cost > 0 ? 'api' : 'unknown');
     }
     return out;
   });
 
-  // Summary derivation
-  const todayRow = daily.find((d) => d.date === todayKey) || {};
+  const todayKey = dayKey(new Date());
   const yesterday = new Date();
   yesterday.setDate(yesterday.getDate() - 1);
   const yesterdayKey = dayKey(yesterday);
+  const todayRow = daily.find((d) => d.date === todayKey) || {};
   const yesterdayRow = daily.find((d) => d.date === yesterdayKey) || {};
-
-  const monthPrefix = (r.startKey || '').slice(0, 7);
+  const monthPrefix = todayKey.slice(0, 7);
   const thisMonthRows = daily.filter((d) => String(d.date || '').startsWith(monthPrefix));
-  const thisMonthTokens = thisMonthRows.reduce((sum, d) => sum + Number(d.tokens || 0), 0);
-  const thisMonthUsd = thisMonthRows.reduce((sum, d) => sum + Number(d.cost || 0), 0);
   const thisWeekRows = daily.slice(-7);
-  const thisWeekTokens = thisWeekRows.reduce((sum, d) => sum + Number(d.tokens || 0), 0);
-  const thisWeekUsd = thisWeekRows.reduce((sum, d) => sum + Number(d.cost || 0), 0);
 
-  // Period totals from summary (most accurate)
-  const periodTokens = daily.reduce((sum, d) => sum + Number(d.tokens || 0), 0);
-  const globalTotalCost = summaryData && summaryData.totals ? summaryData.totals.totalCost : periodCost;
-
-  return {
+  return costSanity.normalizeUsageCosts({
+    source: 'openclaw.session_jsonl_fast_scan',
     period,
     periodRange: { start: r.startKey, end: r.endKey },
     summary: {
-      periodUsd: globalTotalCost,
-      thisMonthUsd,
+      periodUsd: daily.reduce((sum, d) => sum + Number(d.cost || 0), 0),
       previousPeriodUsd: 0,
-      periodTokens,
+      periodTokens: daily.reduce((sum, d) => sum + Number(d.tokens || 0), 0),
       todayUsd: todayRow.cost || 0,
       yesterdayUsd: yesterdayRow.cost || 0,
-      thisWeekUsd,
-      thisMonthUsd,
-      totalUsd: globalTotalCost,
+      thisWeekUsd: thisWeekRows.reduce((sum, d) => sum + Number(d.cost || 0), 0),
+      thisMonthUsd: thisMonthRows.reduce((sum, d) => sum + Number(d.cost || 0), 0),
+      totalUsd: daily.reduce((sum, d) => sum + Number(d.cost || 0), 0),
       todayTokens: todayRow.tokens || 0,
-      thisWeekTokens,
-      thisMonthTokens,
-      totalTokens: thisMonthTokens,
-      note: 'Source: OpenClaw session-cost-usage (loadCostUsageSummary + per-session aggregation)',
-      moduleUsed: usage._module,
+      thisWeekTokens: thisWeekRows.reduce((sum, d) => sum + Number(d.tokens || 0), 0),
+      thisMonthTokens: thisMonthRows.reduce((sum, d) => sum + Number(d.tokens || 0), 0),
+      totalTokens: thisMonthRows.reduce((sum, d) => sum + Number(d.tokens || 0), 0),
+      note: `Source: OpenClaw session JSONL fast scan (${records.length} usage records, ${filesScanned}/${filesAvailable} files)`,
+      recordsScanned: records.length,
+      filesScanned,
+      filesAvailable,
     },
     daily,
     dailyByModel,
-    modelKeys: byServiceList.map((x) => x.name),
+    modelKeys: byServiceList.map((item) => item.name),
     byService: byServiceList,
-  };
+  });
 }
 
 async function main() {
-  const period = String(process.argv[2] || 'month');
+  const period = process.argv.slice(2).find((arg) => VALID_PERIODS.has(String(arg))) || 'month';
   const data = await buildForPeriod(period);
   process.stdout.write(JSON.stringify(data));
 }

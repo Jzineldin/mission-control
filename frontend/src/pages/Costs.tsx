@@ -56,6 +56,10 @@ interface TokenServiceData {
   cost?: number
   tokens?: number
   percentage?: number
+  costSource?: string
+  costStatus?: string
+  billingModes?: string
+  costNote?: string
 }
 
 interface AgentUsageData {
@@ -161,6 +165,7 @@ interface ChartSeriesItem {
   color: string
   totalCost: number
   totalTokens: number
+  rawModels?: string[]
 }
 
 interface ChartDataRow {
@@ -202,6 +207,22 @@ function formatPreciseCurrency(value: number) {
   const safeValue = Number.isFinite(value) ? value : 0
   if (Math.abs(safeValue) > 0 && Math.abs(safeValue) < 0.01) return `$${safeValue.toFixed(6)}`
   return formatCurrency(safeValue)
+}
+
+function costReliabilityLabel(item?: Pick<TokenServiceData, 'costSource' | 'costStatus' | 'billingModes'>) {
+  const source = String(item?.costSource || '').toLowerCase()
+  const status = String(item?.costStatus || '').toLowerCase()
+  const modes = String(item?.billingModes || '').toLowerCase()
+  if (source.includes('included') || status.includes('included') || modes.includes('included')) return 'Included'
+  if (source.includes('unknown') || status.includes('unknown')) return 'Unknown cost'
+  if (source.includes('fallback')) return 'Estimated'
+  if (source.includes('api')) return 'Metered'
+  return 'Unknown cost'
+}
+
+function formatAgentCostValue(cost: number, sourceLabel: string) {
+  if (cost === 0 && (sourceLabel === 'Included' || sourceLabel === 'Unknown cost')) return sourceLabel
+  return formatPreciseCurrency(cost)
 }
 
 function formatTokens(value: number) {
@@ -379,7 +400,8 @@ function canonicalModelName(model: string) {
 }
 
 function isLocalModel(model: string) {
-  return model.toLowerCase().includes('ollama/')
+  const lower = model.toLowerCase()
+  return lower.includes('ollama/') || lower.includes('lmstudio') || lower.includes('localhost') || lower.includes('local/')
 }
 
 function toChartKey(index: number) {
@@ -451,6 +473,15 @@ function readNumericField(row: Record<string, unknown>, key: string) {
   const value = row[key]
   const numberValue = Number(value || 0)
   return Number.isFinite(numberValue) ? numberValue : 0
+}
+
+function hasUsableAgentSplitData(data?: Pick<TokenData, 'agents' | 'period'> | null) {
+  return !!data?.agents?.some(agent => {
+    const summaryTokens = Number(agent.summary?.periodTokens ?? agent.summary?.thisMonthTokens ?? agent.summary?.totalTokens ?? 0)
+    const summaryCost = Number(agent.summary?.periodUsd ?? agent.summary?.thisMonthUsd ?? agent.summary?.totalUsd ?? 0)
+    const serviceUsage = (agent.byService || []).some(service => Number(service.tokens || 0) > 0 || Number(service.cost || 0) > 0)
+    return summaryTokens > 0 || summaryCost > 0 || serviceUsage
+  })
 }
 
 function CustomChartTooltip({
@@ -863,10 +894,10 @@ export default function Costs() {
           setBudgetInput((tokens?.budget?.monthly || 0).toString())
           setLoading(false)
 
-          const hasDetailedAgentSplit = tokens?.agents?.some((agent: AgentUsageData) => Number(agent.summary?.periodTokens || 0) > 0)
+          const hasDetailedAgentSplit = hasUsableAgentSplitData(tokens)
           const needsDetailedRetry = (
-            (tokens?.meta?.refreshing || tokens?.source === 'sessions.fast_fallback')
-            && (!hasDetailedAgentSplit || tokens?.meta?.refreshing)
+            (tokens?.source === 'sessions.fast_fallback' || (tokens?.meta?.refreshing && !hasDetailedAgentSplit))
+            && !hasDetailedAgentSplit
             && attempt < 60
           )
           if (needsDetailedRetry) {
@@ -925,25 +956,43 @@ export default function Costs() {
   const ledgerActive = !!(tokenData && ['token-usage.csv', 'openclaw.usage', 'combined.agent_usage'].includes(tokenData.source || '') && tokenData.summary)
   const codexbarActive = !!(codexbarCosts && codexbarCosts.last30DaysCostUSD > 0)
   const codexbarLatest = codexbarCosts?.daily?.[codexbarCosts.daily.length - 1] || null
+  const codexbarPeriodDays = useMemo(() => {
+    if (!codexbarActive) return []
+    if (period === 'day') return codexbarCosts?.daily?.slice(-1) || []
+    if (period === '7d') return codexbarCosts?.daily?.slice(-7) || []
+    return codexbarCosts?.daily || []
+  }, [codexbarActive, codexbarCosts?.daily, period])
 
   const chartSeries = useMemo<ChartSeriesItem[]>(() => {
-    if (!ledgerActive || !tokenData?.dailyByModel?.length) return []
-
     const totals = new Map<string, { totalCost: number; totalTokens: number }>()
 
-    tokenData.dailyByModel.forEach(day => {
-      Object.entries(day).forEach(([key, value]) => {
-        if (key === 'date' || key === 'models' || key === 'totalCost' || key === 'totalTokens' || key.endsWith('_tokens')) return
-        const cost = Number(value || 0)
-        const tokens = readNumericField(day, `${key}_tokens`)
-        const current = totals.get(key) || { totalCost: 0, totalTokens: 0 }
-        current.totalCost += Number.isFinite(cost) ? cost : 0
-        current.totalTokens += Number.isFinite(tokens) ? tokens : 0
-        totals.set(key, current)
+    if (codexbarActive && codexbarPeriodDays.length) {
+      codexbarPeriodDays.forEach(day => {
+        ;(day.models || []).forEach(model => {
+          const name = model.model || 'Unknown model'
+          const current = totals.get(name) || { totalCost: 0, totalTokens: 0 }
+          current.totalCost += Number(model.cost || 0)
+          current.totalTokens += Number(model.totalTokens || 0)
+          totals.set(name, current)
+        })
       })
-    })
+    } else if (ledgerActive && tokenData?.dailyByModel?.length) {
+      tokenData.dailyByModel.forEach(day => {
+        Object.entries(day).forEach(([key, value]) => {
+          if (key === 'date' || key === 'models' || key === 'totalCost' || key === 'totalTokens' || key.endsWith('_tokens') || key.endsWith('_costSource')) return
+          const cost = Number(value || 0)
+          const tokens = readNumericField(day, `${key}_tokens`)
+          const current = totals.get(key) || { totalCost: 0, totalTokens: 0 }
+          current.totalCost += Number.isFinite(cost) ? cost : 0
+          current.totalTokens += Number.isFinite(tokens) ? tokens : 0
+          totals.set(key, current)
+        })
+      })
+    } else {
+      return []
+    }
 
-    return Array.from(totals.entries())
+    const sorted = Array.from(totals.entries())
       .map(([model, values], index) => ({
         model,
         key: toChartKey(index),
@@ -951,37 +1000,76 @@ export default function Costs() {
         totalCost: values.totalCost,
         totalTokens: values.totalTokens,
       }))
-      .filter(item => item.totalCost > 0)
-      .sort((a, b) => b.totalCost - a.totalCost)
-      .slice(0, 6)
-      .map((item, index) => ({ ...item, key: toChartKey(index) }))
-  }, [ledgerActive, tokenData])
+      .filter(item => item.totalCost > 0 || item.totalTokens > 0)
+      .sort((a, b) => b.totalCost - a.totalCost || b.totalTokens - a.totalTokens)
+
+    const visible = sorted.length > 6 ? sorted.slice(0, 5) : sorted
+    const omitted = sorted.length > 6 ? sorted.slice(5) : []
+    const withOther = omitted.length
+      ? [
+          ...visible,
+          {
+            model: 'Other models',
+            key: toChartKey(visible.length),
+            color: '#8E8E93',
+            totalCost: omitted.reduce((sum, item) => sum + item.totalCost, 0),
+            totalTokens: omitted.reduce((sum, item) => sum + item.totalTokens, 0),
+            rawModels: omitted.map(item => item.model),
+          },
+        ]
+      : visible
+
+    return withOther.map((item, index) => ({ ...item, key: toChartKey(index) }))
+  }, [codexbarActive, codexbarPeriodDays, ledgerActive, tokenData])
 
   const chartData = useMemo<ChartDataRow[]>(() => {
-    if (!ledgerActive || !tokenData?.dailyByModel?.length || !chartSeries.length) return []
+    if (!chartSeries.length) return []
+
+    if (codexbarActive && codexbarPeriodDays.length) {
+      return codexbarPeriodDays.map(day => {
+        const row: Record<string, string | number> = {
+          day: new Date(day.date).toLocaleDateString('en-US', { day: 'numeric' }),
+          fullDate: day.date,
+          total: Number(day.totalCost || 0),
+          totalTokens: Number(day.totalTokens || 0),
+        }
+
+        chartSeries.forEach(series => {
+          const modelNames = series.rawModels?.length ? series.rawModels : [series.model]
+          const matchingModels = (day.models || []).filter(model => modelNames.includes(model.model))
+          const value = matchingModels.reduce((sum, model) => sum + Number(model.cost || 0), 0)
+          const tokens = matchingModels.reduce((sum, model) => sum + Number(model.totalTokens || 0), 0)
+          row[series.key] = value
+          row[`${series.key}__tokens`] = tokens
+        })
+
+        return row as ChartDataRow
+      })
+    }
+
+    if (!ledgerActive || !tokenData?.dailyByModel?.length) return []
 
     const rows = tokenData.dailyByModel.map(day => {
       const row: Record<string, string | number> = {
         day: new Date(day.date).toLocaleDateString('en-US', { day: 'numeric' }),
         fullDate: day.date,
-        total: 0,
-        totalTokens: 0,
+        total: Number(day.totalCost || 0),
+        totalTokens: Number(day.totalTokens || 0),
       }
 
       chartSeries.forEach(series => {
-        const value = readNumericField(day, series.model)
-        const tokens = readNumericField(day, `${series.model}_tokens`)
+        const modelNames = series.rawModels?.length ? series.rawModels : [series.model]
+        const value = modelNames.reduce((sum, model) => sum + readNumericField(day, model), 0)
+        const tokens = modelNames.reduce((sum, model) => sum + readNumericField(day, `${model}_tokens`), 0)
         row[series.key] = value
         row[`${series.key}__tokens`] = tokens
-        row.total = Number(row.total || 0) + value
-        row.totalTokens = Number(row.totalTokens || 0) + tokens
       })
 
       return row as ChartDataRow
     })
 
     return rows
-  }, [chartSeries, ledgerActive, tokenData])
+  }, [chartSeries, codexbarActive, codexbarPeriodDays, ledgerActive, tokenData])
 
   const hasChartBars = chartData.some(row => Number(row.total || 0) > 0)
   const useMobileDailyChart = m && hasChartBars
@@ -1127,18 +1215,12 @@ export default function Costs() {
   const activePeriodLabel = periodLabels[period]
   const loadedCostsPeriodKey = tokenData?.period?.key
   const costsPeriodPending = !!loadedCostsPeriodKey && loadedCostsPeriodKey !== period
-  const agentSplitRefreshing = !!tokenData?.meta?.refreshing && !(tokenData?.agents?.some(agent => agent.key === 'openclaw' && Number(agent.summary?.periodTokens || 0) > 0))
+  const hasUsableAgentSplit = !costsPeriodPending && hasUsableAgentSplitData(tokenData)
+  const agentSplitRefreshing = !!tokenData?.meta?.refreshing && !hasUsableAgentSplit
   const agentSplitPending = costsPeriodPending || agentSplitRefreshing
   const agentSplitPeriodLabel = loadedCostsPeriodKey && loadedCostsPeriodKey in periodLabels
     ? periodLabels[loadedCostsPeriodKey as keyof typeof periodLabels]
     : activePeriodLabel
-  const codexbarPeriodDays = codexbarActive
-    ? period === 'day'
-      ? codexbarCosts?.daily?.slice(-1) || []
-      : period === '7d'
-        ? codexbarCosts?.daily?.slice(-7) || []
-        : codexbarCosts?.daily || []
-    : []
   const codexbarPeriodCost = codexbarPeriodDays.reduce((sum, day) => sum + (day.totalCost || 0), 0)
   const codexbarPeriodTokens = codexbarPeriodDays.reduce((sum, day) => sum + (day.totalTokens || 0), 0)
 
@@ -1276,16 +1358,17 @@ export default function Costs() {
 
   const agentSplit = agentSplitPending ? [] : (tokenData?.agents || []).map(agent => {
     const prefix = `${agent.label} / `
-    const modelTotals = new Map<string, { name: string; tokens: number; cost: number }>()
+    const modelTotals = new Map<string, { name: string; tokens: number; cost: number; costSource?: string }>()
 
     ;(tokenData?.dailyByModel || []).forEach(day => {
       Object.keys(day).forEach(key => {
         if (!key.startsWith(prefix) || key.endsWith('_tokens') || key.endsWith('_costSource')) return
         const rawTokens = Number(day[`${key}_tokens`] || 0)
         const rawCost = Number(day[key] || 0)
-        const current = modelTotals.get(key) || { name: key, tokens: 0, cost: 0 }
+        const current = modelTotals.get(key) || { name: key, tokens: 0, cost: 0, costSource: String(day[`${key}_costSource`] || '') }
         current.tokens += Number.isFinite(rawTokens) ? rawTokens : 0
         current.cost += Number.isFinite(rawCost) ? rawCost : 0
+        current.costSource = current.costSource || String(day[`${key}_costSource`] || '')
         modelTotals.set(key, current)
       })
     })
@@ -1303,11 +1386,17 @@ export default function Costs() {
       .slice()
       .sort((a, b) => Number(b.tokens || 0) - Number(a.tokens || 0))[0]
       || (agent.byService || []).slice().sort((a, b) => Number(b.tokens || 0) - Number(a.tokens || 0))[0]
+    const costSourceProbe = (agent.byService || []).find(service => Number(service.cost || 0) > 0)
+      || periodModels.find(model => Number(model.cost || 0) > 0)
+      || (agent.byService || []).find(service => Number(service.tokens || 0) > 0)
+      || topModel
+    const costLabel = costReliabilityLabel(costSourceProbe)
 
     return {
       ...agent,
       tokens,
       cost,
+      costLabel,
       topModel: topModel?.name?.replace(/^OpenClaw \/ /, '').replace(/^Hermes \/ /, '') || 'No model data',
     }
   })
@@ -1593,9 +1682,12 @@ export default function Costs() {
                   </div>
                 </div>
                 {!agentSplitPending && (
-                  <span className="macos-badge macos-badge-blue">
-                    {formatCompactTokenValue(totalAgentTokens)} TOKENS
-                  </span>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                    {tokenData?.meta?.refreshing && <span className="macos-badge">Refreshing</span>}
+                    <span className="macos-badge macos-badge-blue">
+                      {formatCompactTokenValue(totalAgentTokens)} TOKENS
+                    </span>
+                  </div>
                 )}
               </div>
 
@@ -1696,7 +1788,10 @@ export default function Costs() {
                         <div>
                           <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.42)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Cost</div>
                           <div style={{ fontSize: m ? 22 : 26, color: 'rgba(255,255,255,0.96)', fontWeight: 300, marginTop: 5 }}>
-                            {formatPreciseCurrency(agent.cost)}
+                            {formatAgentCostValue(agent.cost, agent.costLabel)}
+                          </div>
+                          <div style={{ fontSize: 10, color: agent.costLabel === 'Metered' ? 'rgba(255,255,255,0.42)' : '#FFCC00', fontWeight: 700, marginTop: 4 }}>
+                            {agent.costLabel}
                           </div>
                         </div>
                         <div title={`${formatTokens(agent.tokens)} tokens`}>
@@ -1946,9 +2041,11 @@ export default function Costs() {
                 </h3>
                 <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.45)', marginTop: '4px' }}>
                   {chartDayCount > 0
-                    ? hasSessionEstimateChart && !ledgerActive && !hasAwsData
-                      ? `${chartDayCount}-day activity view estimated from session token flow.`
-                      : `${chartDayCount}-day view of recent spend movement.`
+                    ? codexbarActive
+                      ? `${chartDayCount}-day CodexBar invoice spend; bars reconcile with the ${activePeriodLabel.toLowerCase()} cards.`
+                      : hasSessionEstimateChart && !ledgerActive && !hasAwsData
+                        ? `${chartDayCount}-day activity view estimated from session token flow.`
+                        : `${chartDayCount}-day usage-ledger spend movement; unknown/included costs are excluded from billable bars.`
                     : 'Waiting for daily spend history.'}
                 </div>
               </div>
@@ -1967,7 +2064,7 @@ export default function Costs() {
                       <BarChart data={chartData} margin={{ top: 8, right: 8, left: m ? -24 : -8, bottom: m ? 28 : 12 }}>
                         <CartesianGrid stroke="rgba(255,255,255,0.08)" vertical={false} />
                         <XAxis dataKey="fullDate" tickFormatter={val => { const d = new Date(val); return `${d.getMonth()+1}/${d.getDate()}` }} tick={{ fill: 'rgba(255,255,255,0.5)', fontSize: m ? 10 : 11 }} axisLine={false} tickLine={false} />
-                        <YAxis tickFormatter={value => `$${value}`} tick={{ fill: 'rgba(255,255,255,0.5)', fontSize: m ? 10 : 11 }} axisLine={false} tickLine={false} width={m ? 38 : 52} />
+                        <YAxis tickFormatter={value => formatPreciseCurrency(Number(value || 0))} tick={{ fill: 'rgba(255,255,255,0.5)', fontSize: m ? 10 : 11 }} axisLine={false} tickLine={false} width={m ? 52 : 70} />
                         <Tooltip content={<CustomChartTooltip />} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
                         <Legend
                           verticalAlign="bottom"

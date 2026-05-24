@@ -18,6 +18,8 @@ const { buildCostsRouter } = require('./server/routes/costs');
 const { buildCouncilsRouter } = require('./server/routes/councils');
 const { buildCronRouter } = require('./server/routes/cron');
 const { buildDocsRouter } = require('./server/routes/docs');
+const { buildGBrainRouter } = require('./server/routes/gbrain');
+const { buildHermesKanbanRouter } = require('./server/routes/hermesKanban');
 const { buildMemoryRouter } = require('./server/routes/memory');
 const { buildModelsRouter } = require('./server/routes/models');
 const { buildOllamaRouter } = require('./server/routes/ollama');
@@ -487,6 +489,8 @@ function healthPayload() {
 
 app.get('/api/health', (req, res) => res.json(healthPayload()));
 app.get('/healthz', (req, res) => res.json(healthPayload()));
+app.use(buildGBrainRouter());
+app.use(buildHermesKanbanRouter({ mcConfig }));
 
 const settingsService = createSettingsService({
   mcConfig,
