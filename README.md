@@ -21,6 +21,10 @@ The current release is an operator-focused overhaul:
   a background usage refresh fails.
 - **Cron Jobs + Calendar** - recurring job status, failed/overdue jobs, compact
   model display, manual run/toggle controls, and schedule-oriented scanning.
+- **Hermes Kanban** - profile-backed task board with triage, ready, running,
+  blocked, and done columns plus bounded card actions.
+- **GBrain** - read-only trust cockpit, living brain map, and evidence drawer for
+  shared memory health, sources, queues, and caveats.
 - **Governance Archive** - read-only view of council/governance records. Council
   mutations are disabled by default because the old council flow was not earning
   its operational weight.
@@ -38,9 +42,11 @@ The current release is an operator-focused overhaul:
 | `/` | Dashboard | Operator briefing, live health, active sessions, heartbeat, evidence feed |
 | `/conversations` | Conversations | Session browser and transcript review |
 | `/workshop` | Workshop | Task board and execution queue |
+| `/kanban` | Hermes Kanban | Hermes profile task board, card detail, and bounded task actions |
 | `/costs` | Cost Tracker | OpenClaw/Hermes usage, budgets, daily/model breakdowns |
 | `/cron` | Cron Jobs | Cron health, toggles, manual runs, model visibility |
 | `/calendar` | Calendar | Schedule-first view of recurring work |
+| `/gbrain` | GBrain | Shared memory trust, source, queue, and bridge proof |
 | `/ollama` | Ollama Monitor | Local model and runtime readiness |
 | `/councils` | Governance Archive | Read-only governance/council history and state |
 | `/team` | Team Structure | Team registry and role/ownership view |
@@ -110,6 +116,16 @@ Council action endpoints return `410 Gone` unless
 `MISSION_CONTROL_ENABLE_COUNCIL_ACTIONS=1` is set. Keep the default archive-only
 mode unless a real OpenClaw operation needs active council mutations again.
 
+## Documentation
+
+| Document | Use it when |
+| --- | --- |
+| [First Operator Check](docs/tutorial-first-operator-check.md) | You want a first end-to-end walkthrough of the new operator surfaces |
+| [How to Verify Operator Surfaces](docs/how-to-verify-operator-surfaces.md) | You need commands to verify GBrain, Hermes Kanban, cron, costs, and supply-chain behavior |
+| [Operator Surfaces Reference](docs/reference-operator-surfaces.md) | You need the exact browser routes, API endpoints, actions, defaults, and constraints |
+| [Read-Only Evidence Design](docs/explanation-read-only-evidence-design.md) | You want the rationale behind read-only probes, explicit stale state, and bounded actions |
+| [GBrain Hybrid Brain View Handoff](docs/gbrain-hybrid-brain-view-handoff-20260524.md) | You need the product handoff that shaped the `/gbrain` implementation |
+
 ## Architecture
 
 ```text
@@ -163,6 +179,10 @@ the relevant API endpoint directly with `curl`.
 - Cost Tracker should continue to return a usable fallback quickly, then refresh
   richer OpenClaw/Hermes usage in the background. If one source fails, keep the
   fresh source data and mark any cached source data as stale.
+- GBrain should remain read-only until live proof records are structured enough
+  to separate observation, repair, and mutation controls safely.
+- Hermes Kanban actions should keep argument boundaries explicit. Do not pass
+  user-controlled values that can be interpreted as CLI flags.
 - Chat and agent fallback routes should pass abort signals through to child work
   and listen for response close events before cancelling that work.
 - Governance Archive is intentionally quieter than the old council workflow. If

@@ -5,6 +5,16 @@ Origin thread: Hermes workspace / office-hours
 Target project: Mission Control
 Status: Ready for Mission Control implementation planning
 
+## Implementation Docs
+
+The first Mission Control implementation landed on the `codex/gbrain` branch.
+Use these docs for the live operator surface:
+
+- [First Operator Check](tutorial-first-operator-check.md) - tutorial for opening Mission Control and checking the new pages.
+- [How to Verify Operator Surfaces](how-to-verify-operator-surfaces.md) - task guide for local endpoint, test, and troubleshooting checks.
+- [Operator Surfaces Reference](reference-operator-surfaces.md) - exact routes, API endpoints, action boundaries, and defaults.
+- [Read-Only Evidence Design](explanation-read-only-evidence-design.md) - rationale for read-only probes and explicit stale/unavailable states.
+
 ## Why This Belongs Here
 
 This idea should live in Mission Control, not Hermes workspace. Hermes is currently the conversational way Yordam asks about GBrain health and behavior, but the product surface belongs at `http://127.0.0.1:3333/`: Mission Control should make GBrain visible as the shared digital memory layer for Hermes, OpenClaw, and Codex.
