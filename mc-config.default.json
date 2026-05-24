@@ -12,6 +12,7 @@
     "agents": true,
     "settings": true,
     "skills": true,
+    "gbrainTimeline": true,
     "aws": false
   },
   "gateway": {

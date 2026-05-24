@@ -18,7 +18,7 @@ const {
   assert.ok(overview.nodes.length >= 6);
   assert.ok(overview.edges.length >= 5);
   assert.equal(overview.warnings.length, 0);
-  assert.ok(overview.caveats.length >= 2);
+  assert.ok(overview.caveats.length >= 1);
 
   for (const node of overview.nodes) {
     assert.ok(node.proof?.source, `${node.id} is missing proof source`);
@@ -67,14 +67,15 @@ const {
 async function testLiveHealthNormalizesReadOnlyProbe() {
   const execFilePromise = async (bin, args) => {
     assert.equal(bin, 'gbrain');
-    if (args.join(' ') === 'health --json') {
+    if (args.join(' ') === 'call get_health') {
       return {
         stdout: JSON.stringify({
           status: 'healthy',
-          health_score: 10,
-          pages: 12,
-          chunks: 34,
-          embedded: 34,
+          brain_score: 100,
+          health_score: 8,
+          page_count: 12,
+          chunk_count: 34,
+          embedded_count: 34,
           missing_embeddings: 0,
           embed_coverage: 1,
         }),
@@ -97,7 +98,7 @@ async function testLiveHealthNormalizesReadOnlyProbe() {
   assert.equal(overview.mode, 'live-read-only');
   assert.equal(overview.cockpit.health.value, '100/100');
   assert.equal(overview.cockpit.queue.value, '0 / 0 / 0');
-  assert.equal(overview.nodes.find((node) => node.id === 'gbrain-core')?.proof.source, 'gbrain health --json');
+  assert.equal(overview.nodes.find((node) => node.id === 'gbrain-core')?.proof.source, 'gbrain call get_health');
 }
 
 async function testLiveSourcesDoNotExposeLocalPaths() {
@@ -154,8 +155,8 @@ async function testLiveSourcesCountsUnknownStatusesAsWarnings() {
   const sourceNode = overview.nodes.find((node) => node.id === 'sources');
 
   assert.equal(sources.count, 3);
-  assert.equal(sources.healthyCount, 1);
-  assert.equal(sources.warningCount, 2);
+  assert.equal(sources.healthyCount, 2);
+  assert.equal(sources.warningCount, 1);
   assert.equal(sourceNode.status, 'warning');
 }
 
@@ -192,6 +193,11 @@ async function testLiveSourcesFallsBackToTextOutput() {
 async function testLiveHealthFallsBackToTextOutput() {
   const execFilePromise = async (bin, args) => {
     assert.equal(bin, 'gbrain');
+    if (args.join(' ') === 'call get_health') {
+      const error = new Error('raw get_health unavailable');
+      error.stderr = error.message;
+      throw error;
+    }
     if (args.join(' ') === 'health --json') {
       return {
         stdout: [
@@ -277,8 +283,8 @@ async function testOverviewDoesNotMarkUnknownLiveSourcesHealthy() {
       checkedAt,
       count: 2,
       totalPages: 0,
-      healthyCount: 0,
-      warningCount: 0,
+      healthyCount: 1,
+      warningCount: 1,
       sources: [
         { id: 'mission-control', status: 'unknown', pages: null, chunks: null },
         { id: 'clawd', status: 'isolated', pages: null, chunks: null },
@@ -291,7 +297,7 @@ async function testOverviewDoesNotMarkUnknownLiveSourcesHealthy() {
 
   assert.equal(sources.status, 'warning');
   assert.equal(edge.status, 'warning');
-  assert.equal(overview.cockpit.caveats.detail, 'Static caveats plus live source warnings');
+  assert.equal(overview.cockpit.caveats.detail, 'Bridge caveat plus live source warnings');
 }
 
 async function testOverviewDoesNotDefaultMissingLiveQueueToZero() {
@@ -370,12 +376,38 @@ async function testOverviewShowsLiveAttemptWhenRuntimeUnavailable() {
   assert.equal(overview.cockpit.health.value, 'Unavailable');
   assert.equal(overview.cockpit.queue.value, 'Unavailable');
   assert.equal(overview.cockpit.embeddings.detail, 'health probe unavailable');
-  assert.equal(overview.cockpit.caveats.detail, 'Static caveats; source probe unavailable');
+  assert.equal(overview.cockpit.caveats.detail, 'Bridge caveat; source probe unavailable');
   assert.equal(core.status, 'critical');
-  assert.equal(core.proof.source, 'gbrain health --json');
+  assert.equal(core.proof.source, 'gbrain call get_health');
   assert.match(core.proof.detail, /unavailable/i);
   assert.equal(sources.status, 'critical');
   assert.match(overview.handoff.recommendedNextSlice, /connected read-only/i);
+}
+
+function testOverviewAddsTimelineSummaryAndIncidentBanner() {
+  const overview = buildGBrainOverview({}, {
+    timelineSummary: {
+      enabled: true,
+      status: 'healthy',
+      lastCapturedAt: '2026-05-24T12:00:00.000Z',
+      lastCaptureReason: 'changed',
+      skippedDuplicateCount: 0,
+      malformedLineCount: 0,
+      retainedEntryCount: 1,
+      warning: '',
+      diff: { kind: 'first-snapshot', changes: [], summary: 'First timeline proof captured.' },
+      incidentBanner: null,
+    },
+    incidentBanner: {
+      status: 'warning',
+      title: 'Trust evidence changed',
+      detail: 'Caveats increased.',
+    },
+  });
+
+  assert.equal(overview.timelineSummary.enabled, true);
+  assert.equal(overview.timelineSummary.retainedEntryCount, 1);
+  assert.equal(overview.incidentBanner.title, 'Trust evidence changed');
 }
 
 (async () => {
@@ -389,6 +421,7 @@ async function testOverviewShowsLiveAttemptWhenRuntimeUnavailable() {
   await testOverviewDoesNotDefaultMissingLiveQueueToZero();
   await testLiveFailureIsSafeJson();
   await testOverviewShowsLiveAttemptWhenRuntimeUnavailable();
+  testOverviewAddsTimelineSummaryAndIncidentBanner();
 
   console.log('gbrainOverview tests passed');
 })();

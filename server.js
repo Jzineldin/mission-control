@@ -477,6 +477,9 @@ app.use((req, res, next) => {
 
 app.use(express.static(path.join(__dirname, 'frontend/dist')));
 app.use('/public', express.static(path.join(__dirname, 'public')));
+app.use('/data', (req, res) => {
+  res.status(404).json({ error: 'Not found' });
+});
 
 function healthPayload() {
   return {
@@ -489,7 +492,7 @@ function healthPayload() {
 
 app.get('/api/health', (req, res) => res.json(healthPayload()));
 app.get('/healthz', (req, res) => res.json(healthPayload()));
-app.use(buildGBrainRouter());
+app.use(buildGBrainRouter({ projectRoot: __dirname, mcConfig }));
 app.use(buildHermesKanbanRouter({ mcConfig }));
 
 const settingsService = createSettingsService({

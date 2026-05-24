@@ -78,6 +78,64 @@ interface GBrainOverview {
     source: string
     recommendedNextSlice: string
   }
+  timelineSummary?: TimelineSummary
+  incidentBanner?: IncidentBanner | null
+}
+
+interface TimelineDiff {
+  kind: string
+  summary: string
+  changes: { field: string; from: string | number | null; to: string | number | null }[]
+}
+
+interface IncidentBanner {
+  status: EvidenceStatus
+  title: string
+  detail: string
+  snapshotId?: string
+}
+
+interface TimelineSummary {
+  enabled: boolean
+  status: EvidenceStatus
+  lastCapturedAt: string | null
+  lastCaptureReason: string
+  skippedDuplicateCount: number
+  malformedLineCount: number
+  retainedEntryCount: number
+  warning: string
+  diff: TimelineDiff
+  incidentBanner: IncidentBanner | null
+}
+
+interface TimelineEntry {
+  id: string
+  capturedAt: string
+  actor: string
+  trust: {
+    label: string
+    status: EvidenceStatus
+    score: number | null
+    source: string
+    lastVerifiedAt: string
+  }
+  metrics: Record<string, string>
+  bridgeProof: { id: string; label: string; status: EvidenceStatus; proofLabel: string; proofSource: string; verifiedAt: string }[]
+  sourceFreshness: { status: EvidenceStatus; label: string; warningCount: number; defaultThresholdHours: number }
+  warnings: string[]
+}
+
+interface TimelineResponse {
+  enabled: boolean
+  entries: TimelineEntry[]
+  warnings: string[]
+  malformedLineCount: number
+  retainedEntryCount: number
+  truncated: boolean
+  limit: number
+  schemaVersion: number
+  diff: TimelineDiff
+  incidentBanner: IncidentBanner | null
 }
 
 const nodePositions: Record<string, { x: number; y: number; size: number }> = {
@@ -120,6 +178,7 @@ function lineFor(edge: GBrainEdge) {
 
 export default function GBrain() {
   const { data, loading, error, refetch } = useApi<GBrainOverview>('/api/gbrain/overview', 30000)
+  const { data: timeline, loading: timelineLoading, error: timelineError } = useApi<TimelineResponse>('/api/gbrain/timeline?limit=50', 60000)
   const [selectedId, setSelectedId] = useState('gbrain-core')
 
   const selectedNode = useMemo(() => {
@@ -133,6 +192,14 @@ export default function GBrain() {
     const exists = nodeById.has(nodeId)
     if (exists) setSelectedId(nodeId)
   }
+
+  const timelineSummary = data?.timelineSummary
+  const incidentBanner = data?.incidentBanner || timeline?.incidentBanner || timelineSummary?.incidentBanner
+  const timelineEnabled = timeline?.enabled ?? timelineSummary?.enabled ?? true
+  const timelineEntries = timeline?.entries || []
+  const visibleTimelineEntries = timelineEntries.slice(0, 2)
+  const hiddenTimelineCount = Math.max(0, (timeline?.retainedEntryCount ?? timelineEntries.length) - visibleTimelineEntries.length)
+  const showTimelineDiff = timelineSummary?.diff && timelineSummary.diff.kind !== 'unchanged'
 
   return (
     <PageTransition>
@@ -159,6 +226,20 @@ export default function GBrain() {
 
         {error ? <GlassCard><div className={styles.error}>{error}</div></GlassCard> : null}
 
+        {incidentBanner ? (
+          <div
+            className={styles.incidentBanner}
+            style={{ '--status-color': statusColor(incidentBanner.status) } as CSSProperties}
+            role="status"
+          >
+            <AlertTriangle size={17} />
+            <div>
+              <strong>{incidentBanner.title}</strong>
+              <span>{incidentBanner.detail}</span>
+            </div>
+          </div>
+        ) : null}
+
         <div className={styles.layout}>
           <GlassCard noPad className={styles.rail}>
             <div className={styles.panelHeader}>
@@ -176,6 +257,18 @@ export default function GBrain() {
                   <div className={styles.metricDetail}>{metric.detail}</div>
                 </button>
               ))}
+              {timelineSummary ? (
+                <div className={styles.timelineHealth}>
+                  <div className={styles.metricTop}>
+                    <span className={styles.metricLabel}>Timeline health</span>
+                    <span className={styles.statusDot} style={{ '--status-color': statusColor(timelineSummary.status) } as CSSProperties} />
+                  </div>
+                  <div className={styles.metricValue}>{timelineSummary.retainedEntryCount}</div>
+                  <div className={styles.metricDetail}>
+                    {timelineSummary.lastCapturedAt ? `${timeAgo(timelineSummary.lastCapturedAt)} · ${timelineSummary.lastCaptureReason}` : timelineSummary.lastCaptureReason}
+                  </div>
+                </div>
+              ) : null}
               {!data && !loading ? <div className={styles.metricDetail}>No overview payload loaded.</div> : null}
             </div>
           </GlassCard>
@@ -301,6 +394,73 @@ export default function GBrain() {
             )}
           </GlassCard>
         </div>
+
+        <GlassCard noPad className={styles.timelinePanel}>
+          <div className={styles.panelHeader}>
+            <div className={styles.panelTitle}><RefreshCw size={15} /> Evidence Timeline</div>
+            <div className={styles.panelMeta}>
+              {timelineEnabled ? `${timeline?.retainedEntryCount ?? timelineSummary?.retainedEntryCount ?? 0} retained` : 'disabled'}
+            </div>
+          </div>
+          <div className={styles.timelineBody}>
+            {showTimelineDiff ? (
+              <div className={styles.diffStrip}>
+                <CheckCircle2 size={15} />
+                <span>{timelineSummary.diff.summary}</span>
+              </div>
+            ) : null}
+
+            {timelineSummary?.warning || timelineError || (timeline?.warnings || []).length ? (
+              <div className={styles.timelineWarning}>
+                <AlertTriangle size={15} />
+                <span>{timelineSummary?.warning || timelineError || timeline?.warnings?.[0]}</span>
+              </div>
+            ) : null}
+
+            {!timelineEnabled ? (
+              <div className={styles.timelineEmpty}>Evidence Timeline disabled. Current cockpit proof remains available.</div>
+            ) : timelineLoading && !timeline ? (
+              <div className={styles.timelineEmpty}>Loading evidence timeline...</div>
+            ) : timelineEntries.length === 0 ? (
+              <div className={styles.timelineEmpty}>No timeline entries yet. Current live proof is shown above.</div>
+            ) : (
+              <div className={styles.timelineList}>
+                {visibleTimelineEntries.map((entry, index) => (
+                  <article
+                    key={entry.id}
+                    className={`${styles.timelineEntry} ${index > 0 ? styles.timelineEntryCompact : ''}`}
+                    style={{ '--status-color': statusColor(entry.trust.status) } as CSSProperties}
+                    tabIndex={0}
+                  >
+                    <div className={styles.timelineEntryTop}>
+                      <div>
+                        <strong>{entry.trust.label}</strong>
+                        <span>{formatDate(entry.capturedAt)} · {entry.actor}</span>
+                      </div>
+                      <span className={styles.timelineStatus}>{statusLabel(entry.trust.status)}</span>
+                    </div>
+                    <div className={styles.timelineMetrics}>
+                      <span>Health {entry.metrics.health || '—'}</span>
+                      <span>Embeddings {entry.metrics.embeddings || '—'}</span>
+                      <span>Queue {entry.metrics.queue || '—'}</span>
+                      <span>Caveats {entry.metrics.caveats || '0'}</span>
+                    </div>
+                    {index === 0 ? (
+                      <div className={styles.timelineProofs}>
+                        {entry.bridgeProof.slice(0, 3).map((proof) => (
+                          <span key={`${entry.id}-${proof.id}`}>{proof.label}: {statusLabel(proof.status)}</span>
+                        ))}
+                      </div>
+                    ) : null}
+                  </article>
+                ))}
+                {hiddenTimelineCount > 0 ? (
+                  <div className={styles.timelineMore}>{hiddenTimelineCount} older proof snapshots retained in the ledger.</div>
+                ) : null}
+              </div>
+            )}
+          </div>
+        </GlassCard>
       </div>
     </PageTransition>
   )
