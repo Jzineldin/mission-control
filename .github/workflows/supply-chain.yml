@@ -4,6 +4,7 @@ on:
   workflow_dispatch: {}
   pull_request:
   push:
+    branches: [master]
 
 permissions:
   contents: read
@@ -23,11 +24,11 @@ jobs:
             frontend/package-lock.json
       - name: Check live npm incident IOCs
         run: node scripts/check-npm-supply-chain.mjs
-      - name: Verify npm registry signatures
-        run: |
-          npm audit signatures
-          (cd frontend && npm audit signatures)
       - name: Verify frozen npm lockfiles
         run: |
           npm ci --ignore-scripts
           (cd frontend && npm ci --ignore-scripts)
+      - name: Verify npm registry signatures
+        run: |
+          npm audit signatures
+          (cd frontend && npm audit signatures)
