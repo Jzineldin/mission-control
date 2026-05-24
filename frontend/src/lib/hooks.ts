@@ -1,9 +1,9 @@
 import { queryOptions, useQuery } from '@tanstack/react-query'
 
-export async function fetchJson<T>(url: string): Promise<T> {
+export async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
   const requestUrl =
     typeof window === 'undefined' ? url : new URL(url, window.location.origin).toString()
-  const res = await fetch(requestUrl)
+  const res = await fetch(requestUrl, init)
   const contentType = (res.headers.get('content-type') || '').toLowerCase()
   if (!res.ok) throw new Error(`HTTP ${res.status}`)
   if (!contentType.includes('application/json')) {

@@ -112,6 +112,43 @@ type OllamaModelTelemetryResponse = {
   models: OllamaModelTelemetryItem[]
 }
 
+type TokenServiceUsage = {
+  name: string
+  cost?: number
+  tokens?: number
+  sessions?: number
+  percentage?: number
+  agent?: string
+  costSource?: string
+  costStatus?: string
+  billingModes?: string
+}
+
+type TokenUsageResponse = {
+  source?: string
+  period?: { key?: string; start?: string | null; end?: string | null }
+  summary?: {
+    periodTokens?: number
+    totalTokens?: number
+  }
+  byService?: TokenServiceUsage[]
+  meta?: {
+    updatedAt?: string
+    refreshing?: boolean
+    stale?: boolean
+    ageMs?: number
+  }
+}
+
+type ModelTokenUsage = {
+  tokens: number
+  sessions: number
+  cost: number
+  percentage: number
+  sources: string[]
+  costSources: string[]
+}
+
 type OllamaOptimizationPayload = {
   enabled: boolean
   current: OllamaOptimizationProfile
@@ -243,6 +280,46 @@ function errorMessage(err: unknown, fallback: string) {
 function formatErrorRate(rate?: number | null) {
   if (!Number.isFinite(rate as number)) return '0.0%'
   return (Number(rate) * 100).toFixed(1) + '%'
+}
+
+function formatTokens(value?: number | null) {
+  const n = Number(value || 0)
+  if (!Number.isFinite(n) || n <= 0) return '0'
+  if (n >= 1_000_000_000) return `${(n / 1_000_000_000).toFixed(n >= 10_000_000_000 ? 1 : 2)}B`
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(n >= 10_000_000 ? 1 : 2)}M`
+  if (n >= 1_000) return `${(n / 1_000).toFixed(n >= 10_000 ? 1 : 2)}K`
+  return String(Math.round(n))
+}
+
+function canonicalLocalModelName(value?: string | null) {
+  return String(value || '')
+    .trim()
+    .replace(/^(OpenClaw|Hermes)\s*\/\s*/i, '')
+    .replace(/^(ollama|custom|lmstudio|local)\//i, '')
+    .replace(/:latest$/i, '')
+    .toLowerCase()
+}
+
+function aggregateLocalTokenUsage(services: TokenServiceUsage[] = []) {
+  const usage = new Map<string, ModelTokenUsage>()
+  for (const service of services) {
+    const rawName = String(service.name || '')
+    const localLike = /(^|\/\s*)(ollama|custom|lmstudio|local)\//i.test(rawName)
+    if (!localLike) continue
+    const key = canonicalLocalModelName(rawName)
+    if (!key) continue
+    const existing = usage.get(key) || { tokens: 0, sessions: 0, cost: 0, percentage: 0, sources: [], costSources: [] }
+    existing.tokens += Number(service.tokens || 0)
+    existing.sessions += Number(service.sessions || 0)
+    existing.cost += Number(service.cost || 0)
+    existing.percentage += Number(service.percentage || 0)
+    const source = String(service.agent || '').trim() || rawName.split('/')[0]?.trim()
+    if (source && !existing.sources.includes(source)) existing.sources.push(source)
+    const costSource = String(service.costSource || service.costStatus || service.billingModes || '').trim()
+    if (costSource && !existing.costSources.includes(costSource)) existing.costSources.push(costSource)
+    usage.set(key, existing)
+  }
+  return usage
 }
 
 function modelTelemetryLabels(estimated?: boolean) {
@@ -405,6 +482,8 @@ export default function OllamaMonitor() {
   const { data, loading, error, refetch } = useApi<OllamaTelemetry>('/api/ollama/telemetry', 2500)
   const { data: historyData } = useApi<OllamaTelemetryHistoryResponse>('/api/ollama/telemetry/history', 5000)
   const { data: modelTelemetryData } = useApi<OllamaModelTelemetryResponse>('/api/ollama/telemetry/models', 5000)
+  const [usagePeriod, setUsagePeriod] = useState<'day' | '7d' | 'month'>('month')
+  const { data: tokenUsageData } = useApi<TokenUsageResponse>(`/api/costs?period=${usagePeriod}`, 60000)
   const [optimizationProfile, setOptimizationProfile] = useState<OllamaOptimizationProfile | null>(null)
   const [isSavingOptimization, setIsSavingOptimization] = useState(false)
   const [optimizationMessage, setOptimizationMessage] = useState('')
@@ -419,6 +498,14 @@ export default function OllamaMonitor() {
   const modelMetricMap = useMemo(() => {
     return new Map(modelMetrics.map((metric) => [metric.name, metric]))
   }, [modelMetrics])
+  const modelTokenUsageMap = useMemo(() => aggregateLocalTokenUsage(tokenUsageData?.byService || []), [tokenUsageData?.byService])
+  const getModelTokenUsage = (name: string) => modelTokenUsageMap.get(canonicalLocalModelName(name))
+  const tokenUsageSummary = useMemo(() => {
+    const totalTokens = Array.from(modelTokenUsageMap.values()).reduce((sum, usage) => sum + usage.tokens, 0)
+    const matchedTokens = models.reduce((sum, model) => sum + (modelTokenUsageMap.get(canonicalLocalModelName(model.name))?.tokens || 0), 0)
+    const visibleModelsWithTokens = models.filter((model) => (modelTokenUsageMap.get(canonicalLocalModelName(model.name))?.tokens || 0) > 0).length
+    return { totalTokens, matchedTokens, visibleModelsWithTokens }
+  }, [modelTokenUsageMap, models])
   const modelSummary = useMemo(() => {
     const totalModels = models.length
     const runningCount = models.filter((model) => model.status === 'running').length
@@ -1255,7 +1342,7 @@ export default function OllamaMonitor() {
         <GlassCard delay={0.2} noPad>
           <div style={{ padding: m ? 14 : 18 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 12, flexWrap: 'wrap' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                 <Server size={16} />
                 <h3 style={sectionTitleStyle}>Model Durumu</h3>
                 {modelTelemetryData?.estimated ? (
@@ -1263,7 +1350,31 @@ export default function OllamaMonitor() {
                     estimated telemetry
                   </span>
                 ) : null}
+                {tokenUsageData?.meta?.refreshing ? (
+                  <span style={{ fontSize: 10, color: '#64D2FF', background: 'rgba(100,210,255,0.10)', border: '1px solid rgba(100,210,255,0.20)', borderRadius: 999, padding: '3px 8px' }}>
+                    token usage refreshing
+                  </span>
+                ) : null}
               </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', justifyContent: m ? 'flex-start' : 'flex-end' }}>
+                <select
+                  value={usagePeriod}
+                  onChange={(event) => setUsagePeriod(event.target.value as 'day' | '7d' | 'month')}
+                  style={{
+                    borderRadius: 10,
+                    border: panelBorder,
+                    background: 'rgba(255,255,255,0.05)',
+                    color: textPrimary,
+                    padding: '8px 10px',
+                    fontSize: 12,
+                    outline: 'none',
+                  }}
+                  title="Token usage period"
+                >
+                  <option value="day">Bugün</option>
+                  <option value="7d">Son 7 gün</option>
+                  <option value="month">Bu ay</option>
+                </select>
               {models.length > 0 && (
                 <button
                   onClick={() => setAllModelsExpanded(!allModelsExpanded)}
@@ -1283,11 +1394,14 @@ export default function OllamaMonitor() {
                   {allModelsExpanded ? 'Collapse All' : 'Expand All'}
                 </button>
               )}
+              </div>
             </div>
             {(models.length > 0 || modelMetrics.length > 0) && (
               <div style={{ display: 'grid', gridTemplateColumns: m ? '1fr 1fr' : 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10, marginBottom: 14 }}>
                 <MetricPill label="Models available" value={String(modelSummary.totalModels)} />
                 <MetricPill label="Loaded now" value={String(modelSummary.runningCount)} />
+                {tokenUsageData ? <MetricPill label="Period tokens" value={formatTokens(tokenUsageSummary.matchedTokens || tokenUsageSummary.totalTokens)} tone="ok" /> : null}
+                {tokenUsageData ? <MetricPill label="Models with usage" value={`${tokenUsageSummary.visibleModelsWithTokens}/${models.length}`} tone="ok" /> : null}
                 {modelMetrics.length > 0 ? <MetricPill label={modelLabels.error} value={formatErrorRate(modelSummary.avgErrorRate)} tone={modelTelemetryIsEstimated ? 'estimate' : 'ok'} /> : null}
                 {modelMetrics.length > 0 ? <MetricPill label={modelLabels.volume} value={String(modelSummary.totalRequests)} tone={modelTelemetryIsEstimated ? 'estimate' : 'ok'} /> : null}
               </div>
@@ -1315,6 +1429,24 @@ export default function OllamaMonitor() {
                 )}
               </div>
             )}
+            {tokenUsageData && (
+              <div
+                style={{
+                  border: tokenUsageData.meta?.stale ? '1px solid rgba(255,178,36,0.20)' : panelBorder,
+                  borderRadius: 10,
+                  background: tokenUsageData.meta?.stale ? 'rgba(255,178,36,0.06)' : 'rgba(255,255,255,0.03)',
+                  padding: '9px 10px',
+                  marginBottom: 12,
+                }}
+              >
+                <p style={{ margin: 0, fontSize: 11, fontWeight: 700, color: tokenUsageData.meta?.stale ? '#FFB224' : textSecondary }}>
+                  Token usage · {usagePeriod === 'day' ? 'Bugün' : usagePeriod === '7d' ? 'Son 7 gün' : 'Bu ay'}
+                </p>
+                <p style={{ margin: '4px 0 0', fontSize: 11, color: textSecondary }}>
+                  Source: {tokenUsageData.source || 'unknown'} · Updated: {formatTime(tokenUsageData.meta?.updatedAt)}{tokenUsageData.meta?.stale ? ' · stale cache' : ''}
+                </p>
+              </div>
+            )}
             {models.length === 0 ? (
               <p style={{ fontSize: 12, color: textSecondary }}>Model listesi boş.</p>
             ) : (
@@ -1325,6 +1457,11 @@ export default function OllamaMonitor() {
                   const metaParts = modelMetaParts(model)
                   const requestsPerMinute = finiteNumber(metric?.requestsPerMinute)
                   const hasErrorRate = metric && finiteNumber(metric.errorRate) !== null
+                  const tokenUsage = getModelTokenUsage(model.name)
+                  const hasTokenUsage = !!tokenUsage && tokenUsage.tokens > 0
+                  const tokenUsageTitle = tokenUsage
+                    ? `${tokenUsage.tokens.toLocaleString()} tokens${tokenUsage.sessions ? ` · ${tokenUsage.sessions} sessions` : ''}${tokenUsage.sources.length ? ` · ${tokenUsage.sources.join(', ')}` : ''}`
+                    : 'No token usage recorded in selected period'
 
                   return (
                     <div
@@ -1370,12 +1507,16 @@ export default function OllamaMonitor() {
                             </p>
                             <StatusBadge status={model.status === 'running' ? 'active' : 'ok'} label={model.status} />
                           </div>
-                          <div style={{ display: 'grid', gridTemplateColumns: m ? 'repeat(2, minmax(0, 1fr))' : 'minmax(0, 0.9fr) repeat(2, minmax(100px, 0.55fr))', gap: 10, alignItems: 'center' }}>
+                          <div style={{ display: 'grid', gridTemplateColumns: m ? 'repeat(2, minmax(0, 1fr))' : 'minmax(0, 0.9fr) repeat(3, minmax(100px, 0.55fr))', gap: 10, alignItems: 'center' }}>
                             {metaParts.length > 0 ? (
                               <p style={{ margin: 0, fontSize: 11, color: textTertiary }}>
                                 {metaParts.join(' · ')}
                               </p>
                             ) : <span />}
+                            <div title={tokenUsageTitle}>
+                              <p style={metricLabelStyle}>Tokens</p>
+                              <p style={{ margin: '3px 0 0', fontSize: 13, fontWeight: 600, color: hasTokenUsage ? textPrimary : textTertiary }}>{hasTokenUsage ? formatTokens(tokenUsage.tokens) : '—'}</p>
+                            </div>
                             {requestsPerMinute !== null ? (
                               <div>
                                 <p style={metricLabelStyle}>{modelLabels.rate}</p>
@@ -1396,7 +1537,12 @@ export default function OllamaMonitor() {
                       {isExpanded && (
                         <div style={{ borderTop: panelBorder, padding: 14, display: 'flex', flexDirection: 'column', gap: 12 }}>
                           {metric && (
-                            <div style={{ display: 'grid', gridTemplateColumns: m ? '1fr 1fr' : 'repeat(4, minmax(0, 1fr))', gap: 10 }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: m ? '1fr 1fr' : 'repeat(5, minmax(0, 1fr))', gap: 10 }}>
+                              <div style={{ border: panelBorder, borderRadius: 12, padding: 10 }} title={tokenUsageTitle}>
+                                <p style={metricLabelStyle}>Period tokens</p>
+                                <p style={{ ...metricValueStyle, fontSize: 16 }}>{hasTokenUsage ? formatTokens(tokenUsage.tokens) : '—'}</p>
+                                {hasTokenUsage ? <p style={{ ...helperTextStyle, marginTop: 3 }}>{tokenUsage.sessions || 0} sessions</p> : null}
+                              </div>
                               <div style={{ border: panelBorder, borderRadius: 12, padding: 10 }}>
                                 <p style={metricLabelStyle}>{modelLabels.rate}</p>
                                 <p style={{ ...metricValueStyle, fontSize: 16 }}>{formatMetric(metric.requestsPerMinute, 2)}</p>

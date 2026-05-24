@@ -9,6 +9,52 @@ function normalizeCronModel(model) {
   return CRON_MODEL_ALIASES[key] || key;
 }
 
+function parseCronJobRef(id = '', schedulerHint = '') {
+  const raw = String(id || '');
+  const explicitScheduler = String(schedulerHint || '').trim().toLowerCase();
+  const match = raw.match(/^(openclaw|hermes):(.+)$/);
+  if (match) return { scheduler: match[1], sourceId: match[2] };
+  return { scheduler: explicitScheduler || 'openclaw', sourceId: raw };
+}
+
+function assertSafeCronSourceId(sourceId) {
+  const value = String(sourceId || '').trim();
+  if (!value) {
+    const error = new Error('Cron job id is required');
+    error.statusCode = 400;
+    throw error;
+  }
+  if (value.startsWith('-')) {
+    const error = new Error('Cron job id cannot start with "-"');
+    error.statusCode = 400;
+    throw error;
+  }
+  return value;
+}
+
+function assertOpenclawCronAction(id, schedulerHint = '') {
+  const ref = parseCronJobRef(id, schedulerHint);
+  if (ref.scheduler !== 'openclaw') {
+    const error = new Error('Hermes cron jobs are shown read-only in Mission Control for now. Manage them from Hermes Agent.');
+    error.statusCode = 501;
+    throw error;
+  }
+  return assertSafeCronSourceId(ref.sourceId);
+}
+
+function isUsableCronSnapshot(snapshot) {
+  if (!snapshot || !Array.isArray(snapshot.jobs) || snapshot.jobs.length === 0) return false;
+  return snapshot.jobs.every((job) => {
+    if (!job.scheduler && !job.actions) return true;
+    if (job.scheduler === 'hermes') return job.actions?.model === true && job.actions?.toggle === true;
+    return true;
+  });
+}
+
+function hasCronModelPatch(body = {}) {
+  return Object.prototype.hasOwnProperty.call(body || {}, 'model') || !!body?.thinking;
+}
+
 function cleanOpenclawError(error) {
   const raw = [error?.stderr, error?.stdout, error?.message]
     .filter(Boolean)
@@ -40,22 +86,23 @@ function buildCronRouter({
     cronCacheTime = 0;
   }
 
+  async function refreshCronCacheNow() {
+    const parsed = await cronService.fetchCronJobsLive();
+    const rawJobs = Array.isArray(parsed) ? parsed : (Array.isArray(parsed?.jobs) ? parsed.jobs : []);
+    if (!rawJobs || rawJobs.length === 0) return cronCache;
+    const jobs = rawJobs.map((job) => cronService.mapCronJobForApi(job));
+    const result = writeRuntimeSnapshot('cron', { jobs });
+    cronCache = result;
+    cronCacheTime = Date.now();
+    return result;
+  }
+
   async function refreshCronCache() {
     if (cronRefresh) return cronRefresh;
     cronRefresh = new Promise((resolve) => {
       setImmediate(async () => {
         try {
-          const parsed = await cronService.fetchCronJobsLive();
-          const rawJobs = Array.isArray(parsed) ? parsed : (Array.isArray(parsed?.jobs) ? parsed.jobs : []);
-          if (!rawJobs || rawJobs.length === 0) {
-            resolve(cronCache);
-            return;
-          }
-          const jobs = rawJobs.map((job) => cronService.mapCronJobForApi(job));
-          const result = writeRuntimeSnapshot('cron', { jobs });
-          cronCache = result;
-          cronCacheTime = Date.now();
-          resolve(result);
+          resolve(await refreshCronCacheNow());
         } catch {
           resolve(cronCache);
         } finally {
@@ -69,7 +116,7 @@ function buildCronRouter({
   router.get('/api/cron', async (req, res) => {
     try {
       const snapshot = readRuntimeSnapshot('cron', runtimeSnapshotTtl.cron);
-      if (snapshot && Array.isArray(snapshot.jobs) && snapshot.jobs.length > 0) {
+      if (isUsableCronSnapshot(snapshot)) {
         return res.json(snapshot);
       }
 
@@ -96,26 +143,35 @@ function buildCronRouter({
   router.post('/api/cron/:id/toggle', async (req, res) => {
     try {
       const { id } = req.params;
-      const { enabled } = req.body;
+      const { enabled, scheduler } = req.body || {};
+      const ref = parseCronJobRef(id, scheduler);
+      if (ref.scheduler === 'hermes') {
+        const job = cronService.updateHermesCronJobEnabled(assertSafeCronSourceId(ref.sourceId), enabled !== false);
+        await refreshCronCacheNow();
+        const mappedJob = cronService.mapCronJobForApi(job);
+        return res.json({ ok: true, message: `Hermes job ${enabled !== false ? 'enabled' : 'disabled'}`, job: mappedJob });
+      }
+      const sourceId = assertOpenclawCronAction(id, scheduler);
       const command = enabled ? 'enable' : 'disable';
-      await openclawExec(['cron', command, id], 15000);
+      await openclawExec(['cron', command, sourceId], 15000);
       clearCronCache();
       return res.json({ ok: true, message: `Job ${enabled ? 'enabled' : 'disabled'}` });
     } catch (error) {
       console.error('[Cron toggle]', error.message);
-      return res.status(500).json({ error: error.message });
+      return res.status(error.statusCode || 500).json({ error: error.message });
     }
   });
 
   router.post('/api/cron/:id/run', async (req, res) => {
     try {
       const { id } = req.params;
-      await openclawExec(['cron', 'run', id], 30000);
+      const sourceId = assertOpenclawCronAction(id, req.body?.scheduler);
+      await openclawExec(['cron', 'run', sourceId], 30000);
       clearCronCache();
       return res.json({ ok: true, message: 'Job triggered successfully' });
     } catch (error) {
       console.error('[Cron run]', error.message);
-      return res.status(500).json({ error: error.message });
+      return res.status(error.statusCode || 500).json({ error: error.message });
     }
   });
 
@@ -157,25 +213,46 @@ function buildCronRouter({
   router.delete('/api/cron/:id', async (req, res) => {
     try {
       const { id } = req.params;
-      await openclawExec(['cron', 'rm', id], 15000);
+      const sourceId = assertOpenclawCronAction(id, req.body?.scheduler);
+      await openclawExec(['cron', 'rm', sourceId], 15000);
       clearCronCache();
       return res.json({ ok: true, message: 'Job deleted successfully' });
     } catch (error) {
       console.error('[Cron delete]', error.message);
-      return res.status(500).json({ error: error.message });
+      return res.status(error.statusCode || 500).json({ error: error.message });
     }
   });
 
   router.patch('/api/cron/:id/model', async (req, res) => {
     try {
       const { id } = req.params;
-      const { model, thinking } = req.body;
-      if (!model && !thinking) {
+      const body = req.body || {};
+      const { model, thinking, scheduler } = body;
+      const ref = parseCronJobRef(id, scheduler);
+      if (!hasCronModelPatch(body)) {
         return res.status(400).json({ error: 'Provide at least model or thinking' });
       }
 
-      const args = ['cron', 'edit', id];
       const normalizedModel = normalizeCronModel(model);
+
+      if (ref.scheduler === 'hermes') {
+        if (thinking) {
+          return res.status(501).json({ error: 'Hermes cron thinking edits are not supported from Mission Control yet.' });
+        }
+        const updated = cronService.updateHermesCronJobModel(assertSafeCronSourceId(ref.sourceId), normalizedModel);
+        await refreshCronCacheNow();
+        return res.json({
+          ok: true,
+          message: `Hermes cron model updated to ${normalizedModel || 'default'}`,
+          job: cronService.mapCronJobForApi(updated),
+        });
+      }
+
+      if (!normalizedModel && !thinking) {
+        return res.status(400).json({ error: 'Provide at least model or thinking' });
+      }
+
+      const args = ['cron', 'edit', assertSafeCronSourceId(ref.sourceId)];
       if (normalizedModel) args.push('--model', normalizedModel);
       if (thinking) args.push('--thinking', thinking);
 
@@ -190,7 +267,7 @@ function buildCronRouter({
       });
     } catch (error) {
       console.error('[Cron update model]', error.message);
-      return res.status(500).json({ error: cleanOpenclawError(error) });
+      return res.status(error.statusCode || 500).json({ error: error.statusCode ? error.message : cleanOpenclawError(error) });
     }
   });
 
@@ -199,4 +276,6 @@ function buildCronRouter({
 
 module.exports = {
   buildCronRouter,
+  hasCronModelPatch,
+  isUsableCronSnapshot,
 };
