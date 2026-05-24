@@ -70,7 +70,7 @@ function usageNumber(usage, keys) {
   return 0;
 }
 
-function extractUsageRecord(obj, fallbackTimestampMs) {
+function extractUsageRecord(obj, fallbackTimestampMs, sessionKey) {
   if (!obj || typeof obj !== 'object') return null;
   const message = obj.message && typeof obj.message === 'object' ? obj.message : null;
   if (!message || !message.usage || typeof message.usage !== 'object') return null;
@@ -99,7 +99,60 @@ function extractUsageRecord(obj, fallbackTimestampMs) {
     cacheWrite,
     totalTokens,
     totalCost,
+    sessionKey,
   };
+}
+
+function listJsonlFiles(dir, agentId, agentsBase, startMs, files, depth = 0) {
+  if (depth > 10) return;
+  let entries = [];
+  try {
+    entries = fs.readdirSync(dir, { withFileTypes: true });
+  } catch {
+    return;
+  }
+
+  for (const entry of entries) {
+    const fullPath = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      if (!entry.name.startsWith('.')) listJsonlFiles(fullPath, agentId, agentsBase, startMs, files, depth + 1);
+      continue;
+    }
+    if (!entry.isFile() || !entry.name.endsWith('.jsonl') || entry.name.endsWith('.trajectory.jsonl')) continue;
+    try {
+      const stat = fs.statSync(fullPath);
+      // mtime is a coarse prefilter only; each usage record is checked by timestamp below.
+      if (stat.mtimeMs >= startMs - 24 * 60 * 60 * 1000) {
+        files.push({
+          agentId,
+          path: fullPath,
+          mtimeMs: stat.mtimeMs,
+          sessionKey: path.relative(agentsBase, fullPath),
+        });
+      }
+    } catch {}
+  }
+}
+
+function findSessionDirs(root, out = [], depth = 0) {
+  if (depth > 6) return out;
+  let entries = [];
+  try {
+    entries = fs.readdirSync(root, { withFileTypes: true });
+  } catch {
+    return out;
+  }
+
+  for (const entry of entries) {
+    if (!entry.isDirectory() || entry.name.startsWith('.')) continue;
+    const fullPath = path.join(root, entry.name);
+    if (entry.name === 'sessions') {
+      out.push(fullPath);
+    } else {
+      findSessionDirs(fullPath, out, depth + 1);
+    }
+  }
+  return out;
 }
 
 function listSessionFiles(startMs) {
@@ -115,23 +168,9 @@ function listSessionFiles(startMs) {
   }
 
   for (const agentId of agents) {
-    const sessionsDir = path.join(agentsBase, agentId, 'sessions');
-    let entries = [];
-    try {
-      entries = fs.readdirSync(sessionsDir, { withFileTypes: true });
-    } catch {
-      continue;
-    }
-    for (const entry of entries) {
-      if (!entry.isFile() || !entry.name.endsWith('.jsonl') || entry.name.endsWith('.trajectory.jsonl')) continue;
-      const fullPath = path.join(sessionsDir, entry.name);
-      try {
-        const stat = fs.statSync(fullPath);
-        // mtime is a coarse prefilter only; each usage record is checked by timestamp below.
-        if (stat.mtimeMs >= startMs - 24 * 60 * 60 * 1000) {
-          files.push({ agentId, path: fullPath, mtimeMs: stat.mtimeMs });
-        }
-      } catch {}
+    const agentRoot = path.join(agentsBase, agentId);
+    for (const sessionsDir of findSessionDirs(agentRoot)) {
+      listJsonlFiles(sessionsDir, agentId, agentsBase, startMs, files);
     }
   }
   return files;
@@ -156,7 +195,7 @@ async function scanUsageRecords(range) {
       } catch {
         continue;
       }
-      const record = extractUsageRecord(obj, file.mtimeMs);
+      const record = extractUsageRecord(obj, file.mtimeMs, file.sessionKey);
       if (!record || record.timestampMs < range.startMs || record.timestampMs > range.endMs) continue;
       records.push(record);
     }
@@ -165,7 +204,7 @@ async function scanUsageRecords(range) {
 }
 
 function createTotalsBucket(name) {
-  return { name, cost: 0, tokens: 0, input: 0, output: 0, cacheRead: 0, cacheWrite: 0, sessions: 0 };
+  return { name, cost: 0, tokens: 0, input: 0, output: 0, cacheRead: 0, cacheWrite: 0, sessionKeys: new Set() };
 }
 
 async function buildForPeriod(period) {
@@ -205,7 +244,7 @@ async function buildForPeriod(period) {
     model.output += record.output;
     model.cacheRead += record.cacheRead;
     model.cacheWrite += record.cacheWrite;
-    model.sessions += 1;
+    if (record.sessionKey) model.sessionKeys.add(record.sessionKey);
     modelTotals.set(name, model);
 
     const dailyKey = `${record.date}::${name}`;
@@ -224,7 +263,7 @@ async function buildForPeriod(period) {
         name: item.name,
         cost: item.cost,
         tokens: item.tokens,
-        sessions: item.sessions,
+        sessions: item.sessionKeys.size,
         percentage: 0,
         costSource: item.cost > 0 ? 'api' : 'unknown',
       });
@@ -293,7 +332,15 @@ async function main() {
   process.stdout.write(JSON.stringify(data));
 }
 
-main().catch((err) => {
-  console.error('[openclaw-usage-summary] failed', err && err.message ? err.message : String(err));
-  process.exit(1);
-});
+if (require.main === module) {
+  main().catch((err) => {
+    console.error('[openclaw-usage-summary] failed', err && err.message ? err.message : String(err));
+    process.exit(1);
+  });
+}
+
+module.exports = {
+  buildForPeriod,
+  extractUsageRecord,
+  listSessionFiles,
+};

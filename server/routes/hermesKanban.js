@@ -173,6 +173,16 @@ function buildHermesKanbanRouter({ mcConfig }) {
     }
   });
 
+  function assertNoFlagPrefix(value, label) {
+    const text = String(value || '');
+    if (text.startsWith('-')) {
+      const error = new Error(`${label} cannot start with "-"`);
+      error.statusCode = 400;
+      throw error;
+    }
+    return text;
+  }
+
   router.post('/api/hermes-kanban/actions', async (req, res) => {
     try {
       const body = req.body || {};
@@ -181,33 +191,34 @@ function buildHermesKanbanRouter({ mcConfig }) {
       const args = [];
 
       if (action === 'create') {
-        const title = String(body.title || '').trim();
+        const title = assertNoFlagPrefix(String(body.title || '').trim(), 'title');
         if (!title) return res.status(400).json({ error: 'title required' });
         args.push('create', title);
         if (body.body) args.push('--body', String(body.body));
-        if (body.assignee) args.push('--assignee', String(body.assignee));
-        if (body.workspace) args.push('--workspace', String(body.workspace));
-        if (body.tenant) args.push('--tenant', String(body.tenant));
+        if (body.assignee) args.push('--assignee', assertNoFlagPrefix(body.assignee, 'assignee'));
+        if (body.workspace) args.push('--workspace', assertNoFlagPrefix(body.workspace, 'workspace'));
+        if (body.tenant) args.push('--tenant', assertNoFlagPrefix(body.tenant, 'tenant'));
         if (Number.isFinite(Number(body.priority))) args.push('--priority', String(Math.trunc(Number(body.priority))));
         if (body.triage) args.push('--triage');
         if (Array.isArray(body.skills)) {
-          body.skills.filter(Boolean).forEach((skill) => args.push('--skill', String(skill)));
+          body.skills.filter(Boolean).forEach((skill) => args.push('--skill', assertNoFlagPrefix(skill, 'skill')));
         }
         args.push('--created-by', 'mission-control', '--json');
       } else {
         if (!taskId) return res.status(400).json({ error: 'taskId required' });
+        const safeTaskId = assertNoFlagPrefix(taskId, 'taskId');
         if (action === 'assign') {
           if (!body.assignee) return res.status(400).json({ error: 'assignee required' });
-          args.push('assign', taskId, String(body.assignee));
+          args.push('assign', safeTaskId, assertNoFlagPrefix(body.assignee, 'assignee'));
         } else if (action === 'comment') {
           if (!body.text) return res.status(400).json({ error: 'text required' });
-          args.push('comment', '--author', 'mission-control', taskId, String(body.text));
+          args.push('comment', '--author', 'mission-control', safeTaskId, String(body.text));
         } else if (action === 'block') {
-          args.push('block', taskId, String(body.reason || 'Blocked from Mission Control'));
+          args.push('block', safeTaskId, String(body.reason || 'Blocked from Mission Control'));
         } else if (action === 'unblock') {
-          args.push('unblock', taskId);
+          args.push('unblock', safeTaskId);
         } else if (action === 'archive') {
-          args.push('archive', taskId);
+          args.push('archive', safeTaskId);
         } else if (action === 'dispatch') {
           args.push('dispatch', '--max', '1', '--json');
         } else {
@@ -218,7 +229,7 @@ function buildHermesKanbanRouter({ mcConfig }) {
       const result = await hermes(args, { json: action === 'create' || action === 'dispatch', timeout: action === 'dispatch' ? 30000 : 15000 });
       res.json({ ok: true, action, result });
     } catch (error) {
-      res.status(500).json({ ok: false, error: error.message });
+      res.status(error.statusCode || 500).json({ ok: false, error: error.message });
     }
   });
 

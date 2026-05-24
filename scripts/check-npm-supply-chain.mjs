@@ -16,9 +16,30 @@ const repoRoot = process.env.SUPPLY_CHAIN_REPO_ROOT || process.cwd();
 const pruneDirs = new Set(['.git', 'node_modules', 'dist', 'build', '.next', '.turbo', '.cache', 'coverage', 'playwright-report', 'test-results']);
 const lockNames = new Set(['package-lock.json', 'pnpm-lock.yaml', 'yarn.lock']);
 
-function decodeJsString(raw) {
-  // Decode JS string escapes from JSON.parse('...') without evaluating remote code.
-  return JSON.parse('"' + raw.replace(/"/g, '\\"') + '"');
+export function decodeJsString(raw) {
+  // Convert a JS single-quoted string body to a JSON-parseable double-quoted
+  // string. Single-quoted JS strings escape \' and \\; bare " is legal there
+  // but illegal in JSON, so we have to escape it without confusing existing
+  // backslash escapes (\n, \\, \uXXXX).
+  let out = '';
+  for (let i = 0; i < raw.length; i++) {
+    const c = raw[i];
+    if (c === '\\') {
+      const next = raw[i + 1];
+      if (next === "'") {
+        out += "'";
+        i++;
+      } else {
+        out += c + (next === undefined ? '' : next);
+        if (next !== undefined) i++;
+      }
+    } else if (c === '"') {
+      out += '\\"';
+    } else {
+      out += c;
+    }
+  }
+  return JSON.parse('"' + out + '"');
 }
 
 async function fetchText(url) {
@@ -116,19 +137,27 @@ function scanTextLock(lockfile, iocs, findings) {
   }
 }
 
-const iocs = await loadIocs();
-if (iocs.size === 0) throw new Error(`No npm IOCs parsed from ${advisoryUrl}; failing closed.`);
-const lockfiles = findLockfiles(repoRoot);
-const findings = [];
-for (const lockfile of lockfiles) {
-  if (lockfile.endsWith('package-lock.json')) scanPackageLock(lockfile, iocs, findings);
-  else scanTextLock(lockfile, iocs, findings);
+export { extractItemsFromJs, parseVersions };
+
+async function main() {
+  const iocs = await loadIocs();
+  if (iocs.size === 0) throw new Error(`No npm IOCs parsed from ${advisoryUrl}; failing closed.`);
+  const lockfiles = findLockfiles(repoRoot);
+  const findings = [];
+  for (const lockfile of lockfiles) {
+    if (lockfile.endsWith('package-lock.json')) scanPackageLock(lockfile, iocs, findings);
+    else scanTextLock(lockfile, iocs, findings);
+  }
+
+  console.log(`Supply-chain gate: scanned ${lockfiles.length} lockfile(s), ${iocs.size} npm package IOC(s) from ${advisoryUrl}`);
+  if (findings.length > 0) {
+    console.error('Exact malicious package/version match found:');
+    for (const f of findings) console.error(`- ${f.lockfile}: ${f.package}@${f.version}`);
+    process.exit(1);
+  }
+  console.log('Supply-chain gate: no exact malicious package/version matches.');
 }
 
-console.log(`Supply-chain gate: scanned ${lockfiles.length} lockfile(s), ${iocs.size} npm package IOC(s) from ${advisoryUrl}`);
-if (findings.length > 0) {
-  console.error('Exact malicious package/version match found:');
-  for (const f of findings) console.error(`- ${f.lockfile}: ${f.package}@${f.version}`);
-  process.exit(1);
+if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+  await main();
 }
-console.log('Supply-chain gate: no exact malicious package/version matches.');

@@ -17,6 +17,21 @@ function parseCronJobRef(id = '', schedulerHint = '') {
   return { scheduler: explicitScheduler || 'openclaw', sourceId: raw };
 }
 
+function assertSafeCronSourceId(sourceId) {
+  const value = String(sourceId || '').trim();
+  if (!value) {
+    const error = new Error('Cron job id is required');
+    error.statusCode = 400;
+    throw error;
+  }
+  if (value.startsWith('-')) {
+    const error = new Error('Cron job id cannot start with "-"');
+    error.statusCode = 400;
+    throw error;
+  }
+  return value;
+}
+
 function assertOpenclawCronAction(id, schedulerHint = '') {
   const ref = parseCronJobRef(id, schedulerHint);
   if (ref.scheduler !== 'openclaw') {
@@ -24,7 +39,7 @@ function assertOpenclawCronAction(id, schedulerHint = '') {
     error.statusCode = 501;
     throw error;
   }
-  return ref.sourceId;
+  return assertSafeCronSourceId(ref.sourceId);
 }
 
 function cleanOpenclawError(error) {
@@ -118,7 +133,7 @@ function buildCronRouter({
       const { enabled, scheduler } = req.body || {};
       const ref = parseCronJobRef(id, scheduler);
       if (ref.scheduler === 'hermes') {
-        const job = cronService.updateHermesCronJobEnabled(ref.sourceId, enabled !== false);
+        const job = cronService.updateHermesCronJobEnabled(assertSafeCronSourceId(ref.sourceId), enabled !== false);
         await refreshCronCacheNow();
         const mappedJob = cronService.mapCronJobForApi(job);
         return res.json({ ok: true, message: `Hermes job ${enabled !== false ? 'enabled' : 'disabled'}`, job: mappedJob });
@@ -210,7 +225,7 @@ function buildCronRouter({
         if (thinking) {
           return res.status(501).json({ error: 'Hermes cron thinking edits are not supported from Mission Control yet.' });
         }
-        const updated = cronService.updateHermesCronJobModel(ref.sourceId, normalizedModel);
+        const updated = cronService.updateHermesCronJobModel(assertSafeCronSourceId(ref.sourceId), normalizedModel);
         await refreshCronCacheNow();
         return res.json({
           ok: true,
@@ -219,7 +234,7 @@ function buildCronRouter({
         });
       }
 
-      const args = ['cron', 'edit', ref.sourceId];
+      const args = ['cron', 'edit', assertSafeCronSourceId(ref.sourceId)];
       if (normalizedModel) args.push('--model', normalizedModel);
       if (thinking) args.push('--thinking', thinking);
 

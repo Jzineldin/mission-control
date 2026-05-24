@@ -1,7 +1,7 @@
 const express = require('express');
 
-const AUDIT_REPORT_PATH = '/Users/yordamkocatepe/hermes-workspace/reports/gbrain-full-audit-20260524.md';
-const DESIGN_HANDOFF_PATH = '/Users/yordamkocatepe/clawd/mission-control/docs/gbrain-hybrid-brain-view-handoff-20260524.md';
+const AUDIT_REPORT_PATH = '~/hermes-workspace/reports/gbrain-full-audit-20260524.md';
+const DESIGN_HANDOFF_PATH = 'docs/gbrain-hybrid-brain-view-handoff-20260524.md';
 const AUDIT_VERIFIED_AT = '2026-05-24T00:00:00.000Z';
 
 function buildGBrainOverview() {
@@ -142,7 +142,7 @@ function buildGBrainOverview() {
   return {
     ok: true,
     mode: 'read-only-fixture',
-    refreshedAt: new Date().toISOString(),
+    refreshedAt: AUDIT_VERIFIED_AT,
     evidenceFreshness: 'saved-audit',
     title: 'GBrain',
     subtitle: 'Shared memory for Hermes, OpenClaw, and Codex',
