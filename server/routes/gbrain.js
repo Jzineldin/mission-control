@@ -2,6 +2,7 @@ const express = require('express');
 const util = require('util');
 const os = require('os');
 const { execFile } = require('child_process');
+const { createGBrainTimelineService } = require('../services/gbrainTimeline');
 
 const AUDIT_REPORT_PATH = '~/hermes-workspace/reports/gbrain-full-audit-20260524.md';
 const DESIGN_HANDOFF_PATH = 'docs/gbrain-hybrid-brain-view-handoff-20260524.md';
@@ -153,7 +154,7 @@ function liveSourceStatus(liveSources, sourcesUnavailable = false) {
 function isHealthySourceStatus(status) {
   const lower = String(status || '').toLowerCase();
   if (/never[-_\s]?synced/.test(lower)) return false;
-  return /\b(ok|clean|healthy|synced)\b/.test(lower);
+  return /\b(ok|clean|healthy|synced|isolated)\b/.test(lower);
 }
 
 function isWarningSourceStatus(status) {
@@ -178,7 +179,7 @@ function normalizeHealthScore(score) {
 }
 
 function normalizeHealthPayload(healthPayload, jobsPayload, checkedAt) {
-  const score = normalizeHealthScore(findNumber(healthPayload, ['health_score', 'healthScore', 'score']));
+  const score = normalizeHealthScore(findNumber(healthPayload, ['brain_score', 'brainScore', 'health_score', 'healthScore', 'score']));
   const pages = findNumber(healthPayload, ['pages', 'page_count', 'total_pages']);
   const chunks = findNumber(healthPayload, ['chunks', 'chunk_count', 'total_chunks']);
   const embedded = findNumber(healthPayload, ['embedded', 'embedded_chunks', 'embedded_count']);
@@ -311,24 +312,34 @@ async function buildLiveGBrainHealth(options = {}) {
   const execFilePromise = options.execFilePromise || defaultExecFilePromise;
   const checkedAt = new Date().toISOString();
   const [healthResult, jobsResult] = await Promise.all([
-    runGBrain(execFilePromise, ['health', '--json']),
+    runGBrain(execFilePromise, ['call', 'get_health']),
     runGBrain(execFilePromise, ['jobs', 'stats', '--json']),
   ]);
   const healthPayload = parseJsonFromOutput(healthResult.stdout);
-  const jobsPayload = parseJsonFromOutput(jobsResult.stdout);
+  const jobsPayload = parseJsonFromOutput(jobsResult.stdout) || {
+    waiting: numberFromText(jobsResult.stdout, /Queue health:\s*(\d+)\s+waiting/i),
+    active: numberFromText(jobsResult.stdout, /Queue health:\s*\d+\s+waiting,\s*(\d+)\s+active/i),
+    stalled: numberFromText(jobsResult.stdout, /Queue health:\s*\d+\s+waiting,\s*\d+\s+active,\s*(\d+)\s+stalled/i),
+  };
 
   if (healthResult.ok && healthPayload) {
     return normalizeHealthPayload(healthPayload, jobsPayload, checkedAt);
   }
 
-  const textHealth = healthResult.ok ? normalizeHealthText(healthResult.stdout, jobsResult.stdout, checkedAt) : null;
+  const fallbackHealthResult = await runGBrain(execFilePromise, ['health', '--json']);
+  const fallbackPayload = parseJsonFromOutput(fallbackHealthResult.stdout);
+  if (fallbackHealthResult.ok && fallbackPayload) {
+    return normalizeHealthPayload(fallbackPayload, jobsPayload, checkedAt);
+  }
+
+  const textHealth = fallbackHealthResult.ok ? normalizeHealthText(fallbackHealthResult.stdout, jobsResult.stdout, checkedAt) : null;
   if (!textHealth?.ok) {
     return {
       ok: false,
       mode: 'live-read-only',
       checkedAt,
       status: 'unavailable',
-      error: healthResult.error || 'gbrain health did not return JSON',
+      error: healthResult.error || fallbackHealthResult.error || 'gbrain health did not return JSON',
     };
   }
 
@@ -361,7 +372,7 @@ async function buildLiveGBrainSources(options = {}) {
   return textSources;
 }
 
-function buildGBrainOverview(live = {}) {
+function buildGBrainOverview(live = {}, extra = {}) {
   const liveHealth = live.health?.ok ? live.health : null;
   const liveSources = live.sources?.ok ? live.sources : null;
   const liveAttemptedAt = live.health?.checkedAt || live.sources?.checkedAt || null;
@@ -386,6 +397,11 @@ function buildGBrainOverview(live = {}) {
     : liveHealth ? 'Unavailable' : '0 / 0 / 0';
   const sourceCount = liveSources?.count ?? null;
   const sourceWarnings = liveSources?.warningCount ?? null;
+  const sourceRisks = sourcesUnavailable
+    ? ['Live source probe could not reach the local GBrain runtime.']
+    : sourceWarnings > 0
+    ? [`${sourceWarnings} live source${sourceWarnings === 1 ? '' : 's'} reported a warning status.`]
+    : [];
   const nodes = [
     {
       id: 'gbrain-core',
@@ -395,7 +411,7 @@ function buildGBrainOverview(live = {}) {
       summary: 'Postgres-backed local shared memory for Hermes, OpenClaw, and Codex.',
       proof: {
         label: liveHealth || healthUnavailable ? 'Live health probe' : 'Hermes audit',
-        source: liveHealth || healthUnavailable ? 'gbrain health --json' : AUDIT_REPORT_PATH,
+        source: liveHealth || healthUnavailable ? 'gbrain call get_health' : AUDIT_REPORT_PATH,
         verifiedAt: liveCheckedAt || AUDIT_VERIFIED_AT,
         detail: healthUnavailable
           ? `Read-only health probe is unavailable: ${live.health.error}`
@@ -474,7 +490,9 @@ function buildGBrainOverview(live = {}) {
       label: 'Source Systems',
       kind: 'source',
       status: sourceStatus,
-      summary: 'Project sources feeding the shared brain, verified by the saved audit with one source-status caveat.',
+      summary: liveSources
+        ? 'Project sources feeding the shared brain, verified by the live source probe.'
+        : 'Project sources feeding the shared brain, verified by the saved audit.',
       proof: {
         label: liveSources || sourcesUnavailable ? 'Live source probe' : 'Source list captured',
         source: liveSources || sourcesUnavailable ? 'gbrain sources list' : AUDIT_REPORT_PATH,
@@ -489,7 +507,7 @@ function buildGBrainOverview(live = {}) {
         { label: 'Known sources', value: sourceCount !== null ? String(sourceCount) : '9' },
         ...(liveSources?.totalPages ? [{ label: 'Source pages', value: formatCount(liveSources.totalPages) }] : []),
       ],
-      risks: ['sources_status clawd can report clone_state: corrupted even when git fsck and dry-run sync are clean. Treat this as a diagnostic mismatch, not missing proof.'],
+      risks: sourceRisks,
       nextSafeAction: liveSources
         ? 'Add per-source freshness thresholds after the live shape is stable.'
         : sourcesUnavailable
@@ -549,7 +567,7 @@ function buildGBrainOverview(live = {}) {
     { id: 'edge-google-gbrain', from: 'google-bridge', to: 'gbrain-core', label: 'bridge', status: 'warning', proofNodeId: 'google-bridge' },
   ];
 
-  return {
+  const overview = {
     ok: true,
     mode: liveAttemptedAt ? 'live-read-only' : 'read-only-fixture',
     refreshedAt: liveCheckedAt || AUDIT_VERIFIED_AT,
@@ -561,7 +579,7 @@ function buildGBrainOverview(live = {}) {
       status: healthUnavailable ? 'critical' : healthStatus === 'healthy' ? 'warning' : healthStatus,
       score: healthScore ?? 90,
       lastVerifiedAt: liveCheckedAt || AUDIT_VERIFIED_AT,
-      source: liveAttemptedAt ? 'gbrain health --json' : AUDIT_REPORT_PATH,
+      source: liveAttemptedAt ? 'gbrain call get_health' : AUDIT_REPORT_PATH,
     },
     cockpit: {
       health: { label: 'Health', value: healthValue, status: healthStatus, proofNodeId: 'gbrain-core' },
@@ -577,12 +595,12 @@ function buildGBrainOverview(live = {}) {
       bridge: { label: 'Bridge proof', value: '2 passed', detail: 'Hermes + OpenClaw read smokes', status: 'healthy', proofNodeId: 'hermes' },
       caveats: {
         label: 'Caveats',
-        value: sourceWarnings !== null ? String(2 + sourceWarnings) : '2',
+        value: sourceWarnings !== null ? String(1 + sourceWarnings) : '1',
         detail: sourcesUnavailable
-          ? 'Static caveats; source probe unavailable'
-          : liveAttemptedAt
-          ? 'Static caveats plus live source warnings'
-          : 'Google bridge doctor mismatch; clawd clone_state mismatch',
+          ? 'Bridge caveat; source probe unavailable'
+          : liveAttemptedAt && sourceWarnings > 0
+          ? 'Bridge caveat plus live source warnings'
+          : 'Google bridge doctor mismatch',
         status: 'warning',
         proofNodeId: 'google-bridge',
       },
@@ -591,7 +609,7 @@ function buildGBrainOverview(live = {}) {
     edges,
     caveats: [
       'Official integrations doctor does not represent the custom local Google bridge.',
-      'sources_status clawd can report clone_state: corrupted even when local git fsck and dry-run sync are clean.',
+      ...((sourceWarnings || 0) > 0 ? [`${sourceWarnings} live source${sourceWarnings === 1 ? '' : 's'} reported a warning status.`] : []),
     ],
     warnings: [],
     handoff: {
@@ -607,17 +625,31 @@ function buildGBrainOverview(live = {}) {
       sources: live.sources || null,
     },
   };
+
+  if (extra.timelineSummary) overview.timelineSummary = extra.timelineSummary;
+  if (extra.incidentBanner !== undefined) overview.incidentBanner = extra.incidentBanner;
+  return overview;
 }
 
 function buildGBrainRouter(options = {}) {
   const router = express.Router();
+  const timelineService = options.timelineService || createGBrainTimelineService({
+    projectRoot: options.projectRoot,
+    enabled: options.mcConfig?.modules?.gbrainTimeline !== false,
+    ledgerPath: options.timelineLedgerPath,
+  });
 
   router.get('/api/gbrain/overview', async (req, res) => {
     const [health, sources] = await Promise.all([
       buildLiveGBrainHealth(options),
       buildLiveGBrainSources(options),
     ]);
-    res.json(buildGBrainOverview({ health, sources }));
+    const overview = buildGBrainOverview({ health, sources });
+    const result = await timelineService.captureOverview(overview);
+    res.json(buildGBrainOverview({ health, sources }, {
+      timelineSummary: result.timelineSummary,
+      incidentBanner: result.timelineSummary?.incidentBanner || null,
+    }));
   });
 
   router.get('/api/gbrain/health', async (req, res) => {
@@ -626,6 +658,10 @@ function buildGBrainRouter(options = {}) {
 
   router.get('/api/gbrain/sources', async (req, res) => {
     res.json(await buildLiveGBrainSources(options));
+  });
+
+  router.get('/api/gbrain/timeline', (req, res) => {
+    res.json(timelineService.readTimeline({ limit: req.query.limit }));
   });
 
   return router;
