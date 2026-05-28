@@ -14,13 +14,18 @@ This reference describes the public routes, API endpoints, local commands, and s
 
 ## GBrain API
 
-All GBrain endpoints are read-only.
+GBrain probe endpoints are read-only. `GET /api/gbrain/actions` exposes the
+safe action catalog, and `POST /api/gbrain/actions` is a bounded local
+maintenance surface with an explicit action allowlist.
 
 | Method | Path | Description |
 | --- | --- | --- |
 | `GET` | `/api/gbrain/overview` | Returns the cockpit, nodes, edges, caveats, and live probe payloads used by `/gbrain` |
 | `GET` | `/api/gbrain/health` | Runs `gbrain health --json` and `gbrain jobs stats --json`, then normalizes health, embeddings, and queue counters |
 | `GET` | `/api/gbrain/sources` | Runs `gbrain sources list --json`, falling back to `gbrain sources list` text parsing |
+| `GET` | `/api/gbrain/version` | Runs `gbrain --version` and normalizes the active CLI version |
+| `GET` | `/api/gbrain/actions` | Returns the allowlisted action catalog rendered by `/gbrain` |
+| `POST` | `/api/gbrain/actions` | Runs one allowlisted local maintenance action and returns redacted command evidence |
 
 Runtime details:
 
@@ -28,6 +33,26 @@ Runtime details:
 - PATH includes `~/.bun/bin`, `/opt/homebrew/bin`, `/usr/local/bin`, then the process PATH.
 - Error messages redact bearer tokens, `sk-` API keys, and `/Users/<name>` paths.
 - Live failure returns JSON with `ok: false`, `mode: live-read-only`, `status: unavailable`, `checkedAt`, and a redacted `error`.
+
+Supported action payloads for `POST /api/gbrain/actions`:
+
+| Action | CLI effect |
+| --- | --- |
+| `doctor-fast` | `gbrain doctor --json --fast` |
+| `preview-sync` | `gbrain sync --all --no-pull --parallel 1 --dry-run --json --yes` |
+| `sync-sources` | `gbrain sync --all --no-pull --parallel 1 --timeout 105 --json --yes && gbrain embed --stale` |
+| `retry-failed-sync` | `gbrain sync --all --retry-failed --serial --timeout 105 --no-pull --json --yes && gbrain embed --stale` |
+| `embed-stale` | `gbrain embed --stale` |
+| `check-resolvable` | `gbrain check-resolvable --json` |
+| `storage-status` | `gbrain storage status --json` |
+
+Action safety constraints:
+
+- No arbitrary command or source id is accepted from the browser.
+- Only one GBrain action may run at a time from Mission Control.
+- Action timeout is action-specific: 30000 ms for fast diagnostics, 60000 ms
+  for previews and routing checks, and 120000 ms for maintenance or repair.
+- Action output uses the same token, key, and home-path redaction as probes.
 
 The overview payload has these top-level fields:
 

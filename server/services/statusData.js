@@ -8,6 +8,7 @@ function createStatusService({
   readRuntimeSnapshot,
   writeRuntimeSnapshot,
   runtimeSnapshotTtl,
+  gatewayPort,
   execSync,
   fs,
   path,
@@ -114,11 +115,24 @@ function createStatusService({
   async function doRefreshStatusCache() {
     try {
       const [openclawStatus, notionActivity, sessionData] = await Promise.allSettled([
-        new Promise((resolve) => {
+        new Promise(async (resolve) => {
+          let gatewayHealth = '';
+          const controller = new AbortController();
+          const timeout = setTimeout(() => controller.abort(), 1500);
+          try {
+            const port = Number(gatewayPort || mcConfig.gateway?.port || 18789);
+            const response = await fetch(`http://127.0.0.1:${port}/health`, { signal: controller.signal });
+            const body = await response.text();
+            gatewayHealth = response.ok ? `Gateway │ live │ ${body}` : '';
+          } catch {
+          } finally {
+            clearTimeout(timeout);
+          }
+
           try {
             resolve(execSync('openclaw status 2>&1', { timeout: 8000, encoding: 'utf8' }));
           } catch (error) {
-            resolve(error.stdout || '');
+            resolve(error.stdout || gatewayHealth);
           }
         }),
         fetchNotionActivity(8).catch(() => null),
