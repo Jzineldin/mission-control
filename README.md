@@ -23,8 +23,8 @@ The current release is an operator-focused overhaul:
   model display, manual run/toggle controls, and schedule-oriented scanning.
 - **Hermes Kanban** - profile-backed task board with triage, ready, running,
   blocked, and done columns plus bounded card actions.
-- **GBrain** - read-only trust cockpit, living brain map, and evidence drawer for
-  shared memory health, sources, queues, and caveats.
+- **GBrain** - trust cockpit, living brain map, evidence drawer, and bounded
+  local maintenance actions for shared memory health, sources, queues, and caveats.
 - **Governance Archive** - read-only view of council/governance records. Council
   mutations are disabled by default because the old council flow was not earning
   its operational weight.
@@ -179,8 +179,9 @@ the relevant API endpoint directly with `curl`.
 - Cost Tracker should continue to return a usable fallback quickly, then refresh
   richer OpenClaw/Hermes usage in the background. If one source fails, keep the
   fresh source data and mark any cached source data as stale.
-- GBrain should remain read-only until live proof records are structured enough
-  to separate observation, repair, and mutation controls safely.
+- GBrain write actions must stay allowlisted, local-first, and visibly separated
+  from evidence probes. The `/api/gbrain/actions` catalog is the source of truth
+  for the operator buttons shown on `/gbrain`.
 - Hermes Kanban actions should keep argument boundaries explicit. Do not pass
   user-controlled values that can be interpreted as CLI flags.
 - Chat and agent fallback routes should pass abort signals through to child work

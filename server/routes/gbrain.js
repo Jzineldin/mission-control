@@ -20,6 +20,65 @@ const SOURCE_FRESHNESS_THRESHOLDS_HOURS = {
   codexmemories: 48,
   default: DEFAULT_SOURCE_FRESHNESS_HOURS,
 };
+const GBrainActionDefinitions = {
+  'doctor-fast': {
+    label: 'Run fast doctor',
+    description: 'Check resolver, schema, embeddings, and local runtime health without repair flags.',
+    kind: 'diagnostic',
+    args: ['doctor', '--json', '--fast'],
+    timeoutMs: 30000,
+    refreshAfter: true,
+  },
+  'preview-sync': {
+    label: 'Preview source sync',
+    description: 'Dry-run every registered local source without pulling from remotes.',
+    kind: 'preview',
+    args: ['sync', '--all', '--no-pull', '--parallel', '1', '--dry-run', '--json', '--yes'],
+    timeoutMs: 60000,
+    refreshAfter: false,
+  },
+  'sync-sources': {
+    label: 'Sync local sources',
+    description: 'Incrementally sync every registered local source without remote pulls.',
+    kind: 'maintenance',
+    args: ['sync', '--all', '--no-pull', '--parallel', '1', '--json', '--yes'],
+    timeoutMs: 120000,
+    refreshAfter: true,
+  },
+  'retry-failed-sync': {
+    label: 'Retry failed syncs',
+    description: 'Re-attempt previously failed source files, then refresh live proof.',
+    kind: 'repair',
+    args: ['sync', '--all', '--retry-failed', '--no-pull', '--parallel', '1', '--json', '--yes'],
+    timeoutMs: 120000,
+    refreshAfter: true,
+  },
+  'embed-stale': {
+    label: 'Embed stale chunks',
+    description: 'Refresh embeddings for chunks marked stale by GBrain.',
+    kind: 'maintenance',
+    args: ['embed', '--stale'],
+    timeoutMs: 120000,
+    refreshAfter: true,
+  },
+  'check-resolvable': {
+    label: 'Check skill routing',
+    description: 'Validate skill-tree reachability, overlap, duplication, and gaps without fixes.',
+    kind: 'diagnostic',
+    args: ['check-resolvable', '--json'],
+    timeoutMs: 60000,
+    refreshAfter: false,
+  },
+  'storage-status': {
+    label: 'Check storage status',
+    description: 'Inspect GBrain storage tier status for the current local repo.',
+    kind: 'diagnostic',
+    args: ['storage', 'status', '--json'],
+    timeoutMs: 30000,
+    refreshAfter: false,
+  },
+};
+const activeGBrainActions = new Set();
 
 const defaultExecFilePromise = util.promisify(execFile);
 
@@ -57,7 +116,7 @@ function parseJsonFromOutput(output) {
   return null;
 }
 
-async function runGBrain(execFilePromise, args) {
+async function runGBrain(execFilePromise, args, options = {}) {
   try {
     const pathEntries = [
       `${os.homedir()}/.bun/bin`,
@@ -66,7 +125,7 @@ async function runGBrain(execFilePromise, args) {
       process.env.PATH || '',
     ].filter(Boolean);
     const result = await execFilePromise('gbrain', args, {
-      timeout: DEFAULT_COMMAND_TIMEOUT_MS,
+      timeout: options.timeoutMs || DEFAULT_COMMAND_TIMEOUT_MS,
       maxBuffer: 1024 * 1024,
       env: {
         ...process.env,
@@ -82,6 +141,33 @@ async function runGBrain(execFilePromise, args) {
       error: sanitizeMessage(error?.stderr || error?.stdout || error?.message),
     };
   }
+}
+
+function summarizeCommandOutput(stdout, stderr) {
+  const combined = [stdout, stderr].filter(Boolean).join('\n').trim();
+  return sanitizeMessage(combined || 'Command completed without output');
+}
+
+function sanitizePayload(value) {
+  if (typeof value === 'string') return sanitizeMessage(value);
+  if (!value || typeof value !== 'object') return value;
+  if (Array.isArray(value)) return value.map((item) => sanitizePayload(item));
+
+  return Object.fromEntries(
+    Object.entries(value).map(([key, item]) => [key, sanitizePayload(item)])
+  );
+}
+
+function listGBrainActions() {
+  return Object.entries(GBrainActionDefinitions).map(([id, definition]) => ({
+    id,
+    label: definition.label,
+    description: definition.description,
+    kind: definition.kind,
+    timeoutMs: definition.timeoutMs,
+    refreshAfter: definition.refreshAfter,
+    command: `gbrain ${definition.args.join(' ')}`,
+  }));
 }
 
 function findNumber(payload, keys) {
@@ -594,6 +680,52 @@ async function buildLiveGBrainVersion(options = {}) {
   };
 }
 
+async function runGBrainAction(action, options = {}) {
+  const definition = GBrainActionDefinitions[action];
+  const checkedAt = new Date().toISOString();
+
+  if (!definition) {
+    return {
+      ok: false,
+      status: 'rejected',
+      checkedAt,
+      error: `Unsupported GBrain action: ${sanitizeMessage(action)}`,
+    };
+  }
+
+  if (activeGBrainActions.size > 0) {
+    return {
+      ok: false,
+      status: 'busy',
+      checkedAt,
+      error: 'Another GBrain action is already running.',
+    };
+  }
+
+  activeGBrainActions.add(action);
+  try {
+    const execFilePromise = options.execFilePromise || defaultExecFilePromise;
+    const result = await runGBrain(execFilePromise, definition.args, { timeoutMs: definition.timeoutMs });
+    const payload = parseJsonFromOutput(result.stdout);
+
+    return {
+      ok: result.ok,
+      mode: 'live-write',
+      action,
+      label: definition.label,
+      args: definition.args,
+      checkedAt,
+      status: result.ok ? 'completed' : 'failed',
+      refreshAfter: definition.refreshAfter,
+      summary: summarizeCommandOutput(result.stdout, result.stderr),
+      payload: payload ? sanitizePayload(payload) : null,
+      error: result.ok ? '' : result.error || summarizeCommandOutput(result.stdout, result.stderr),
+    };
+  } finally {
+    activeGBrainActions.delete(action);
+  }
+}
+
 function buildGBrainOverview(live = {}, extra = {}) {
   const liveHealth = live.health?.ok ? live.health : null;
   const liveSources = live.sources?.ok ? live.sources : null;
@@ -956,6 +1088,20 @@ function buildGBrainRouter(options = {}) {
     res.json(await buildLiveGBrainVersion(options));
   });
 
+  router.get('/api/gbrain/actions', (req, res) => {
+    res.json({
+      ok: true,
+      mode: 'live-write-allowlist',
+      actions: listGBrainActions(),
+    });
+  });
+
+  router.post('/api/gbrain/actions', async (req, res) => {
+    const result = await runGBrainAction(req.body?.action, options);
+    const statusCode = result.ok ? 200 : result.status === 'busy' ? 409 : result.status === 'failed' ? 502 : 400;
+    res.status(statusCode).json(result);
+  });
+
   router.get('/api/gbrain/timeline', (req, res) => {
     res.json(timelineService.readTimeline({ limit: req.query.limit }));
   });
@@ -968,6 +1114,8 @@ module.exports = {
   buildLiveGBrainHealth,
   buildLiveGBrainSources,
   buildLiveGBrainVersion,
+  listGBrainActions,
+  runGBrainAction,
   buildGBrainRouter,
   sanitizeMessage,
   liveHealthStatus,

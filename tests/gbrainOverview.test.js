@@ -5,6 +5,8 @@ const {
   buildLiveGBrainHealth,
   buildLiveGBrainSources,
   buildLiveGBrainVersion,
+  listGBrainActions,
+  runGBrainAction,
   sanitizeMessage,
 } = require('../server/routes/gbrain');
 
@@ -548,6 +550,80 @@ async function testLiveFailureIsSafeJson() {
   assert.doesNotMatch(health.error, /\/Users\/example/);
 }
 
+async function testGBrainActionRunsOnlyAllowlistedCommand() {
+  const expected = new Map([
+    ['doctor-fast', ['doctor', '--json', '--fast']],
+    ['preview-sync', ['sync', '--all', '--no-pull', '--parallel', '1', '--dry-run', '--json', '--yes']],
+    ['sync-sources', ['sync', '--all', '--no-pull', '--parallel', '1', '--json', '--yes']],
+    ['retry-failed-sync', ['sync', '--all', '--retry-failed', '--no-pull', '--parallel', '1', '--json', '--yes']],
+    ['embed-stale', ['embed', '--stale']],
+    ['check-resolvable', ['check-resolvable', '--json']],
+    ['storage-status', ['storage', 'status', '--json']],
+  ]);
+
+  for (const [action, argsForAction] of expected.entries()) {
+    const calls = [];
+    const execFilePromise = async (bin, args) => {
+      assert.equal(bin, 'gbrain');
+      calls.push(args);
+      return {
+        stdout: JSON.stringify({
+          ok_count: 2,
+          error_count: 0,
+          repoPath: '/Users/example/private',
+          nested: { secret: 'sk-secret' },
+        }),
+        stderr: 'Synced /Users/example/private with sk-secret',
+      };
+    };
+
+    const result = await runGBrainAction(action, { execFilePromise });
+    const serialized = JSON.stringify(result);
+
+    assert.equal(result.ok, true);
+    assert.equal(result.mode, 'live-write');
+    assert.deepEqual(calls, [argsForAction]);
+    assert.doesNotMatch(serialized, /\/Users\/example/);
+    assert.doesNotMatch(serialized, /sk-secret/);
+  }
+}
+
+function testGBrainActionCatalogMatchesAllowlist() {
+  const actions = listGBrainActions();
+  const actionIds = actions.map((action) => action.id);
+
+  assert.deepEqual(actionIds, [
+    'doctor-fast',
+    'preview-sync',
+    'sync-sources',
+    'retry-failed-sync',
+    'embed-stale',
+    'check-resolvable',
+    'storage-status',
+  ]);
+
+  for (const action of actions) {
+    assert.ok(action.label, `${action.id} missing label`);
+    assert.ok(action.description, `${action.id} missing description`);
+    assert.ok(action.kind, `${action.id} missing kind`);
+    assert.match(action.command, /^gbrain /);
+  }
+}
+
+async function testGBrainActionRejectsUnknownAction() {
+  let called = false;
+  const result = await runGBrainAction('delete-everything', {
+    execFilePromise: async () => {
+      called = true;
+      return { stdout: '', stderr: '' };
+    },
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.status, 'rejected');
+  assert.equal(called, false);
+}
+
 async function testOverviewShowsLiveAttemptWhenRuntimeUnavailable() {
   const checkedAt = '2026-05-24T12:10:00.000Z';
   const overview = buildGBrainOverview({
@@ -634,6 +710,9 @@ function testOverviewAddsTimelineSummaryAndIncidentBanner() {
   await testMissingEmbeddingsDowngradesQueueTrust();
   await testOverviewDoesNotDefaultMissingLiveQueueToZero();
   await testLiveFailureIsSafeJson();
+  await testGBrainActionRunsOnlyAllowlistedCommand();
+  testGBrainActionCatalogMatchesAllowlist();
+  await testGBrainActionRejectsUnknownAction();
   await testOverviewShowsLiveAttemptWhenRuntimeUnavailable();
   testOverviewAddsTimelineSummaryAndIncidentBanner();
 

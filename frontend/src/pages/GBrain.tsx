@@ -8,6 +8,7 @@ import {
   Database,
   Link2,
   Network,
+  Play,
   Radio,
   RefreshCw,
   ShieldCheck,
@@ -173,6 +174,50 @@ interface TimelineResponse {
   incidentBanner: IncidentBanner | null
 }
 
+interface GBrainActionResult {
+  ok: boolean
+  action: string
+  label: string
+  status: string
+  summary: string
+  error?: string
+  checkedAt: string
+  refreshAfter?: boolean
+}
+
+interface GBrainActionDefinition {
+  id: string
+  label: string
+  description: string
+  kind: string
+  command: string
+  refreshAfter: boolean
+}
+
+interface GBrainActionsResponse {
+  ok: boolean
+  actions: GBrainActionDefinition[]
+}
+
+const fallbackActions: GBrainActionDefinition[] = [
+  {
+    id: 'sync-sources',
+    label: 'Sync local sources',
+    description: 'Incrementally sync every registered local source without remote pulls.',
+    kind: 'maintenance',
+    command: 'gbrain sync --all --no-pull --parallel 1 --json --yes',
+    refreshAfter: true,
+  },
+  {
+    id: 'embed-stale',
+    label: 'Embed stale chunks',
+    description: 'Refresh embeddings for chunks marked stale by GBrain.',
+    kind: 'maintenance',
+    command: 'gbrain embed --stale',
+    refreshAfter: true,
+  },
+]
+
 const nodePositions: Record<string, { x: number; y: number; size: number }> = {
   'gbrain-core': { x: 50, y: 48, size: 142 },
   hermes: { x: 25, y: 24, size: 116 },
@@ -214,7 +259,10 @@ function lineFor(edge: GBrainEdge) {
 export default function GBrain() {
   const { data, loading, error, refetch } = useApi<GBrainOverview>('/api/gbrain/overview', 30000)
   const { data: timeline, loading: timelineLoading, error: timelineError } = useApi<TimelineResponse>('/api/gbrain/timeline?limit=50', 60000)
+  const { data: actionsData, error: actionsError } = useApi<GBrainActionsResponse>('/api/gbrain/actions')
   const [selectedId, setSelectedId] = useState('gbrain-core')
+  const [runningAction, setRunningAction] = useState<string | null>(null)
+  const [actionResult, setActionResult] = useState<GBrainActionResult | null>(null)
 
   const selectedNode = useMemo(() => {
     if (!data?.nodes?.length) return null
@@ -238,6 +286,34 @@ export default function GBrain() {
   const staleSources = useMemo(() => {
     return (data?.live?.sources?.sources || []).filter((source) => source.freshness?.status === 'warning')
   }, [data?.live?.sources?.sources])
+  const actions = actionsData?.actions?.length ? actionsData.actions : fallbackActions
+  const canRunActions = Boolean(data)
+
+  const runAction = async (action: string) => {
+    setRunningAction(action)
+    setActionResult(null)
+    try {
+      const response = await fetch('/api/gbrain/actions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action }),
+      })
+      const result = await response.json()
+      setActionResult(result)
+      if (response.ok && result.refreshAfter) await refetch()
+    } catch (err) {
+      setActionResult({
+        ok: false,
+        action,
+        label: action,
+        status: 'failed',
+        summary: err instanceof Error ? err.message : 'Action failed',
+        checkedAt: new Date().toISOString(),
+      })
+    } finally {
+      setRunningAction(null)
+    }
+  }
 
   return (
     <PageTransition>
@@ -307,6 +383,40 @@ export default function GBrain() {
                   </div>
                 </div>
               ) : null}
+              <div className={styles.actionPanel}>
+                <div className={styles.actionHeader}>
+                  <span>Operator Actions</span>
+                  <small>{runningAction ? 'running' : 'local write'}</small>
+                </div>
+                <div className={styles.actionList}>
+                  {actions.map((action) => (
+                    <button
+                      key={action.id}
+                      className={styles.actionButton}
+                      type="button"
+                      disabled={!canRunActions || Boolean(runningAction)}
+                      title={action.command}
+                      onClick={() => runAction(action.id)}
+                    >
+                      {action.kind === 'diagnostic' || action.kind === 'preview' ? <RefreshCw size={13} /> : <Play size={13} />}
+                      <span>
+                        <strong>{runningAction === action.id ? `${action.label}...` : action.label}</strong>
+                        <small>{action.description}</small>
+                      </span>
+                    </button>
+                  ))}
+                </div>
+                {actionResult ? (
+                  <div
+                    className={styles.actionResult}
+                    style={{ '--status-color': statusColor(actionResult.ok ? 'healthy' : 'warning') } as CSSProperties}
+                  >
+                    <strong>{actionResult.ok ? `${actionResult.label} complete` : `${actionResult.label || actionResult.action} failed`}</strong>
+                    <span>{actionResult.error || actionResult.summary}</span>
+                  </div>
+                ) : null}
+                {actionsError ? <div className={styles.actionHint}>{actionsError}</div> : null}
+              </div>
               {!data && !loading ? <div className={styles.metricDetail}>No overview payload loaded.</div> : null}
             </div>
           </GlassCard>
