@@ -49,7 +49,7 @@ const GBrainActionDefinitions = {
     label: 'Retry failed syncs',
     description: 'Re-attempt previously failed source files, then refresh live proof.',
     kind: 'repair',
-    args: ['sync', '--all', '--retry-failed', '--no-pull', '--parallel', '1', '--json', '--yes'],
+    args: ['sync', '--all', '--retry-failed', '--serial', '--no-pull', '--json', '--yes'],
     timeoutMs: 120000,
     refreshAfter: true,
   },
