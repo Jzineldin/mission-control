@@ -530,6 +530,7 @@ const statusService = createStatusService({
   readRuntimeSnapshot,
   writeRuntimeSnapshot,
   runtimeSnapshotTtl: RUNTIME_SNAPSHOT_TTL,
+  gatewayPort: GATEWAY_PORT,
   execSync,
   fs,
   path,

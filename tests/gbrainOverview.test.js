@@ -574,6 +574,7 @@ async function testGBrainActionRunsOnlyAllowlistedCommand() {
           error_count: 0,
           repoPath: '/Users/example/private',
           nested: { secret: 'sk-secret' },
+          '/Users/example/private/file.md': { reason: 'sk-secret' },
         }),
         stderr: 'Synced /Users/example/private with sk-secret',
       };
@@ -587,6 +588,7 @@ async function testGBrainActionRunsOnlyAllowlistedCommand() {
     assert.deepEqual(calls, [argsForAction]);
     assert.doesNotMatch(serialized, /\/Users\/example/);
     assert.doesNotMatch(serialized, /sk-secret/);
+    assert.match(serialized, /~\/private\/file\.md/);
   }
 }
 

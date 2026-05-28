@@ -30,13 +30,18 @@ function makeService(overrides = {}) {
 
 async function testGatewayHealthDoesNotReplaceFullStatusParserInput() {
   const originalFetch = global.fetch;
-  global.fetch = async () => ({
+  let requestedUrl = '';
+  global.fetch = async (url) => {
+    requestedUrl = String(url);
+    return {
     ok: true,
     text: async () => JSON.stringify({ ok: true, status: 'live' }),
-  });
+    };
+  };
 
   try {
     const { service, readSnapshot } = makeService({
+      gatewayPort: 19999,
       execSync: () => [
         'OpenClaw Control',
         '2 active sessions',
@@ -51,6 +56,7 @@ async function testGatewayHealthDoesNotReplaceFullStatusParserInput() {
     await service.refreshStatusCache();
     const status = readSnapshot();
 
+    assert.equal(requestedUrl, 'http://127.0.0.1:19999/health');
     assert.equal(status.agent.activeSessions, 2);
     assert.equal(status.agent.model, 'gpt-5.4-mini');
     assert.equal(status.agent.totalAgents, 7);
@@ -67,13 +73,18 @@ async function testGatewayHealthDoesNotReplaceFullStatusParserInput() {
 
 async function testGatewayHealthIsFallbackWhenFullStatusFails() {
   const originalFetch = global.fetch;
-  global.fetch = async () => ({
+  let requestedUrl = '';
+  global.fetch = async (url) => {
+    requestedUrl = String(url);
+    return {
     ok: true,
     text: async () => JSON.stringify({ ok: true, status: 'live' }),
-  });
+    };
+  };
 
   try {
     const { service, readSnapshot } = makeService({
+      mcConfig: { name: 'Mission Control', gateway: { port: 19999 } },
       execSync: () => {
         const error = new Error('openclaw status failed');
         error.stdout = '';
@@ -84,6 +95,7 @@ async function testGatewayHealthIsFallbackWhenFullStatusFails() {
     await service.refreshStatusCache();
     const status = readSnapshot();
 
+    assert.equal(requestedUrl, 'http://127.0.0.1:19999/health');
     assert.equal(status.agent.activeSessions, 0);
     assert.equal(status.agent.totalAgents, 1);
     assert.equal(status.agent.channels.length, 0);

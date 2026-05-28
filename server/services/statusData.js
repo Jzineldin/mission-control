@@ -8,6 +8,7 @@ function createStatusService({
   readRuntimeSnapshot,
   writeRuntimeSnapshot,
   runtimeSnapshotTtl,
+  gatewayPort,
   execSync,
   fs,
   path,
@@ -119,7 +120,8 @@ function createStatusService({
           const controller = new AbortController();
           const timeout = setTimeout(() => controller.abort(), 1500);
           try {
-            const response = await fetch('http://127.0.0.1:18789/health', { signal: controller.signal });
+            const port = Number(gatewayPort || mcConfig.gateway?.port || 18789);
+            const response = await fetch(`http://127.0.0.1:${port}/health`, { signal: controller.signal });
             const body = await response.text();
             gatewayHealth = response.ok ? `Gateway │ live │ ${body}` : '';
           } catch {

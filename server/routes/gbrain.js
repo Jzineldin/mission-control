@@ -154,7 +154,7 @@ function sanitizePayload(value) {
   if (Array.isArray(value)) return value.map((item) => sanitizePayload(item));
 
   return Object.fromEntries(
-    Object.entries(value).map(([key, item]) => [key, sanitizePayload(item)])
+    Object.entries(value).map(([key, item]) => [sanitizeMessage(key), sanitizePayload(item)])
   );
 }
 
