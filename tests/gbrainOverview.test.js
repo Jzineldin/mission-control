@@ -557,11 +557,11 @@ async function testGBrainActionRunsOnlyAllowlistedCommand() {
     ['doctor-fast', ['doctor', '--json', '--fast']],
     ['preview-sync', ['sync', '--all', '--no-pull', '--parallel', '1', '--dry-run', '--json', '--yes']],
     ['sync-sources', [
-      ['sync', '--all', '--no-pull', '--parallel', '1', '--json', '--yes'],
+      ['sync', '--all', '--no-pull', '--parallel', '1', '--timeout', '105', '--json', '--yes'],
       ['embed', '--stale'],
     ]],
     ['retry-failed-sync', [
-      ['sync', '--all', '--retry-failed', '--serial', '--no-pull', '--json', '--yes'],
+      ['sync', '--all', '--retry-failed', '--serial', '--timeout', '105', '--no-pull', '--json', '--yes'],
       ['embed', '--stale'],
     ]],
     ['embed-stale', ['embed', '--stale']],
