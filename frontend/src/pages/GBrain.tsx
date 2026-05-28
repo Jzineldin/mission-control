@@ -78,8 +78,43 @@ interface GBrainOverview {
     source: string
     recommendedNextSlice: string
   }
+  live?: {
+    sources?: LiveSources | null
+  }
   timelineSummary?: TimelineSummary
   incidentBanner?: IncidentBanner | null
+}
+
+interface SourceFreshness {
+  status: EvidenceStatus
+  label: string
+  ageHours: number | null
+  thresholdHours: number
+  lastSyncAt: string | null
+}
+
+interface LiveSource {
+  id: string
+  status: string
+  pages: number | null
+  chunks: number | null
+  lastSyncAt?: string | null
+  freshness?: SourceFreshness
+}
+
+interface LiveSources {
+  checkedAt: string
+  freshness?: {
+    status: EvidenceStatus
+    defaultThresholdHours: number
+    staleCount: number
+    freshCount: number
+    unknownCount: number
+    untrackedCount: number
+    oldestSourceId: string | null
+    oldestAgeHours: number | null
+  }
+  sources: LiveSource[]
 }
 
 interface TimelineDiff {
@@ -157,7 +192,7 @@ function statusColor(status: EvidenceStatus) {
 
 function statusLabel(status: EvidenceStatus) {
   if (status === 'healthy') return 'Verified'
-  if (status === 'warning') return 'Verified caveat'
+  if (status === 'warning') return 'Caveat'
   if (status === 'critical') return 'Failing'
   return 'Read-only'
 }
@@ -200,6 +235,9 @@ export default function GBrain() {
   const visibleTimelineEntries = timelineEntries.slice(0, 2)
   const hiddenTimelineCount = Math.max(0, (timeline?.retainedEntryCount ?? timelineEntries.length) - visibleTimelineEntries.length)
   const showTimelineDiff = timelineSummary?.diff && timelineSummary.diff.kind !== 'unchanged'
+  const staleSources = useMemo(() => {
+    return (data?.live?.sources?.sources || []).filter((source) => source.freshness?.status === 'warning')
+  }, [data?.live?.sources?.sources])
 
   return (
     <PageTransition>
@@ -373,6 +411,38 @@ export default function GBrain() {
                   </div>
                 </div>
 
+                {selectedNode.id === 'sources' && data?.live?.sources?.freshness ? (
+                  <div className={styles.section}>
+                    <h3>Freshness Thresholds</h3>
+                    <div className={styles.freshnessBox}>
+                      <div className={styles.freshnessSummary}>
+                        <span style={{ '--status-color': statusColor(data.live.sources.freshness.status) } as CSSProperties} />
+                        <strong>
+                          {data.live.sources.freshness.staleCount > 0
+                            ? `${data.live.sources.freshness.staleCount} stale source${data.live.sources.freshness.staleCount === 1 ? '' : 's'}`
+                            : 'All sync-tracked source syncs are fresh'}
+                        </strong>
+                        <small>Default threshold {data.live.sources.freshness.defaultThresholdHours}h · {data.live.sources.freshness.untrackedCount || 0} not applicable</small>
+                      </div>
+                      {staleSources.length ? (
+                        <div className={styles.freshnessList}>
+                          {staleSources.slice(0, 4).map((source) => (
+                            <div key={source.id}>
+                              <strong>{source.id}</strong>
+                              <span>
+                                {source.freshness?.ageHours !== null && source.freshness?.ageHours !== undefined
+                                  ? `${source.freshness.ageHours}h old`
+                                  : 'no sync timestamp'}
+                                {' '}· threshold {source.freshness?.thresholdHours ?? data.live?.sources?.freshness?.defaultThresholdHours}h
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      ) : null}
+                    </div>
+                  </div>
+                ) : null}
+
                 <div className={styles.section}>
                   <h3>Next Safe Action</h3>
                   <div className={styles.nextAction}>{selectedNode.nextSafeAction}</div>
@@ -443,6 +513,7 @@ export default function GBrain() {
                       <span>Health {entry.metrics.health || '—'}</span>
                       <span>Embeddings {entry.metrics.embeddings || '—'}</span>
                       <span>Queue {entry.metrics.queue || '—'}</span>
+                      <span>Freshness {statusLabel(entry.sourceFreshness?.status || 'inactive')}</span>
                       <span>Caveats {entry.metrics.caveats || '0'}</span>
                     </div>
                     {index === 0 ? (

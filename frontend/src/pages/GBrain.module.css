@@ -344,6 +344,68 @@
   line-height: 1.45;
 }
 
+.freshnessBox {
+  display: grid;
+  gap: 9px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.freshnessSummary {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 3px 8px;
+  align-items: center;
+}
+
+.freshnessSummary span {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--status-color);
+  box-shadow: 0 0 14px color-mix(in srgb, var(--status-color) 70%, transparent);
+}
+
+.freshnessSummary strong {
+  min-width: 0;
+  color: rgba(255, 255, 255, 0.86);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.freshnessSummary small {
+  grid-column: 2;
+  color: rgba(255, 255, 255, 0.48);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.freshnessList {
+  display: grid;
+  gap: 7px;
+}
+
+.freshnessList div {
+  display: grid;
+  gap: 2px;
+  border-radius: 8px;
+  padding: 8px;
+  background: rgba(255, 214, 10, 0.075);
+}
+
+.freshnessList strong {
+  color: rgba(255, 255, 255, 0.86);
+  font-size: 12px;
+}
+
+.freshnessList span {
+  color: rgba(255, 255, 255, 0.58);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
 .proofPath {
   margin-top: 6px;
   color: rgba(255, 255, 255, 0.38);

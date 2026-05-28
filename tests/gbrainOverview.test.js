@@ -4,6 +4,7 @@ const {
   buildGBrainOverview,
   buildLiveGBrainHealth,
   buildLiveGBrainSources,
+  buildLiveGBrainVersion,
   sanitizeMessage,
 } = require('../server/routes/gbrain');
 
@@ -101,16 +102,73 @@ async function testLiveHealthNormalizesReadOnlyProbe() {
   assert.equal(overview.nodes.find((node) => node.id === 'gbrain-core')?.proof.source, 'gbrain call get_health');
 }
 
+async function testLiveHealthBackfillsInventoryFromStatsText() {
+  const execFilePromise = async (bin, args) => {
+    assert.equal(bin, 'gbrain');
+    if (args.join(' ') === 'call get_health') {
+      return {
+        stdout: JSON.stringify({
+          status: 'healthy',
+          brain_score: 100,
+          page_count: 16452,
+          missing_embeddings: 0,
+          stale_pages: 0,
+          embed_coverage: 1,
+        }),
+        stderr: '',
+      };
+    }
+    if (args.join(' ') === 'jobs stats --json') {
+      return { stdout: 'Queue health: 0 waiting, 0 active, 0 stalled', stderr: '' };
+    }
+    if (args.join(' ') === 'stats --json') {
+      return {
+        stdout: ['Pages:     16452', 'Chunks:    196692', 'Embedded:  196692'].join('\n'),
+        stderr: '',
+      };
+    }
+    throw new Error(`Unexpected command ${args.join(' ')}`);
+  };
+
+  const health = await buildLiveGBrainHealth({ execFilePromise });
+  const overview = buildGBrainOverview({ health });
+  const core = overview.nodes.find((node) => node.id === 'gbrain-core');
+
+  assert.equal(health.metrics.chunks, 196692);
+  assert.equal(health.metrics.embedded, 196692);
+  assert.equal(core.metrics.find((metric) => metric.label === 'Chunks')?.value, '196,692');
+  assert.equal(core.metrics.find((metric) => metric.label === 'Embedded')?.value, '196,692');
+}
+
+async function testLiveVersionAppearsInOverview() {
+  const execFilePromise = async (bin, args) => {
+    assert.equal(bin, 'gbrain');
+    assert.deepEqual(args, ['--version']);
+    return { stdout: 'gbrain 0.41.14.0\n', stderr: '' };
+  };
+
+  const version = await buildLiveGBrainVersion({ execFilePromise });
+  const overview = buildGBrainOverview({ version });
+  const core = overview.nodes.find((node) => node.id === 'gbrain-core');
+
+  assert.equal(version.ok, true);
+  assert.equal(version.version, '0.41.14.0');
+  assert.equal(overview.cockpit.version.label, 'Active version');
+  assert.equal(overview.cockpit.version.value, '0.41.14.0');
+  assert.equal(core.metrics.find((metric) => metric.label === 'Version')?.value, '0.41.14.0');
+}
+
 async function testLiveSourcesDoNotExposeLocalPaths() {
+  const freshAt = new Date().toISOString();
   const execFilePromise = async (bin, args) => {
     assert.equal(bin, 'gbrain');
     assert.deepEqual(args, ['sources', 'list', '--json']);
     return {
       stdout: JSON.stringify({
         sources: [
-          { id: 'mission-control', status: 'clean', pages: 10, local_path: '/Users/example/secret' },
+          { id: 'mission-control', status: 'clean', pages: 10, local_path: '/Users/example/secret', last_sync_at: freshAt },
           { id: 'clawd', clone_state: 'corrupted', chunks: 20 },
-          { id: 'gbrain', federated: true, page_count: 5, last_sync_at: '2026-05-24T12:00:00.000Z' },
+          { id: 'gbrain', federated: true, page_count: 5, last_sync_at: freshAt },
         ],
       }),
       stderr: '',
@@ -125,25 +183,56 @@ async function testLiveSourcesDoNotExposeLocalPaths() {
   assert.equal(sources.totalPages, 15);
   assert.equal(sources.healthyCount, 2);
   assert.equal(sources.warningCount, 1);
+  assert.equal(sources.freshness.staleCount, 1);
   assert.doesNotMatch(serialized, /\/Users\/example/);
-  assert.deepEqual(sources.sources[0], {
-    id: 'mission-control',
-    status: 'clean',
-    pages: 10,
-    chunks: null,
-  });
+  assert.equal(sources.sources[0].id, 'mission-control');
+  assert.equal(sources.sources[0].status, 'clean');
+  assert.equal(sources.sources[0].pages, 10);
+  assert.equal(sources.sources[0].chunks, null);
+  assert.equal(sources.sources[0].freshness.status, 'healthy');
 }
 
-async function testLiveSourcesCountsUnknownStatusesAsWarnings() {
+async function testDefaultSourceWithoutPathIsNotFreshnessStale() {
+  const freshAt = new Date().toISOString();
   const execFilePromise = async (bin, args) => {
     assert.equal(bin, 'gbrain');
     assert.deepEqual(args, ['sources', 'list', '--json']);
     return {
       stdout: JSON.stringify({
         sources: [
-          { id: 'mission-control', status: 'clean', pages: 10 },
+          { id: 'default', name: 'default', local_path: null, federated: false, page_count: 3091, last_sync_at: null },
+          { id: 'mission-control', status: 'clean', pages: 10, local_path: '/Users/example/secret', last_sync_at: freshAt },
+        ],
+      }),
+      stderr: '',
+    };
+  };
+
+  const sources = await buildLiveGBrainSources({ execFilePromise });
+  const overview = buildGBrainOverview({ sources });
+  const defaultSource = sources.sources.find((source) => source.id === 'default');
+
+  assert.equal(sources.count, 2);
+  assert.equal(sources.warningCount, 0);
+  assert.equal(sources.freshness.staleCount, 0);
+  assert.equal(sources.freshness.untrackedCount, 1);
+  assert.equal(defaultSource.freshness.status, 'inactive');
+  assert.match(defaultSource.freshness.label, /not applicable/i);
+  assert.equal(overview.cockpit.freshness.value, 'Fresh');
+  assert.match(overview.cockpit.freshness.detail, /sync-tracked sources fresh/i);
+}
+
+async function testLiveSourcesCountsUnknownStatusesAsWarnings() {
+  const freshAt = new Date().toISOString();
+  const execFilePromise = async (bin, args) => {
+    assert.equal(bin, 'gbrain');
+    assert.deepEqual(args, ['sources', 'list', '--json']);
+    return {
+      stdout: JSON.stringify({
+        sources: [
+          { id: 'mission-control', status: 'clean', pages: 10, last_sync_at: freshAt },
           { id: 'clawd', status: 'unknown', pages: 0 },
-          { id: 'hermes', federated: false, pages: 0 },
+          { id: 'hermes', federated: false, pages: 0, last_sync_at: freshAt },
         ],
       }),
       stderr: '',
@@ -157,6 +246,7 @@ async function testLiveSourcesCountsUnknownStatusesAsWarnings() {
   assert.equal(sources.count, 3);
   assert.equal(sources.healthyCount, 2);
   assert.equal(sources.warningCount, 1);
+  assert.equal(sources.freshness.staleCount, 1);
   assert.equal(sourceNode.status, 'warning');
 }
 
@@ -186,7 +276,8 @@ async function testLiveSourcesFallsBackToTextOutput() {
   assert.deepEqual(calls, ['sources list --json', 'sources list']);
   assert.equal(sources.ok, true);
   assert.equal(sources.count, 2);
-  assert.equal(sources.warningCount, 1);
+  assert.equal(sources.warningCount, 2);
+  assert.equal(sources.freshness.staleCount, 2);
   assert.doesNotMatch(serialized, /\/Users\/example/);
 }
 
@@ -232,7 +323,7 @@ async function testLiveHealthFallsBackToTextOutput() {
   assert.equal(overview.cockpit.health.value, '70/100');
   assert.equal(overview.cockpit.health.status, 'warning');
   assert.equal(overview.cockpit.embeddings.value, '100%');
-  assert.equal(overview.cockpit.embeddings.detail, '1 missing');
+  assert.equal(overview.cockpit.embeddings.detail, '11 stale pages');
   assert.equal(overview.cockpit.queue.value, '0 / 0 / 0');
   assert.equal(overview.nodes.find((node) => node.id === 'gbrain-core')?.status, 'warning');
 }
@@ -298,6 +389,118 @@ async function testOverviewDoesNotMarkUnknownLiveSourcesHealthy() {
   assert.equal(sources.status, 'warning');
   assert.equal(edge.status, 'warning');
   assert.equal(overview.cockpit.caveats.detail, 'Bridge caveat plus live source warnings');
+}
+
+async function testStaleSourceFreshnessDowngradesLiveTrust() {
+  const execFilePromise = async (bin, args) => {
+    assert.equal(bin, 'gbrain');
+    assert.deepEqual(args, ['sources', 'list', '--json']);
+    return {
+      stdout: JSON.stringify({
+        sources: [
+          { id: 'mission-control', status: 'clean', pages: 10, last_sync_at: '2000-01-01T00:00:00.000Z' },
+          { id: 'codex-memories', status: 'clean', pages: 2, last_sync_at: new Date().toISOString() },
+        ],
+      }),
+      stderr: '',
+    };
+  };
+
+  const sources = await buildLiveGBrainSources({ execFilePromise });
+  const overview = buildGBrainOverview({
+    health: {
+      ok: true,
+      mode: 'live-read-only',
+      checkedAt: sources.checkedAt,
+      status: 'healthy',
+      score: 100,
+      metrics: {
+        pages: 12,
+        chunks: 20,
+        embedded: 20,
+        missingEmbeddings: 0,
+        stalePages: 0,
+        embeddingCoverage: 100,
+        queue: { waiting: 0, active: 0, stalled: 0 },
+      },
+    },
+    sources,
+  });
+
+  const sourceNode = overview.nodes.find((node) => node.id === 'sources');
+  const sourceEdge = overview.edges.find((edge) => edge.id === 'edge-sources-gbrain');
+
+  assert.equal(sources.freshness.status, 'warning');
+  assert.equal(sources.freshness.staleCount, 1);
+  assert.equal(sources.sources[0].freshness.thresholdHours, 12);
+  assert.equal(sourceNode.status, 'warning');
+  assert.equal(sourceEdge.status, 'warning');
+  assert.equal(overview.trust.label, 'Live data stale');
+  assert.equal(overview.cockpit.freshness.value, '1 stale');
+  assert.match(overview.cockpit.freshness.detail, /1 source stale/i);
+  assert.match(sourceNode.nextSafeAction, /Refresh stale source syncs/i);
+  assert.match(overview.caveats.join(' '), /exceeded freshness thresholds/i);
+  assert.match(JSON.stringify(overview.live.sources), /mission-control/);
+}
+
+async function testHealthStalePagesDowngradesLiveTrust() {
+  const overview = buildGBrainOverview({
+    health: {
+      ok: true,
+      mode: 'live-read-only',
+      checkedAt: '2026-05-24T12:20:00.000Z',
+      status: 'healthy',
+      score: 100,
+      metrics: {
+        pages: 10,
+        chunks: 20,
+        embedded: 20,
+        missingEmbeddings: 0,
+        stalePages: 3,
+        embeddingCoverage: 100,
+        queue: { waiting: 0, active: 0, stalled: 0 },
+      },
+    },
+  });
+
+  const core = overview.nodes.find((node) => node.id === 'gbrain-core');
+
+  assert.equal(overview.trust.label, 'Live data stale');
+  assert.equal(overview.trust.status, 'warning');
+  assert.equal(overview.cockpit.embeddings.detail, '3 stale pages');
+  assert.equal(core.status, 'warning');
+  assert.equal(core.metrics.find((metric) => metric.label === 'Stale pages')?.value, '3');
+}
+
+async function testMissingEmbeddingsDowngradesQueueTrust() {
+  const overview = buildGBrainOverview({
+    health: {
+      ok: true,
+      mode: 'live-read-only',
+      checkedAt: '2026-05-26T14:52:00.000Z',
+      status: 'healthy',
+      score: 100,
+      metrics: {
+        pages: 10,
+        chunks: 20,
+        embedded: 18,
+        missingEmbeddings: 2,
+        stalePages: 0,
+        embeddingCoverage: 100,
+        queue: { waiting: 0, active: 0, stalled: 0 },
+      },
+    },
+  });
+
+  const queues = overview.nodes.find((node) => node.id === 'queues');
+
+  assert.equal(overview.cockpit.embeddings.detail, '2 missing');
+  assert.equal(overview.cockpit.embeddings.status, 'warning');
+  assert.equal(queues.status, 'warning');
+  assert.match(queues.summary, /2 missing embeddings/i);
+  assert.match(queues.risks.join(' '), /2 missing embeddings/i);
+  assert.match(queues.nextSafeAction, /repair\/backfill/i);
+  assert.match(overview.caveats.join(' '), /2 missing embeddings/i);
 }
 
 async function testOverviewDoesNotDefaultMissingLiveQueueToZero() {
@@ -371,16 +574,21 @@ async function testOverviewShowsLiveAttemptWhenRuntimeUnavailable() {
   assert.equal(overview.mode, 'live-read-only');
   assert.equal(overview.refreshedAt, checkedAt);
   assert.equal(overview.trust.lastVerifiedAt, checkedAt);
-  assert.equal(overview.trust.label, 'Live check unavailable');
-  assert.equal(overview.trust.status, 'critical');
+  assert.equal(overview.trust.label, 'Health probe unavailable');
+  assert.equal(overview.trust.status, 'warning');
   assert.equal(overview.cockpit.health.value, 'Unavailable');
   assert.equal(overview.cockpit.queue.value, 'Unavailable');
   assert.equal(overview.cockpit.embeddings.detail, 'health probe unavailable');
+  assert.equal(overview.cockpit.queue.detail, 'health probe unavailable');
   assert.equal(overview.cockpit.caveats.detail, 'Bridge caveat; source probe unavailable');
-  assert.equal(core.status, 'critical');
+  assert.equal(core.status, 'warning');
   assert.equal(core.proof.source, 'gbrain call get_health');
   assert.match(core.proof.detail, /unavailable/i);
-  assert.equal(sources.status, 'critical');
+  assert.equal(core.metrics.find((metric) => metric.label === 'Version')?.value, '0.40.2.0');
+  assert.equal(core.metrics.find((metric) => metric.label === 'Chunks')?.value, 'Unavailable');
+  assert.equal(sources.status, 'warning');
+  assert.equal(overview.nodes.find((node) => node.id === 'queues')?.metrics.find((metric) => metric.label === 'Coverage')?.value, 'Unavailable');
+  assert.match(overview.nodes.find((node) => node.id === 'queues')?.risks.join(' '), /queue counters are not current/i);
   assert.match(overview.handoff.recommendedNextSlice, /connected read-only/i);
 }
 
@@ -412,12 +620,18 @@ function testOverviewAddsTimelineSummaryAndIncidentBanner() {
 
 (async () => {
   await testLiveHealthNormalizesReadOnlyProbe();
+  await testLiveHealthBackfillsInventoryFromStatsText();
+  await testLiveVersionAppearsInOverview();
   await testLiveSourcesDoNotExposeLocalPaths();
+  await testDefaultSourceWithoutPathIsNotFreshnessStale();
   await testLiveSourcesCountsUnknownStatusesAsWarnings();
   await testLiveSourcesFallsBackToTextOutput();
   await testLiveHealthFallsBackToTextOutput();
   await testOverviewUsesLiveSourcePageTotalWhenHealthOmitsPages();
   await testOverviewDoesNotMarkUnknownLiveSourcesHealthy();
+  await testStaleSourceFreshnessDowngradesLiveTrust();
+  await testHealthStalePagesDowngradesLiveTrust();
+  await testMissingEmbeddingsDowngradesQueueTrust();
   await testOverviewDoesNotDefaultMissingLiveQueueToZero();
   await testLiveFailureIsSafeJson();
   await testOverviewShowsLiveAttemptWhenRuntimeUnavailable();

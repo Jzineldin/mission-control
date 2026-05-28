@@ -114,11 +114,17 @@ function createStatusService({
   async function doRefreshStatusCache() {
     try {
       const [openclawStatus, notionActivity, sessionData] = await Promise.allSettled([
-        new Promise((resolve) => {
+        new Promise(async (resolve) => {
+          const controller = new AbortController();
+          const timeout = setTimeout(() => controller.abort(), 1500);
           try {
-            resolve(execSync('openclaw status 2>&1', { timeout: 8000, encoding: 'utf8' }));
-          } catch (error) {
-            resolve(error.stdout || '');
+            const response = await fetch('http://127.0.0.1:18789/health', { signal: controller.signal });
+            const body = await response.text();
+            resolve(response.ok ? `Gateway │ live │ ${body}` : '');
+          } catch {
+            resolve('');
+          } finally {
+            clearTimeout(timeout);
           }
         }),
         fetchNotionActivity(8).catch(() => null),
