@@ -1010,7 +1010,7 @@ function buildGBrainOverview(live = {}, extra = {}) {
         status: queueStatus,
         proofNodeId: 'queues',
       },
-      autopilot: { label: 'Autopilot', value: 'Read-only', detail: 'No mutation controls in v1', status: 'inactive', proofNodeId: 'gbrain-core' },
+      autopilot: { label: 'Operator actions', value: 'Allowlisted', detail: '7 local actions; probes remain read-only', status: 'healthy', proofNodeId: 'gbrain-core' },
       bridge: { label: 'Bridge proof', value: '2 passed', detail: 'Hermes + OpenClaw read smokes', status: 'healthy', proofNodeId: 'hermes' },
       caveats: {
         label: 'Caveats',
