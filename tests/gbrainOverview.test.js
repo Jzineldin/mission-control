@@ -571,9 +571,11 @@ async function testGBrainActionRunsOnlyAllowlistedCommand() {
 
   for (const [action, expectedCalls] of expected.entries()) {
     const calls = [];
-    const execFilePromise = async (bin, args) => {
+    const optionsByCall = [];
+    const execFilePromise = async (bin, args, options) => {
       assert.equal(bin, 'gbrain');
       calls.push(args);
+      optionsByCall.push(options);
       return {
         stdout: JSON.stringify({
           ok_count: 2,
@@ -592,6 +594,10 @@ async function testGBrainActionRunsOnlyAllowlistedCommand() {
     assert.equal(result.ok, true);
     assert.equal(result.mode, 'live-write');
     assert.deepEqual(calls, Array.isArray(expectedCalls[0]) ? expectedCalls : [expectedCalls]);
+    if (action === 'sync-sources' || action === 'retry-failed-sync') {
+      assert.equal(optionsByCall[0].timeout, undefined);
+      assert.equal(optionsByCall[1].timeout, 120000);
+    }
     assert.doesNotMatch(serialized, /\/Users\/example/);
     assert.doesNotMatch(serialized, /sk-secret/);
     assert.match(serialized, /~\/private\/file\.md/);

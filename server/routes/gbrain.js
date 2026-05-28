@@ -43,6 +43,7 @@ const GBrainActionDefinitions = {
     kind: 'maintenance',
     args: ['sync', '--all', '--no-pull', '--parallel', '1', '--json', '--yes'],
     afterSuccessArgs: ['embed', '--stale'],
+    execTimeoutMs: 0,
     timeoutMs: 120000,
     refreshAfter: true,
   },
@@ -52,6 +53,7 @@ const GBrainActionDefinitions = {
     kind: 'repair',
     args: ['sync', '--all', '--retry-failed', '--serial', '--no-pull', '--json', '--yes'],
     afterSuccessArgs: ['embed', '--stale'],
+    execTimeoutMs: 0,
     timeoutMs: 120000,
     refreshAfter: true,
   },
@@ -126,14 +128,17 @@ async function runGBrain(execFilePromise, args, options = {}) {
       '/usr/local/bin',
       process.env.PATH || '',
     ].filter(Boolean);
-    const result = await execFilePromise('gbrain', args, {
-      timeout: options.timeoutMs || DEFAULT_COMMAND_TIMEOUT_MS,
+    const timeoutMs = options.timeoutMs ?? DEFAULT_COMMAND_TIMEOUT_MS;
+    const execOptions = {
       maxBuffer: 1024 * 1024,
       env: {
         ...process.env,
         PATH: pathEntries.join(':'),
       },
-    });
+    };
+    if (timeoutMs > 0) execOptions.timeout = timeoutMs;
+
+    const result = await execFilePromise('gbrain', args, execOptions);
     return { ok: true, stdout: result.stdout || '', stderr: result.stderr || '' };
   } catch (error) {
     return {
@@ -709,7 +714,9 @@ async function runGBrainAction(action, options = {}) {
   activeGBrainActions.add(action);
   try {
     const execFilePromise = options.execFilePromise || defaultExecFilePromise;
-    const result = await runGBrain(execFilePromise, definition.args, { timeoutMs: definition.timeoutMs });
+    const result = await runGBrain(execFilePromise, definition.args, {
+      timeoutMs: definition.execTimeoutMs ?? definition.timeoutMs,
+    });
     const followUpResult = result.ok && definition.afterSuccessArgs
       ? await runGBrain(execFilePromise, definition.afterSuccessArgs, { timeoutMs: definition.timeoutMs })
       : null;
