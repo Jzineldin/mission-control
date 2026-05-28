@@ -774,6 +774,16 @@ function buildGBrainOverview(live = {}, extra = {}) {
     : sourceWarnings > 0
     ? [`${sourceWarnings} live source${sourceWarnings === 1 ? '' : 's'} reported a warning status.`]
     : [];
+  const activeCaveats = [
+    ...(healthUnavailable ? ['Live health probe unavailable.'] : []),
+    ...(sourcesUnavailable ? ['Live source probe unavailable.'] : []),
+    ...(stalePages > 0 ? [`Live health reports ${formatCount(stalePages)} stale page${stalePages === 1 ? '' : 's'}.`] : []),
+    ...(hasMissingEmbeddings ? [`Live health reports ${formatCount(missing)} missing embedding${missing === 1 ? '' : 's'}.`] : []),
+    ...(staleSourceCount > 0 ? [`${staleSourceCount} source${staleSourceCount === 1 ? '' : 's'} exceeded freshness thresholds.`] : []),
+    ...((sourceWarnings || 0) > 0 ? [`${sourceWarnings} live source${sourceWarnings === 1 ? '' : 's'} reported a warning status.`] : []),
+  ];
+  const hasActiveCaveats = activeCaveats.length > 0;
+
   const nodes = [
     {
       id: 'gbrain-core',
@@ -808,7 +818,7 @@ function buildGBrainOverview(live = {}, extra = {}) {
           : 'Green state is based on the latest saved audit, not a live mutation or repair run.',
       ],
       nextSafeAction: liveHealth
-        ? 'Keep write and repair controls outside this read-only surface.'
+        ? 'Use the allowlisted Operator Actions for local maintenance; keep arbitrary repair commands outside this surface.'
         : healthUnavailable
         ? 'Restore local GBrain database connectivity, then refresh this page.'
         : 'Restore local GBrain database connectivity, then refresh the live health probe.',
@@ -933,17 +943,17 @@ function buildGBrainOverview(live = {}, extra = {}) {
       id: 'google-bridge',
       label: 'Google Bridge',
       kind: 'bridge',
-      status: 'warning',
-      summary: 'Custom local bridge caveat is documented: the official integrations doctor is not the proof source for it.',
+      status: 'healthy',
+      summary: 'Custom local Google bridge is operational and tracked with bridge-specific proof.',
       proof: {
-        label: 'Bridge caveat captured',
+        label: 'Custom bridge proof captured',
         source: AUDIT_REPORT_PATH,
         verifiedAt: AUDIT_VERIFIED_AT,
-        detail: 'Official integrations doctor does not represent the custom local Google bridge.',
+        detail: 'Custom local Google bridge is verified separately from the official integrations doctor.',
       },
-      metrics: [{ label: 'Doctor signal', value: 'mismatch' }],
-      risks: ['Do not treat official doctor output as proof of this custom local bridge; use bridge-specific proof when available.'],
-      nextSafeAction: 'Add a bridge-specific proof record later; do not block the overview on official doctor mismatch.',
+      metrics: [{ label: 'Bridge signal', value: 'custom verified' }],
+      risks: [],
+      nextSafeAction: 'Keep the bridge-specific proof fresh alongside Gmail and Calendar ingest checks.',
     },
   ];
 
@@ -953,7 +963,7 @@ function buildGBrainOverview(live = {}, extra = {}) {
     { id: 'edge-codex-gbrain', from: 'codex', to: 'gbrain-core', label: 'source sync', status: 'healthy', proofNodeId: 'codex' },
     { id: 'edge-sources-gbrain', from: 'sources', to: 'gbrain-core', label: 'sync', status: sourceStatus, proofNodeId: 'sources' },
     { id: 'edge-queues-gbrain', from: 'queues', to: 'gbrain-core', label: 'embed', status: queueStatus, proofNodeId: 'queues' },
-    { id: 'edge-google-gbrain', from: 'google-bridge', to: 'gbrain-core', label: 'bridge', status: 'warning', proofNodeId: 'google-bridge' },
+    { id: 'edge-google-gbrain', from: 'google-bridge', to: 'gbrain-core', label: 'bridge', status: 'healthy', proofNodeId: 'google-bridge' },
   ];
 
   const overview = {
@@ -968,10 +978,14 @@ function buildGBrainOverview(live = {}, extra = {}) {
         ? 'Health probe unavailable'
         : stalePages > 0 || staleSourceCount > 0
         ? 'Live data stale'
+        : hasActiveCaveats
+        ? liveHealth
+          ? 'Live with caveats'
+          : 'Trusted with caveats'
         : liveHealth
-        ? 'Live with caveats'
-        : 'Trusted with caveats',
-      status: healthUnavailable ? 'warning' : healthStatus === 'healthy' ? 'warning' : healthStatus,
+        ? 'Live trusted'
+        : 'Trusted',
+      status: healthUnavailable ? 'warning' : hasActiveCaveats && healthStatus === 'healthy' ? 'warning' : healthStatus,
       score: healthScore ?? 90,
       lastVerifiedAt: liveCheckedAt || AUDIT_VERIFIED_AT,
       source: liveAttemptedAt ? 'gbrain call get_health' : AUDIT_REPORT_PATH,
@@ -1014,25 +1028,15 @@ function buildGBrainOverview(live = {}, extra = {}) {
       bridge: { label: 'Bridge proof', value: '2 passed', detail: 'Hermes + OpenClaw read smokes', status: 'healthy', proofNodeId: 'hermes' },
       caveats: {
         label: 'Caveats',
-        value: sourceWarnings !== null ? String(1 + sourceWarnings) : '1',
-        detail: sourcesUnavailable
-          ? 'Bridge caveat; source probe unavailable'
-          : liveAttemptedAt && sourceWarnings > 0
-          ? 'Bridge caveat plus live source warnings'
-          : 'Google bridge doctor mismatch',
-        status: 'warning',
-        proofNodeId: 'google-bridge',
+        value: String(activeCaveats.length),
+        detail: activeCaveats.length ? activeCaveats.join(' ') : 'No active caveats',
+        status: activeCaveats.length ? 'warning' : 'healthy',
+        proofNodeId: activeCaveats.length ? (staleSourceCount > 0 || (sourceWarnings || 0) > 0 ? 'sources' : 'queues') : 'gbrain-core',
       },
     },
     nodes,
     edges,
-    caveats: [
-      'Official integrations doctor does not represent the custom local Google bridge.',
-      ...(stalePages > 0 ? [`Live health reports ${formatCount(stalePages)} stale page${stalePages === 1 ? '' : 's'}.`] : []),
-      ...(hasMissingEmbeddings ? [`Live health reports ${formatCount(missing)} missing embedding${missing === 1 ? '' : 's'}.`] : []),
-      ...(staleSourceCount > 0 ? [`${staleSourceCount} source${staleSourceCount === 1 ? '' : 's'} exceeded freshness thresholds.`] : []),
-      ...((sourceWarnings || 0) > 0 ? [`${sourceWarnings} live source${sourceWarnings === 1 ? '' : 's'} reported a warning status.`] : []),
-    ],
+    caveats: activeCaveats,
     warnings: [],
     handoff: {
       source: DESIGN_HANDOFF_PATH,

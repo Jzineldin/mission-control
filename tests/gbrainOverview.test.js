@@ -17,11 +17,11 @@ const {
   assert.equal(overview.mode, 'read-only-fixture');
   assert.equal(overview.title, 'GBrain');
   assert.equal(overview.trust.status, 'warning');
-  assert.equal(overview.trust.label, 'Trusted with caveats');
+  assert.equal(overview.trust.label, 'Trusted');
   assert.ok(overview.nodes.length >= 6);
   assert.ok(overview.edges.length >= 5);
   assert.equal(overview.warnings.length, 0);
-  assert.ok(overview.caveats.length >= 1);
+  assert.equal(overview.caveats.length, 0);
 
   for (const node of overview.nodes) {
     assert.ok(node.proof?.source, `${node.id} is missing proof source`);
@@ -30,7 +30,7 @@ const {
   }
 })();
 
-(function testCaveatNodesAreEvidenceBackedNotProofless() {
+(function testBridgeNodesAreEvidenceBackedNotProofless() {
   const overview = buildGBrainOverview();
   const sources = overview.nodes.find((node) => node.id === 'sources');
   const googleBridge = overview.nodes.find((node) => node.id === 'google-bridge');
@@ -38,9 +38,11 @@ const {
   assert.ok(sources);
   assert.ok(googleBridge);
   assert.equal(sources.status, 'warning');
-  assert.equal(googleBridge.status, 'warning');
+  assert.equal(googleBridge.status, 'healthy');
   assert.match(sources.summary, /verified/i);
-  assert.match(googleBridge.proof.label, /caveat/i);
+  assert.match(googleBridge.proof.label, /proof/i);
+  assert.doesNotMatch(googleBridge.summary, /caveat/i);
+  assert.doesNotMatch(googleBridge.proof.detail, /does not represent/i);
   assert.doesNotMatch(sources.nextSafeAction, /missing proof/i);
   assert.doesNotMatch(googleBridge.nextSafeAction, /missing proof/i);
 })();
@@ -390,7 +392,7 @@ async function testOverviewDoesNotMarkUnknownLiveSourcesHealthy() {
 
   assert.equal(sources.status, 'warning');
   assert.equal(edge.status, 'warning');
-  assert.equal(overview.cockpit.caveats.detail, 'Bridge caveat plus live source warnings');
+  assert.equal(overview.cockpit.caveats.detail, '1 live source reported a warning status.');
 }
 
 async function testStaleSourceFreshnessDowngradesLiveTrust() {
@@ -656,7 +658,7 @@ async function testOverviewShowsLiveAttemptWhenRuntimeUnavailable() {
   assert.equal(overview.cockpit.queue.value, 'Unavailable');
   assert.equal(overview.cockpit.embeddings.detail, 'health probe unavailable');
   assert.equal(overview.cockpit.queue.detail, 'health probe unavailable');
-  assert.equal(overview.cockpit.caveats.detail, 'Bridge caveat; source probe unavailable');
+  assert.equal(overview.cockpit.caveats.detail, 'Live health probe unavailable. Live source probe unavailable.');
   assert.equal(core.status, 'warning');
   assert.equal(core.proof.source, 'gbrain call get_health');
   assert.match(core.proof.detail, /unavailable/i);

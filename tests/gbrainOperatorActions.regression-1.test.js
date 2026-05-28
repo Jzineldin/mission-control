@@ -16,4 +16,29 @@ const { buildGBrainOverview, listGBrainActions } = require('../server/routes/gbr
   assert.doesNotMatch(overview.cockpit.autopilot.detail, /no mutation controls/i);
 })();
 
+(function testCoreNextActionPointsToAllowlistedActions() {
+  const overview = buildGBrainOverview({
+    health: {
+      ok: true,
+      mode: 'live-read-only',
+      checkedAt: '2026-05-28T16:00:00.000Z',
+      status: 'healthy',
+      score: 100,
+      metrics: {
+        pages: 1,
+        chunks: 1,
+        embedded: 1,
+        missingEmbeddings: 0,
+        stalePages: 0,
+        embeddingCoverage: 100,
+        queue: { waiting: 0, active: 0, stalled: 0 },
+      },
+    },
+  });
+  const core = overview.nodes.find((node) => node.id === 'gbrain-core');
+
+  assert.match(core.nextSafeAction, /allowlisted Operator Actions/i);
+  assert.doesNotMatch(core.nextSafeAction, /outside this read-only surface/i);
+})();
+
 console.log('gbrainOperatorActions regression tests passed');
