@@ -39,17 +39,19 @@ const GBrainActionDefinitions = {
   },
   'sync-sources': {
     label: 'Sync local sources',
-    description: 'Incrementally sync every registered local source without remote pulls.',
+    description: 'Incrementally sync every registered local source without remote pulls, then embed stale chunks.',
     kind: 'maintenance',
     args: ['sync', '--all', '--no-pull', '--parallel', '1', '--json', '--yes'],
+    afterSuccessArgs: ['embed', '--stale'],
     timeoutMs: 120000,
     refreshAfter: true,
   },
   'retry-failed-sync': {
     label: 'Retry failed syncs',
-    description: 'Re-attempt previously failed source files, then refresh live proof.',
+    description: 'Re-attempt previously failed source files, embed stale chunks, then refresh live proof.',
     kind: 'repair',
     args: ['sync', '--all', '--retry-failed', '--serial', '--no-pull', '--json', '--yes'],
+    afterSuccessArgs: ['embed', '--stale'],
     timeoutMs: 120000,
     refreshAfter: true,
   },
@@ -166,7 +168,9 @@ function listGBrainActions() {
     kind: definition.kind,
     timeoutMs: definition.timeoutMs,
     refreshAfter: definition.refreshAfter,
-    command: `gbrain ${definition.args.join(' ')}`,
+    command: [`gbrain ${definition.args.join(' ')}`, definition.afterSuccessArgs ? `gbrain ${definition.afterSuccessArgs.join(' ')}` : '']
+      .filter(Boolean)
+      .join(' && '),
   }));
 }
 
@@ -706,20 +710,31 @@ async function runGBrainAction(action, options = {}) {
   try {
     const execFilePromise = options.execFilePromise || defaultExecFilePromise;
     const result = await runGBrain(execFilePromise, definition.args, { timeoutMs: definition.timeoutMs });
+    const followUpResult = result.ok && definition.afterSuccessArgs
+      ? await runGBrain(execFilePromise, definition.afterSuccessArgs, { timeoutMs: definition.timeoutMs })
+      : null;
+    const actionOk = result.ok && (!followUpResult || followUpResult.ok);
     const payload = parseJsonFromOutput(result.stdout);
+    const followUpPayload = followUpResult ? parseJsonFromOutput(followUpResult.stdout) : null;
+    const responsePayload = followUpResult ? { result: payload, afterSuccess: followUpPayload } : payload;
+    const summary = [result, followUpResult]
+      .filter(Boolean)
+      .map((item) => summarizeCommandOutput(item.stdout, item.stderr))
+      .join('\n');
 
     return {
-      ok: result.ok,
+      ok: actionOk,
       mode: 'live-write',
       action,
       label: definition.label,
       args: definition.args,
+      afterSuccessArgs: definition.afterSuccessArgs,
       checkedAt,
-      status: result.ok ? 'completed' : 'failed',
+      status: actionOk ? 'completed' : 'failed',
       refreshAfter: definition.refreshAfter,
-      summary: summarizeCommandOutput(result.stdout, result.stderr),
-      payload: payload ? sanitizePayload(payload) : null,
-      error: result.ok ? '' : result.error || summarizeCommandOutput(result.stdout, result.stderr),
+      summary,
+      payload: responsePayload ? sanitizePayload(responsePayload) : null,
+      error: actionOk ? '' : followUpResult?.error || result.error || summary,
     };
   } finally {
     activeGBrainActions.delete(action);

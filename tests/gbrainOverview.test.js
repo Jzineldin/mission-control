@@ -556,14 +556,20 @@ async function testGBrainActionRunsOnlyAllowlistedCommand() {
   const expected = new Map([
     ['doctor-fast', ['doctor', '--json', '--fast']],
     ['preview-sync', ['sync', '--all', '--no-pull', '--parallel', '1', '--dry-run', '--json', '--yes']],
-    ['sync-sources', ['sync', '--all', '--no-pull', '--parallel', '1', '--json', '--yes']],
-    ['retry-failed-sync', ['sync', '--all', '--retry-failed', '--serial', '--no-pull', '--json', '--yes']],
+    ['sync-sources', [
+      ['sync', '--all', '--no-pull', '--parallel', '1', '--json', '--yes'],
+      ['embed', '--stale'],
+    ]],
+    ['retry-failed-sync', [
+      ['sync', '--all', '--retry-failed', '--serial', '--no-pull', '--json', '--yes'],
+      ['embed', '--stale'],
+    ]],
     ['embed-stale', ['embed', '--stale']],
     ['check-resolvable', ['check-resolvable', '--json']],
     ['storage-status', ['storage', 'status', '--json']],
   ]);
 
-  for (const [action, argsForAction] of expected.entries()) {
+  for (const [action, expectedCalls] of expected.entries()) {
     const calls = [];
     const execFilePromise = async (bin, args) => {
       assert.equal(bin, 'gbrain');
@@ -585,7 +591,7 @@ async function testGBrainActionRunsOnlyAllowlistedCommand() {
 
     assert.equal(result.ok, true);
     assert.equal(result.mode, 'live-write');
-    assert.deepEqual(calls, [argsForAction]);
+    assert.deepEqual(calls, Array.isArray(expectedCalls[0]) ? expectedCalls : [expectedCalls]);
     assert.doesNotMatch(serialized, /\/Users\/example/);
     assert.doesNotMatch(serialized, /sk-secret/);
     assert.match(serialized, /~\/private\/file\.md/);

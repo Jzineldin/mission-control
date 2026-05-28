@@ -40,8 +40,8 @@ Supported action payloads for `POST /api/gbrain/actions`:
 | --- | --- |
 | `doctor-fast` | `gbrain doctor --json --fast` |
 | `preview-sync` | `gbrain sync --all --no-pull --parallel 1 --dry-run --json --yes` |
-| `sync-sources` | `gbrain sync --all --no-pull --parallel 1 --json --yes` |
-| `retry-failed-sync` | `gbrain sync --all --retry-failed --serial --no-pull --json --yes` |
+| `sync-sources` | `gbrain sync --all --no-pull --parallel 1 --json --yes && gbrain embed --stale` |
+| `retry-failed-sync` | `gbrain sync --all --retry-failed --serial --no-pull --json --yes && gbrain embed --stale` |
 | `embed-stale` | `gbrain embed --stale` |
 | `check-resolvable` | `gbrain check-resolvable --json` |
 | `storage-status` | `gbrain storage status --json` |
