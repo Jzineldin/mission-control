@@ -44,6 +44,7 @@ const GBrainActionDefinitions = {
     args: ['sync', '--all', '--no-pull', '--parallel', '1', '--json', '--yes'],
     afterSuccessArgs: ['embed', '--stale'],
     softTimeoutMs: 120000,
+    hardKillDelayMs: 30000,
     timeoutMs: 120000,
     refreshAfter: true,
   },
@@ -54,6 +55,7 @@ const GBrainActionDefinitions = {
     args: ['sync', '--all', '--retry-failed', '--serial', '--no-pull', '--json', '--yes'],
     afterSuccessArgs: ['embed', '--stale'],
     softTimeoutMs: 120000,
+    hardKillDelayMs: 30000,
     timeoutMs: 120000,
     refreshAfter: true,
   },
@@ -163,26 +165,37 @@ function runGBrainWithSoftTimeout(args, options = {}) {
   let stdout = '';
   let stderr = '';
   let settled = false;
+  let exited = false;
+  let hardKillTimer = null;
 
   if (child.stdout) child.stdout.on('data', (chunk) => { stdout += chunk; });
   if (child.stderr) child.stderr.on('data', (chunk) => { stderr += chunk; });
 
   const cleanup = new Promise((resolve) => {
-    child.once('exit', resolve);
-    child.once('error', resolve);
+    const finish = () => {
+      exited = true;
+      if (hardKillTimer) clearTimeout(hardKillTimer);
+      resolve();
+    };
+    child.once('exit', finish);
+    child.once('error', finish);
   });
 
   return new Promise((resolve) => {
     const timer = setTimeout(() => {
       if (settled) return;
       settled = true;
+      child.kill('SIGINT');
+      hardKillTimer = setTimeout(() => {
+        if (!exited) child.kill('SIGKILL');
+      }, options.hardKillDelayMs || 30000);
       resolve({
         ok: false,
         stdout,
         stderr,
         pending: true,
         cleanup,
-        error: `gbrain ${args.slice(0, 2).join(' ')} is still running after ${Math.round(timeoutMs / 1000)}s`,
+        error: `gbrain ${args.slice(0, 2).join(' ')} exceeded ${Math.round(timeoutMs / 1000)}s and was asked to stop`,
       });
     }, timeoutMs);
 
@@ -783,6 +796,7 @@ async function runGBrainAction(action, options = {}) {
     const execFilePromise = options.execFilePromise || defaultExecFilePromise;
     const result = await runGBrain(execFilePromise, definition.args, {
       softTimeoutMs: definition.softTimeoutMs,
+      hardKillDelayMs: definition.hardKillDelayMs,
       timeoutMs: definition.timeoutMs,
     });
     if (result.cleanup) pendingCleanups.push(result.cleanup);
