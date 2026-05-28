@@ -43,7 +43,7 @@ const GBrainActionDefinitions = {
     kind: 'maintenance',
     args: ['sync', '--all', '--no-pull', '--parallel', '1', '--json', '--yes'],
     afterSuccessArgs: ['embed', '--stale'],
-    execTimeoutMs: 0,
+    softTimeoutMs: 120000,
     timeoutMs: 120000,
     refreshAfter: true,
   },
@@ -53,7 +53,7 @@ const GBrainActionDefinitions = {
     kind: 'repair',
     args: ['sync', '--all', '--retry-failed', '--serial', '--no-pull', '--json', '--yes'],
     afterSuccessArgs: ['embed', '--stale'],
-    execTimeoutMs: 0,
+    softTimeoutMs: 120000,
     timeoutMs: 120000,
     refreshAfter: true,
   },
@@ -85,6 +85,24 @@ const GBrainActionDefinitions = {
 const activeGBrainActions = new Set();
 
 const defaultExecFilePromise = util.promisify(execFile);
+
+function createGBrainExecOptions(timeoutMs) {
+  const pathEntries = [
+    `${os.homedir()}/.bun/bin`,
+    '/opt/homebrew/bin',
+    '/usr/local/bin',
+    process.env.PATH || '',
+  ].filter(Boolean);
+  const execOptions = {
+    maxBuffer: 1024 * 1024,
+    env: {
+      ...process.env,
+      PATH: pathEntries.join(':'),
+    },
+  };
+  if (timeoutMs > 0) execOptions.timeout = timeoutMs;
+  return execOptions;
+}
 
 function sanitizeMessage(value) {
   return String(value || 'Unknown error')
@@ -121,24 +139,13 @@ function parseJsonFromOutput(output) {
 }
 
 async function runGBrain(execFilePromise, args, options = {}) {
-  try {
-    const pathEntries = [
-      `${os.homedir()}/.bun/bin`,
-      '/opt/homebrew/bin',
-      '/usr/local/bin',
-      process.env.PATH || '',
-    ].filter(Boolean);
-    const timeoutMs = options.timeoutMs ?? DEFAULT_COMMAND_TIMEOUT_MS;
-    const execOptions = {
-      maxBuffer: 1024 * 1024,
-      env: {
-        ...process.env,
-        PATH: pathEntries.join(':'),
-      },
-    };
-    if (timeoutMs > 0) execOptions.timeout = timeoutMs;
+  if (options.softTimeoutMs > 0 && execFilePromise === defaultExecFilePromise) {
+    return runGBrainWithSoftTimeout(args, options);
+  }
 
-    const result = await execFilePromise('gbrain', args, execOptions);
+  try {
+    const timeoutMs = options.timeoutMs ?? DEFAULT_COMMAND_TIMEOUT_MS;
+    const result = await execFilePromise('gbrain', args, createGBrainExecOptions(timeoutMs));
     return { ok: true, stdout: result.stdout || '', stderr: result.stderr || '' };
   } catch (error) {
     return {
@@ -148,6 +155,65 @@ async function runGBrain(execFilePromise, args, options = {}) {
       error: sanitizeMessage(error?.stderr || error?.stdout || error?.message),
     };
   }
+}
+
+function runGBrainWithSoftTimeout(args, options = {}) {
+  const timeoutMs = options.softTimeoutMs;
+  const child = execFile('gbrain', args, createGBrainExecOptions(0));
+  let stdout = '';
+  let stderr = '';
+  let settled = false;
+
+  if (child.stdout) child.stdout.on('data', (chunk) => { stdout += chunk; });
+  if (child.stderr) child.stderr.on('data', (chunk) => { stderr += chunk; });
+
+  const cleanup = new Promise((resolve) => {
+    child.once('exit', resolve);
+    child.once('error', resolve);
+  });
+
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      resolve({
+        ok: false,
+        stdout,
+        stderr,
+        pending: true,
+        cleanup,
+        error: `gbrain ${args.slice(0, 2).join(' ')} is still running after ${Math.round(timeoutMs / 1000)}s`,
+      });
+    }, timeoutMs);
+
+    child.once('error', (error) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve({
+        ok: false,
+        stdout,
+        stderr,
+        error: sanitizeMessage(error?.stderr || error?.stdout || error?.message),
+      });
+    });
+
+    child.once('exit', (code, signal) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      if (code === 0) {
+        resolve({ ok: true, stdout, stderr });
+      } else {
+        resolve({
+          ok: false,
+          stdout,
+          stderr,
+          error: sanitizeMessage(stderr || stdout || `gbrain exited with ${signal || `code ${code}`}`),
+        });
+      }
+    });
+  });
 }
 
 function summarizeCommandOutput(stdout, stderr) {
@@ -712,14 +778,18 @@ async function runGBrainAction(action, options = {}) {
   }
 
   activeGBrainActions.add(action);
+  const pendingCleanups = [];
   try {
     const execFilePromise = options.execFilePromise || defaultExecFilePromise;
     const result = await runGBrain(execFilePromise, definition.args, {
-      timeoutMs: definition.execTimeoutMs ?? definition.timeoutMs,
+      softTimeoutMs: definition.softTimeoutMs,
+      timeoutMs: definition.timeoutMs,
     });
+    if (result.cleanup) pendingCleanups.push(result.cleanup);
     const followUpResult = result.ok && definition.afterSuccessArgs
       ? await runGBrain(execFilePromise, definition.afterSuccessArgs, { timeoutMs: definition.timeoutMs })
       : null;
+    if (followUpResult?.cleanup) pendingCleanups.push(followUpResult.cleanup);
     const actionOk = result.ok && (!followUpResult || followUpResult.ok);
     const payload = parseJsonFromOutput(result.stdout);
     const followUpPayload = followUpResult ? parseJsonFromOutput(followUpResult.stdout) : null;
@@ -744,7 +814,11 @@ async function runGBrainAction(action, options = {}) {
       error: actionOk ? '' : followUpResult?.error || result.error || summary,
     };
   } finally {
-    activeGBrainActions.delete(action);
+    if (pendingCleanups.length) {
+      Promise.allSettled(pendingCleanups).finally(() => activeGBrainActions.delete(action));
+    } else {
+      activeGBrainActions.delete(action);
+    }
   }
 }
 

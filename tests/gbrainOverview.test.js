@@ -595,7 +595,7 @@ async function testGBrainActionRunsOnlyAllowlistedCommand() {
     assert.equal(result.mode, 'live-write');
     assert.deepEqual(calls, Array.isArray(expectedCalls[0]) ? expectedCalls : [expectedCalls]);
     if (action === 'sync-sources' || action === 'retry-failed-sync') {
-      assert.equal(optionsByCall[0].timeout, undefined);
+      assert.equal(optionsByCall[0].timeout, 120000);
       assert.equal(optionsByCall[1].timeout, 120000);
     }
     assert.doesNotMatch(serialized, /\/Users\/example/);
