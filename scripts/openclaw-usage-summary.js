@@ -52,6 +52,11 @@ function modelName(provider, model) {
   const p = String(provider || '').trim();
   const m = String(model || '').trim();
   if (!p && !m) return 'unknown';
+  // OpenClaw native Codex session_meta often records provider=openai but omits
+  // model. Yordam's default OpenClaw model is GPT-5.5, which is subscription
+  // included; leaving this as openai/unknown makes Mission Control show a fake
+  // unknown-cost bucket for most OpenClaw tokens.
+  if (p === 'openai' && (!m || m === 'unknown')) return process.env.MC_OPENCLAW_DEFAULT_MODEL || 'openai/gpt-5.5';
   if (!p) return m;
   if (!m) return p;
   return `${p}/${m}`;
