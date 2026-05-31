@@ -9,10 +9,10 @@ const { buildGBrainOverview, listGBrainActions } = require('../server/routes/gbr
   const overview = buildGBrainOverview();
   const actions = listGBrainActions();
 
-  assert.equal(actions.length, 7);
+  assert.equal(actions.length, 8);
   assert.equal(overview.cockpit.autopilot.label, 'Operator actions');
   assert.equal(overview.cockpit.autopilot.value, 'Allowlisted');
-  assert.match(overview.cockpit.autopilot.detail, /7 local actions/i);
+  assert.match(overview.cockpit.autopilot.detail, /8 local actions/i);
   assert.doesNotMatch(overview.cockpit.autopilot.detail, /no mutation controls/i);
 })();
 

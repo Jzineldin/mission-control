@@ -1,6 +1,8 @@
 const express = require('express');
 const util = require('util');
 const os = require('os');
+const fs = require('fs');
+const path = require('path');
 const { execFile } = require('child_process');
 const { createGBrainTimelineService } = require('../services/gbrainTimeline');
 
@@ -19,6 +21,39 @@ const SOURCE_FRESHNESS_THRESHOLDS_HOURS = {
   codex: 48,
   codexmemories: 48,
   default: DEFAULT_SOURCE_FRESHNESS_HOURS,
+};
+const REQUIRED_GBRAIN_TOOLS = [
+  { id: 'get_page', label: 'get_page', mode: 'read', purpose: 'Read shared memory pages by slug.' },
+  { id: 'put_page', label: 'put_page', mode: 'write', purpose: 'Write curated shared-memory pages, never raw transcripts.' },
+  { id: 'query', label: 'query', mode: 'read', purpose: 'Use hybrid search as the default shared recall surface.' },
+  { id: 'recall', label: 'recall', mode: 'read', purpose: 'Read hot facts for cross-system memory recall.' },
+  { id: 'think', label: 'think', mode: 'read', purpose: 'Run multi-hop synthesis across pages, takes, and graph evidence.' },
+  { id: 'sources_list', label: 'sources', mode: 'read', purpose: 'Inspect registered shared-brain sources and freshness.' },
+  { id: 'get_health', label: 'health', mode: 'read', purpose: 'Verify GBrain health before relying on shared context.' },
+];
+const GBRAIN_RUNTIME_CONTRACT_MARKER = 'mission-control-gbrain-contract';
+const GBRAIN_INTEGRATION_CONTRACT = {
+  role: 'shared-brain',
+  label: 'Shared brain contract',
+  summary: 'GBrain is the shared machine brain. Hermes and OpenClaw keep their own local memory systems, and only curated cross-system knowledge is promoted into GBrain.',
+  localMemoryBoundary: 'Hermes profile memory and OpenClaw native memory remain local/private runtime memory.',
+  writePolicy: 'Curated decisions, playbooks, handoffs, and verified task outcomes may be exported; raw transcripts, secrets, credentials, and untagged private memory stay out.',
+  systems: [
+    {
+      id: 'hermes',
+      label: 'Hermes hmudur',
+      localMemory: 'Hermes profile memories remain the local conversational memory.',
+      gbrainUse: 'Uses GBrain for MCP recall/search plus curated memory bridge exports.',
+      proof: 'gbrain MCP server and hermes_hmudur_memory_bridge.py',
+    },
+    {
+      id: 'openclaw',
+      label: 'OpenClaw',
+      localMemory: 'OpenClaw native memory, sessions, and runtime state remain local to OpenClaw.',
+      gbrainUse: 'Uses GBrain as the shared recall/search/tool surface plus tagged main-memory bridge for cross-agent knowledge.',
+      proof: 'openclaw MCP gbrain server, main_memory_to_gbrain_bridge.py, and shared-memory source sync',
+    },
+  ],
 };
 const GBrainActionDefinitions = {
   'doctor-fast': {
@@ -65,6 +100,16 @@ const GBrainActionDefinitions = {
     kind: 'maintenance',
     args: ['embed', '--stale'],
     timeoutMs: 120000,
+    refreshAfter: true,
+  },
+  'embed-missing': {
+    label: 'Backfill missing embeddings',
+    description: 'Backfill missing embedding vectors using the stale-chunk fast path, then refresh live proof.',
+    kind: 'repair',
+    args: ['embed', '--stale', '--priority', 'recent', '--batch-size', '1000'],
+    softTimeoutMs: 1800000,
+    hardKillDelayMs: 30000,
+    timeoutMs: 1800000,
     refreshAfter: true,
   },
   'check-resolvable': {
@@ -256,6 +301,203 @@ function listGBrainActions() {
       .filter(Boolean)
       .join(' && '),
   }));
+}
+
+function resolveHomePath(homeDir, suffix) {
+  return path.join(homeDir || os.homedir(), suffix);
+}
+
+function fileExists(filePath) {
+  try {
+    return fs.existsSync(filePath);
+  } catch {
+    return false;
+  }
+}
+
+function readTextFile(filePath) {
+  try {
+    return fs.readFileSync(filePath, 'utf8');
+  } catch {
+    return '';
+  }
+}
+
+function parseJsonFile(filePath) {
+  try {
+    return JSON.parse(fs.readFileSync(filePath, 'utf8'));
+  } catch {
+    return null;
+  }
+}
+
+function resolveClawdRoot(options = {}, homeDir = os.homedir()) {
+  if (options.clawdRoot) return options.clawdRoot;
+  if (options.workspaceRoot) return options.workspaceRoot;
+  if (options.projectRoot) return path.resolve(options.projectRoot, '..');
+  return resolveHomePath(homeDir, 'clawd');
+}
+
+function detectHermesGBrainConfig(homeDir = os.homedir()) {
+  const configPath = resolveHomePath(homeDir, '.hermes/profiles/hmudur/config.yaml');
+  const text = readTextFile(configPath);
+  const configured = Boolean(text && /mcp_servers:\s*[\s\S]*?\bgbrain:\s*[\s\S]*?\bserve\b/i.test(text));
+  return {
+    configured,
+    source: configured ? 'Hermes profile mcp_servers.gbrain' : 'Hermes profile mcp_servers.gbrain missing',
+  };
+}
+
+function detectOpenClawGBrainConfig(homeDir = os.homedir()) {
+  const configPath = resolveHomePath(homeDir, '.openclaw/openclaw.json');
+  const config = parseJsonFile(configPath);
+  const server = config?.mcp?.servers?.gbrain || null;
+  const command = String(server?.command || '');
+  const args = Array.isArray(server?.args) ? server.args.map(String) : [];
+  const configured = Boolean(server && /gbrain(?:$|[\\/])?/i.test(command) && args.includes('serve'));
+  return {
+    configured,
+    source: configured ? 'OpenClaw mcp.servers.gbrain' : 'OpenClaw mcp.servers.gbrain missing',
+  };
+}
+
+function buildLocalGBrainIntegrationRuntime(options = {}) {
+  const homeDir = options.homeDir || os.homedir();
+  const clawdRoot = resolveClawdRoot(options, homeDir);
+  const hermesConfig = detectHermesGBrainConfig(homeDir);
+  const openclawConfig = detectOpenClawGBrainConfig(homeDir);
+  const hermesBridgeScript = resolveHomePath(homeDir, '.hermes/profiles/hmudur/scripts/hermes_hmudur_memory_bridge.py');
+  const hermesBridgeState = path.join(clawdRoot, 'shared-memory/state/hermes-hmudur-memory-bridge.json');
+  const sharedMemorySyncScript = path.join(clawdRoot, 'scripts/gbrain_sync_and_embed.sh');
+  const openclawBridgeScript = path.join(clawdRoot, 'scripts/main_memory_to_gbrain_bridge.py');
+  const sharedMemoryHandoffs = path.join(clawdRoot, 'shared-memory/handoffs.md');
+  const clawdSharedMemory = path.join(clawdRoot, 'shared-memory');
+  const openclawAgents = path.join(clawdRoot, 'AGENTS.md');
+  const hermesMemory = resolveHomePath(homeDir, '.hermes/profiles/hmudur/memories/MEMORY.md');
+  const syncWrapper = readTextFile(sharedMemorySyncScript);
+  const handoffsText = readTextFile(sharedMemoryHandoffs);
+  const openclawAgentsText = readTextFile(openclawAgents);
+  const hermesMemoryText = readTextFile(hermesMemory);
+  const openclawBridgeLinked = syncWrapper.includes('main_memory_to_gbrain_bridge.py');
+  const openclawBridgeBlockPresent = handoffsText.includes('main-memory-gbrain-bridge:start');
+  const openclawContractInstalled = openclawAgentsText.includes(`${GBRAIN_RUNTIME_CONTRACT_MARKER}:start`);
+  const hermesContractInstalled = hermesMemoryText.includes(`${GBRAIN_RUNTIME_CONTRACT_MARKER}:start`);
+  const openclawBridgeReady = fileExists(openclawBridgeScript) && openclawBridgeLinked && openclawBridgeBlockPresent;
+
+  return {
+    checkedAt: new Date().toISOString(),
+    systems: {
+      hermes: {
+        mcpConfigured: hermesConfig.configured,
+        mcpProof: hermesConfig.source,
+        runtimeContract: {
+          status: hermesContractInstalled ? 'healthy' : 'warning',
+          label: hermesContractInstalled ? 'GBrain shared-brain contract installed' : 'GBrain shared-brain contract missing',
+          proof: hermesContractInstalled ? 'Hermes hmudur MEMORY.md managed block' : 'Hermes hmudur MEMORY.md has no managed GBrain contract block',
+        },
+        durablePipeline: {
+          status: fileExists(hermesBridgeScript) && fileExists(sharedMemorySyncScript) ? 'healthy' : 'warning',
+          label: fileExists(hermesBridgeScript) ? 'Curated bridge script present' : 'Curated bridge script missing',
+          proof: fileExists(hermesBridgeState) ? 'Hermes bridge state file present' : hermesConfig.source,
+        },
+      },
+      openclaw: {
+        mcpConfigured: openclawConfig.configured,
+        mcpProof: openclawConfig.source,
+        runtimeContract: {
+          status: openclawContractInstalled ? 'healthy' : 'warning',
+          label: openclawContractInstalled ? 'GBrain shared-brain contract installed' : 'GBrain shared-brain contract missing',
+          proof: openclawContractInstalled ? 'OpenClaw AGENTS.md managed block' : 'OpenClaw AGENTS.md has no managed GBrain contract block',
+        },
+        durablePipeline: {
+          status: openclawBridgeReady ? 'healthy' : fileExists(clawdSharedMemory) ? 'warning' : 'critical',
+          label: openclawBridgeReady
+            ? 'Tagged OpenClaw main-memory bridge linked into GBrain sync'
+            : fileExists(openclawBridgeScript)
+            ? 'OpenClaw bridge script present; latest managed block or sync linkage not verified'
+            : 'Tagged OpenClaw bridge script missing',
+          proof: openclawBridgeReady
+            ? 'main_memory_to_gbrain_bridge.py + gbrain_sync_and_embed.sh + shared-memory/handoffs.md managed block'
+            : 'OpenClaw uses GBrain through MCP; curated exporter proof is incomplete',
+        },
+      },
+    },
+  };
+}
+
+function normalizeToolsPayload(payload, checkedAt) {
+  const rawTools = Array.isArray(payload) ? payload : payload?.tools || payload?.data || payload?.items || [];
+  const toolNames = rawTools
+    .map((tool) => String(tool?.name || tool?.id || '').trim())
+    .filter(Boolean);
+  const toolSet = new Set(toolNames);
+  const requiredTools = REQUIRED_GBRAIN_TOOLS.map((tool) => ({
+    ...tool,
+    present: toolSet.has(tool.id),
+  }));
+  const presentCount = requiredTools.filter((tool) => tool.present).length;
+
+  return {
+    ok: toolNames.length > 0,
+    mode: 'live-read-only',
+    checkedAt,
+    count: toolNames.length,
+    presentCount,
+    requiredCount: requiredTools.length,
+    missingCount: requiredTools.length - presentCount,
+    requiredTools,
+  };
+}
+
+function normalizeFeaturesPayload(payload, checkedAt) {
+  const recommendations = Array.isArray(payload?.recommendations) ? payload.recommendations : [];
+  return {
+    ok: true,
+    mode: 'live-read-only',
+    checkedAt,
+    version: sanitizeMessage(payload?.version || ''),
+    brainScore: Number.isFinite(Number(payload?.brain_score)) ? Number(payload.brain_score) : null,
+    recommendations: recommendations.map((item) => ({
+      id: sanitizeMessage(item?.id || 'feature-gap'),
+      priority: Number.isFinite(Number(item?.priority)) ? Number(item.priority) : null,
+      title: sanitizeMessage(item?.title || 'Feature recommendation'),
+      pitch: sanitizeMessage(item?.pitch || ''),
+      command: sanitizeMessage(item?.command || ''),
+      severity: item?.id === 'no-integrations' ? 'optional' : 'warning',
+    })),
+  };
+}
+
+async function buildLiveGBrainTools(options = {}) {
+  const execFilePromise = options.execFilePromise || defaultExecFilePromise;
+  const checkedAt = new Date().toISOString();
+  const result = await runGBrain(execFilePromise, ['--tools-json']);
+  const payload = parseJsonFromOutput(result.stdout);
+  if (result.ok && payload) return normalizeToolsPayload(payload, checkedAt);
+  return {
+    ok: false,
+    mode: 'live-read-only',
+    checkedAt,
+    status: 'unavailable',
+    error: result.error || 'gbrain --tools-json did not return parseable output',
+    requiredTools: REQUIRED_GBRAIN_TOOLS.map((tool) => ({ ...tool, present: false })),
+  };
+}
+
+async function buildLiveGBrainFeatures(options = {}) {
+  const execFilePromise = options.execFilePromise || defaultExecFilePromise;
+  const checkedAt = new Date().toISOString();
+  const result = await runGBrain(execFilePromise, ['features', '--json']);
+  const payload = parseJsonFromOutput(result.stdout);
+  if (result.ok && payload) return normalizeFeaturesPayload(payload, checkedAt);
+  return {
+    ok: false,
+    mode: 'live-read-only',
+    checkedAt,
+    status: 'unavailable',
+    error: result.error || 'gbrain features --json did not return parseable output',
+    recommendations: [],
+  };
 }
 
 function findNumber(payload, keys) {
@@ -619,6 +861,7 @@ function normalizeSourcesPayload(payload, checkedAt) {
     .filter((source) => source.id && source.id !== 'unknown');
   const totalPages = sources.reduce((sum, source) => sum + (source.pages || 0), 0);
   const freshness = summarizeSourceFreshness(sources, checkedAt);
+  const statusWarningCount = sources.filter((source) => isWarningSourceStatus(source.status)).length;
 
   return {
     ok: true,
@@ -627,7 +870,7 @@ function normalizeSourcesPayload(payload, checkedAt) {
     count: sources.length,
     totalPages,
     healthyCount: sources.filter((source) => isHealthySourceStatus(source.status)).length,
-    warningCount: sources.filter((source) => isWarningSourceStatus(source.status) || (source.freshness?.syncTracked !== false && source.freshness?.status === 'warning')).length,
+    warningCount: statusWarningCount,
     freshness,
     sources,
   };
@@ -663,6 +906,7 @@ function normalizeSourcesText(output, checkedAt) {
     .filter(Boolean);
   const totalPages = sources.reduce((sum, source) => sum + (source.pages || 0), 0);
   const freshness = summarizeSourceFreshness(sources, checkedAt);
+  const statusWarningCount = sources.filter((source) => isWarningSourceStatus(source.status)).length;
 
   return {
     ok: sources.length > 0,
@@ -671,7 +915,7 @@ function normalizeSourcesText(output, checkedAt) {
     count: sources.length,
     totalPages,
     healthyCount: sources.filter((source) => isHealthySourceStatus(source.status)).length,
-    warningCount: sources.filter((source) => isWarningSourceStatus(source.status) || (source.freshness?.syncTracked !== false && source.freshness?.status === 'warning')).length,
+    warningCount: statusWarningCount,
     freshness,
     sources,
   };
@@ -812,6 +1056,7 @@ async function runGBrainAction(action, options = {}) {
       .filter(Boolean)
       .map((item) => summarizeCommandOutput(item.stdout, item.stderr))
       .join('\n');
+    const pending = Boolean(result.pending || followUpResult?.pending);
 
     return {
       ok: actionOk,
@@ -821,7 +1066,8 @@ async function runGBrainAction(action, options = {}) {
       args: definition.args,
       afterSuccessArgs: definition.afterSuccessArgs,
       checkedAt,
-      status: actionOk ? 'completed' : 'failed',
+      status: actionOk ? 'completed' : pending ? 'timed-out' : 'failed',
+      pending,
       refreshAfter: definition.refreshAfter,
       summary,
       payload: responsePayload ? sanitizePayload(responsePayload) : null,
@@ -836,11 +1082,125 @@ async function runGBrainAction(action, options = {}) {
   }
 }
 
+function sourceById(liveSources, ids) {
+  const wanted = new Set(ids.map((id) => normalizeSourceKey(id)));
+  return (liveSources?.sources || []).find((source) => wanted.has(normalizeSourceKey(source.id))) || null;
+}
+
+function sourceStatusFor(source, sourcesUnavailable) {
+  if (sourcesUnavailable) return 'warning';
+  if (!source) return 'warning';
+  if (source.freshness?.status === 'warning') return 'warning';
+  return isWarningSourceStatus(source.status) ? 'warning' : 'healthy';
+}
+
+function buildGBrainIntegrationHealth(live = {}, runtime = {}) {
+  const liveHealth = live.health?.ok ? live.health : null;
+  const liveSources = live.sources?.ok ? live.sources : null;
+  const liveTools = live.tools?.ok ? live.tools : null;
+  const liveFeatures = live.features?.ok ? live.features : null;
+  const toolsUnavailable = Boolean(live.tools && !live.tools.ok);
+  const sourcesUnavailable = Boolean(live.sources && !live.sources.ok);
+  const requiredTools = liveTools?.requiredTools || REQUIRED_GBRAIN_TOOLS.map((tool) => ({ ...tool, present: false }));
+  const presentTools = requiredTools.filter((tool) => tool.present);
+  const missingTools = requiredTools.filter((tool) => !tool.present);
+  const hermesSource = sourceById(liveSources, ['hermes-agent', 'hermes']);
+  const openclawSource = sourceById(liveSources, ['clawd', 'openclaw']);
+  const runtimeSystems = runtime?.systems || {};
+  const featureGaps = liveFeatures?.recommendations || [];
+  const blockingFeatureGaps = featureGaps.filter((item) => item.severity !== 'optional');
+  const optionalFeatureGaps = featureGaps.filter((item) => item.severity === 'optional');
+  const readSmokeStatus = liveHealth && missingTools.length === 0 ? 'healthy' : 'warning';
+
+  const systems = GBRAIN_INTEGRATION_CONTRACT.systems.map((system) => {
+    const source = system.id === 'hermes' ? hermesSource : openclawSource;
+    const runtimeSystem = runtimeSystems[system.id] || {};
+    const mcpStatus = runtimeSystem.mcpConfigured === true ? 'healthy' : runtimeSystem.mcpConfigured === false ? 'warning' : 'inactive';
+    const contractStatus = runtimeSystem.runtimeContract?.status || 'warning';
+    const durableStatus = runtimeSystem.durablePipeline?.status || (system.id === 'hermes' ? 'warning' : 'warning');
+    const sourceStatus = sourceStatusFor(source, sourcesUnavailable);
+    const status = [mcpStatus, contractStatus, durableStatus, sourceStatus, readSmokeStatus].includes('critical')
+      ? 'critical'
+      : [mcpStatus, contractStatus, durableStatus, sourceStatus, readSmokeStatus].includes('warning')
+      ? 'warning'
+      : 'healthy';
+
+    return {
+      id: system.id,
+      label: system.label,
+      status,
+      mcp: {
+        configured: runtimeSystem.mcpConfigured === true,
+        status: mcpStatus,
+        proof: runtimeSystem.mcpProof || system.proof,
+      },
+      runtimeContract: {
+        status: contractStatus,
+        proof: runtimeSystem.runtimeContract?.proof || 'runtime contract not verified',
+        label: runtimeSystem.runtimeContract?.label || 'GBrain shared-brain contract not verified',
+      },
+      source: {
+        id: source?.id || (system.id === 'hermes' ? 'hermes-agent' : 'clawd'),
+        status: sourceStatus,
+        lastSyncAt: source?.lastSyncAt || null,
+        pages: source?.pages ?? null,
+        proof: source ? 'gbrain sources list' : 'source not found in live GBrain list',
+      },
+      tools: requiredTools.map((tool) => ({ id: tool.id, label: tool.label, present: tool.present, mode: tool.mode })),
+      readSmoke: {
+        status: readSmokeStatus,
+        proof: liveHealth ? 'gbrain call get_health + gbrain --tools-json' : 'health/tool discovery unavailable',
+        checkedAt: liveHealth?.checkedAt || live.tools?.checkedAt || null,
+      },
+      writeSmoke: {
+        status: durableStatus,
+        proof: runtimeSystem.durablePipeline?.proof || system.proof,
+        label: runtimeSystem.durablePipeline?.label || 'Curated write path not verified',
+      },
+    };
+  });
+
+  const connectedCount = systems.filter((system) => system.mcp.configured).length;
+  const healthyCount = systems.filter((system) => system.status === 'healthy').length;
+  const status = toolsUnavailable
+    ? 'warning'
+    : missingTools.length > 0 || blockingFeatureGaps.length > 0 || healthyCount < systems.length
+    ? 'warning'
+    : 'healthy';
+
+  return {
+    ok: true,
+    status,
+    checkedAt: liveHealth?.checkedAt || liveTools?.checkedAt || runtime?.checkedAt || new Date().toISOString(),
+    systems,
+    connectedCount,
+    systemCount: systems.length,
+    healthyCount,
+    toolContract: {
+      status: toolsUnavailable ? 'warning' : missingTools.length > 0 ? 'warning' : 'healthy',
+      checkedAt: liveTools?.checkedAt || null,
+      requiredCount: requiredTools.length,
+      presentCount: presentTools.length,
+      missingCount: missingTools.length,
+      tools: requiredTools,
+    },
+    featureGaps: {
+      status: blockingFeatureGaps.length > 0 ? 'warning' : live.features && !liveFeatures ? 'warning' : 'healthy',
+      checkedAt: liveFeatures?.checkedAt || live.features?.checkedAt || null,
+      count: featureGaps.length,
+      blockingCount: blockingFeatureGaps.length,
+      optionalCount: optionalFeatureGaps.length,
+      recommendations: featureGaps,
+    },
+  };
+}
+
 function buildGBrainOverview(live = {}, extra = {}) {
   const liveHealth = live.health?.ok ? live.health : null;
   const liveSources = live.sources?.ok ? live.sources : null;
   const liveVersion = live.version?.ok ? live.version : null;
-  const liveAttemptedAt = live.health?.checkedAt || live.sources?.checkedAt || live.version?.checkedAt || null;
+  const integrationHealth = buildGBrainIntegrationHealth(live, extra.integrationRuntime || {});
+  const liveAttemptedAt = live.health?.checkedAt || live.sources?.checkedAt || live.version?.checkedAt || live.tools?.checkedAt || live.features?.checkedAt || null;
   const liveCheckedAt = liveHealth?.checkedAt || liveSources?.checkedAt || liveVersion?.checkedAt || liveAttemptedAt;
   const healthUnavailable = Boolean(live.health && !live.health.ok);
   const sourcesUnavailable = Boolean(live.sources && !live.sources.ok);
@@ -926,6 +1286,7 @@ function buildGBrainOverview(live = {}, extra = {}) {
           : healthUnavailable
           ? 'Live GBrain health probe could not reach the local runtime.'
           : 'Green state is based on the latest saved audit, not a live mutation or repair run.',
+        GBRAIN_INTEGRATION_CONTRACT.localMemoryBoundary,
       ],
       nextSafeAction: liveHealth
         ? 'Use the allowlisted Operator Actions for local maintenance; keep arbitrary repair commands outside this surface.'
@@ -938,15 +1299,18 @@ function buildGBrainOverview(live = {}, extra = {}) {
       label: 'Hermes hmudur',
       kind: 'agent',
       status: 'healthy',
-      summary: 'Conversational operator surface reading GBrain through the MCP bridge.',
+      summary: 'Conversational operator surface reading GBrain through the MCP bridge while keeping Hermes profile memory local.',
       proof: {
         label: 'Read smoke passed',
         source: AUDIT_REPORT_PATH,
         verifiedAt: AUDIT_VERIFIED_AT,
         detail: 'Hermes hmudur read smoke passed through GBrain MCP.',
       },
-      metrics: [{ label: 'Bridge', value: 'MCP read' }],
-      risks: [],
+      metrics: [
+        { label: 'Bridge', value: 'MCP read' },
+        { label: 'Memory boundary', value: 'Local + curated' },
+      ],
+      risks: ['Do not promote raw Hermes transcripts or private profile memory into GBrain.'],
       nextSafeAction: 'Store bridge smoke results as structured JSON instead of report text.',
     },
     {
@@ -954,15 +1318,18 @@ function buildGBrainOverview(live = {}, extra = {}) {
       label: 'OpenClaw',
       kind: 'agent',
       status: 'healthy',
-      summary: 'Runtime tool surface with verified GBrain tool-call reads.',
+      summary: 'Runtime tool surface with verified GBrain tool-call reads while keeping OpenClaw native memory local.',
       proof: {
         label: 'Tool smoke passed',
         source: AUDIT_REPORT_PATH,
         verifiedAt: AUDIT_VERIFIED_AT,
         detail: 'OpenClaw read smoke passed through GBrain tool with failures 0.',
       },
-      metrics: [{ label: 'Failures', value: '0' }],
-      risks: [],
+      metrics: [
+        { label: 'Failures', value: '0' },
+        { label: 'Memory boundary', value: 'Local + shared recall' },
+      ],
+      risks: ['Do not mirror raw OpenClaw sessions, credentials, or untagged runtime memory into GBrain.'],
       nextSafeAction: 'Expose latest gateway bridge proof without writing to memory.',
     },
     {
@@ -1134,7 +1501,21 @@ function buildGBrainOverview(live = {}, extra = {}) {
         status: queueStatus,
         proofNodeId: 'queues',
       },
-      autopilot: { label: 'Operator actions', value: 'Allowlisted', detail: '7 local actions; probes remain read-only', status: 'healthy', proofNodeId: 'gbrain-core' },
+      memoryRole: {
+        label: 'Memory role',
+        value: 'Shared brain',
+        detail: 'Hermes/OpenClaw keep local memory; GBrain stores curated cross-system knowledge',
+        status: 'healthy',
+        proofNodeId: 'gbrain-core',
+      },
+      integration: {
+        label: 'Integration health',
+        value: `${integrationHealth.connectedCount}/${integrationHealth.systemCount} connected`,
+        detail: `${integrationHealth.toolContract.presentCount}/${integrationHealth.toolContract.requiredCount} core tools; ${integrationHealth.featureGaps.optionalCount} optional feature${integrationHealth.featureGaps.optionalCount === 1 ? '' : 's'}`,
+        status: integrationHealth.status,
+        proofNodeId: 'gbrain-core',
+      },
+      autopilot: { label: 'Operator actions', value: 'Allowlisted', detail: `${listGBrainActions().length} local actions; probes remain read-only`, status: 'healthy', proofNodeId: 'gbrain-core' },
       bridge: { label: 'Bridge proof', value: '2 passed', detail: 'Hermes + OpenClaw read smokes', status: 'healthy', proofNodeId: 'hermes' },
       caveats: {
         label: 'Caveats',
@@ -1148,6 +1529,8 @@ function buildGBrainOverview(live = {}, extra = {}) {
     edges,
     caveats: activeCaveats,
     warnings: [],
+    integrationContract: GBRAIN_INTEGRATION_CONTRACT,
+    integrationHealth,
     handoff: {
       source: DESIGN_HANDOFF_PATH,
       recommendedNextSlice: liveHealth || liveSources
@@ -1160,6 +1543,8 @@ function buildGBrainOverview(live = {}, extra = {}) {
       health: live.health || null,
       sources: live.sources || null,
       version: live.version || null,
+      tools: live.tools || null,
+      features: live.features || null,
     },
   };
 
@@ -1177,14 +1562,18 @@ function buildGBrainRouter(options = {}) {
   });
 
   router.get('/api/gbrain/overview', async (req, res) => {
-    const [health, sources, version] = await Promise.all([
+    const [health, sources, version, tools, features] = await Promise.all([
       buildLiveGBrainHealth(options),
       buildLiveGBrainSources(options),
       buildLiveGBrainVersion(options),
+      buildLiveGBrainTools(options),
+      buildLiveGBrainFeatures(options),
     ]);
-    const overview = buildGBrainOverview({ health, sources, version });
+    const integrationRuntime = buildLocalGBrainIntegrationRuntime(options);
+    const overview = buildGBrainOverview({ health, sources, version, tools, features }, { integrationRuntime });
     const result = await timelineService.captureOverview(overview);
-    res.json(buildGBrainOverview({ health, sources, version }, {
+    res.json(buildGBrainOverview({ health, sources, version, tools, features }, {
+      integrationRuntime,
       timelineSummary: result.timelineSummary,
       incidentBanner: result.timelineSummary?.incidentBanner || null,
     }));
@@ -1200,6 +1589,16 @@ function buildGBrainRouter(options = {}) {
 
   router.get('/api/gbrain/version', async (req, res) => {
     res.json(await buildLiveGBrainVersion(options));
+  });
+
+  router.get('/api/gbrain/integration-health', async (req, res) => {
+    const [health, sources, tools, features] = await Promise.all([
+      buildLiveGBrainHealth(options),
+      buildLiveGBrainSources(options),
+      buildLiveGBrainTools(options),
+      buildLiveGBrainFeatures(options),
+    ]);
+    res.json(buildGBrainIntegrationHealth({ health, sources, tools, features }, buildLocalGBrainIntegrationRuntime(options)));
   });
 
   router.get('/api/gbrain/actions', (req, res) => {
@@ -1228,6 +1627,10 @@ module.exports = {
   buildLiveGBrainHealth,
   buildLiveGBrainSources,
   buildLiveGBrainVersion,
+  buildLiveGBrainTools,
+  buildLiveGBrainFeatures,
+  buildGBrainIntegrationHealth,
+  buildLocalGBrainIntegrationRuntime,
   listGBrainActions,
   runGBrainAction,
   buildGBrainRouter,

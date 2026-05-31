@@ -1,10 +1,17 @@
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
 
 const {
   buildGBrainOverview,
   buildLiveGBrainHealth,
   buildLiveGBrainSources,
   buildLiveGBrainVersion,
+  buildLiveGBrainTools,
+  buildLiveGBrainFeatures,
+  buildGBrainIntegrationHealth,
+  buildLocalGBrainIntegrationRuntime,
   listGBrainActions,
   runGBrainAction,
   sanitizeMessage,
@@ -22,6 +29,9 @@ const {
   assert.ok(overview.edges.length >= 5);
   assert.equal(overview.warnings.length, 0);
   assert.equal(overview.caveats.length, 0);
+  assert.equal(overview.integrationContract.role, 'shared-brain');
+  assert.match(overview.integrationContract.localMemoryBoundary, /Hermes profile memory and OpenClaw native memory remain local/i);
+  assert.match(overview.integrationContract.writePolicy, /raw transcripts, secrets, credentials/i);
 
   for (const node of overview.nodes) {
     assert.ok(node.proof?.source, `${node.id} is missing proof source`);
@@ -58,6 +68,7 @@ const {
   assert.equal(core.metrics.find((metric) => metric.label === 'Embedded')?.value, '191,638');
   assert.equal(queues.metrics.find((metric) => metric.label === 'Missing')?.value, '0');
   assert.equal(overview.cockpit.embeddings.value, '100%');
+  assert.equal(overview.cockpit.memoryRole.value, 'Shared brain');
 })();
 
 (function testSanitizeMessageRedactsMacAndLinuxHomePaths() {
@@ -160,6 +171,121 @@ async function testLiveVersionAppearsInOverview() {
   assert.equal(overview.cockpit.version.label, 'Active version');
   assert.equal(overview.cockpit.version.value, '0.41.14.0');
   assert.equal(core.metrics.find((metric) => metric.label === 'Version')?.value, '0.41.14.0');
+}
+
+async function testLiveToolsFeaturesAndIntegrationHealth() {
+  const toolPayload = [
+    'get_page',
+    'put_page',
+    'query',
+    'recall',
+    'think',
+    'sources_list',
+    'get_health',
+  ].map((name) => ({ name }));
+  const execFilePromise = async (bin, args) => {
+    assert.equal(bin, 'gbrain');
+    if (args.join(' ') === '--tools-json') return { stdout: JSON.stringify(toolPayload), stderr: '' };
+    if (args.join(' ') === 'features --json') {
+      return {
+        stdout: JSON.stringify({
+          version: '0.41.38.0',
+          brain_score: 100,
+          recommendations: [{ id: 'no-integrations', priority: 2, title: 'Set Up Integrations', pitch: 'Email recipe is not configured.', command: 'gbrain integrations list' }],
+        }),
+        stderr: '',
+      };
+    }
+    throw new Error(`Unexpected command ${args.join(' ')}`);
+  };
+  const checkedAt = new Date().toISOString();
+  const health = {
+    ok: true,
+    mode: 'live-read-only',
+    checkedAt,
+    status: 'healthy',
+    score: 100,
+    metrics: { pages: 10, chunks: 20, embedded: 20, missingEmbeddings: 0, stalePages: 0, embeddingCoverage: 1, queue: { waiting: 0, active: 0, stalled: 0 } },
+  };
+  const sources = {
+    ok: true,
+    mode: 'live-read-only',
+    checkedAt,
+    count: 2,
+    totalPages: 50,
+    healthyCount: 2,
+    warningCount: 0,
+    freshness: { status: 'healthy', staleCount: 0, defaultThresholdHours: 24 },
+    sources: [
+      { id: 'hermes-agent', status: 'synced', pages: 30, lastSyncAt: checkedAt, freshness: { status: 'healthy', syncTracked: true } },
+      { id: 'clawd', status: 'synced', pages: 20, lastSyncAt: checkedAt, freshness: { status: 'healthy', syncTracked: true } },
+    ],
+  };
+  const runtime = {
+    checkedAt,
+    systems: {
+      hermes: { mcpConfigured: true, mcpProof: 'Hermes profile mcp_servers.gbrain', runtimeContract: { status: 'healthy', label: 'GBrain shared-brain contract installed', proof: 'Hermes hmudur MEMORY.md managed block' }, durablePipeline: { status: 'healthy', label: 'Curated bridge script present', proof: 'Hermes bridge state file present' } },
+      openclaw: { mcpConfigured: true, mcpProof: 'OpenClaw mcp.servers.gbrain', runtimeContract: { status: 'healthy', label: 'GBrain shared-brain contract installed', proof: 'OpenClaw AGENTS.md managed block' }, durablePipeline: { status: 'warning', label: 'Dedicated exporter not verified', proof: 'shared-memory sync' } },
+    },
+  };
+
+  const tools = await buildLiveGBrainTools({ execFilePromise });
+  const features = await buildLiveGBrainFeatures({ execFilePromise });
+  const integrationHealth = buildGBrainIntegrationHealth({ health, sources, tools, features }, runtime);
+  const overview = buildGBrainOverview({ health, sources, tools, features }, { integrationRuntime: runtime });
+
+  assert.equal(tools.ok, true);
+  assert.equal(tools.presentCount, 7);
+  assert.equal(tools.missingCount, 0);
+  assert.equal(features.recommendations.length, 1);
+  assert.equal(integrationHealth.connectedCount, 2);
+  assert.equal(integrationHealth.toolContract.status, 'healthy');
+  assert.equal(integrationHealth.featureGaps.count, 1);
+  assert.equal(integrationHealth.featureGaps.optionalCount, 1);
+  assert.equal(integrationHealth.featureGaps.blockingCount, 0);
+  assert.equal(integrationHealth.status, 'warning');
+  assert.equal(integrationHealth.systems.find((system) => system.id === 'hermes')?.status, 'healthy');
+  assert.equal(integrationHealth.systems.find((system) => system.id === 'openclaw')?.writeSmoke.status, 'warning');
+  assert.equal(overview.cockpit.integration.value, '2/2 connected');
+  assert.match(overview.cockpit.integration.detail, /7\/7 core tools; 1 optional feature/i);
+  assert.equal(overview.integrationHealth.systems.length, 2);
+}
+
+function testLocalRuntimeDetectorVerifiesManagedContractsAndBridges() {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'gbrain-runtime-'));
+  const homeDir = path.join(root, 'home');
+  const clawdRoot = path.join(root, 'clawd');
+  fs.mkdirSync(path.join(homeDir, '.hermes/profiles/hmudur/scripts'), { recursive: true });
+  fs.mkdirSync(path.join(homeDir, '.hermes/profiles/hmudur/memories'), { recursive: true });
+  fs.mkdirSync(path.join(homeDir, '.openclaw'), { recursive: true });
+  fs.mkdirSync(path.join(clawdRoot, 'scripts'), { recursive: true });
+  fs.mkdirSync(path.join(clawdRoot, 'shared-memory/state'), { recursive: true });
+
+  fs.writeFileSync(path.join(homeDir, '.hermes/profiles/hmudur/config.yaml'), [
+    'mcp_servers:',
+    '  gbrain:',
+    '    command: /x/gbrain',
+    '    args: [serve]',
+  ].join('\n'));
+  fs.writeFileSync(path.join(homeDir, '.openclaw/openclaw.json'), JSON.stringify({
+    mcp: { servers: { gbrain: { command: '/x/gbrain', args: ['serve'] } } },
+  }));
+  fs.writeFileSync(path.join(homeDir, '.hermes/profiles/hmudur/scripts/hermes_hmudur_memory_bridge.py'), '# bridge');
+  fs.writeFileSync(path.join(homeDir, '.hermes/profiles/hmudur/memories/MEMORY.md'), '<!-- mission-control-gbrain-contract:start -->\ncontract\n<!-- mission-control-gbrain-contract:end -->\n');
+  fs.writeFileSync(path.join(clawdRoot, 'AGENTS.md'), '<!-- mission-control-gbrain-contract:start -->\ncontract\n<!-- mission-control-gbrain-contract:end -->\n');
+  fs.writeFileSync(path.join(clawdRoot, 'shared-memory/state/hermes-hmudur-memory-bridge.json'), '{}');
+  fs.writeFileSync(path.join(clawdRoot, 'scripts/main_memory_to_gbrain_bridge.py'), '# bridge');
+  fs.writeFileSync(path.join(clawdRoot, 'scripts/gbrain_sync_and_embed.sh'), 'python3 "$ROOT/scripts/main_memory_to_gbrain_bridge.py"\n');
+  fs.writeFileSync(path.join(clawdRoot, 'shared-memory/handoffs.md'), '<!-- main-memory-gbrain-bridge:start -->\nentry\n<!-- main-memory-gbrain-bridge:end -->\n');
+
+  const runtime = buildLocalGBrainIntegrationRuntime({ homeDir, clawdRoot });
+
+  assert.equal(runtime.systems.hermes.mcpConfigured, true);
+  assert.equal(runtime.systems.hermes.runtimeContract.status, 'healthy');
+  assert.equal(runtime.systems.hermes.durablePipeline.status, 'healthy');
+  assert.equal(runtime.systems.openclaw.mcpConfigured, true);
+  assert.equal(runtime.systems.openclaw.runtimeContract.status, 'healthy');
+  assert.equal(runtime.systems.openclaw.durablePipeline.status, 'healthy');
 }
 
 async function testLiveSourcesDoNotExposeLocalPaths() {
@@ -280,7 +406,7 @@ async function testLiveSourcesFallsBackToTextOutput() {
   assert.deepEqual(calls, ['sources list --json', 'sources list']);
   assert.equal(sources.ok, true);
   assert.equal(sources.count, 2);
-  assert.equal(sources.warningCount, 2);
+  assert.equal(sources.warningCount, 1);
   assert.equal(sources.freshness.staleCount, 2);
   assert.doesNotMatch(serialized, /\/Users\/example/);
 }
@@ -436,14 +562,17 @@ async function testStaleSourceFreshnessDowngradesLiveTrust() {
 
   assert.equal(sources.freshness.status, 'warning');
   assert.equal(sources.freshness.staleCount, 1);
+  assert.equal(sources.warningCount, 0);
   assert.equal(sources.sources[0].freshness.thresholdHours, 12);
   assert.equal(sourceNode.status, 'warning');
   assert.equal(sourceEdge.status, 'warning');
   assert.equal(overview.trust.label, 'Live data stale');
   assert.equal(overview.cockpit.freshness.value, '1 stale');
+  assert.equal(overview.cockpit.caveats.detail, '1 source exceeded freshness thresholds.');
   assert.match(overview.cockpit.freshness.detail, /1 source stale/i);
   assert.match(sourceNode.nextSafeAction, /Refresh stale source syncs/i);
   assert.match(overview.caveats.join(' '), /exceeded freshness thresholds/i);
+  assert.doesNotMatch(overview.caveats.join(' '), /live source reported a warning status/i);
   assert.match(JSON.stringify(overview.live.sources), /mission-control/);
 }
 
@@ -565,6 +694,7 @@ async function testGBrainActionRunsOnlyAllowlistedCommand() {
       ['embed', '--stale'],
     ]],
     ['embed-stale', ['embed', '--stale']],
+    ['embed-missing', ['embed', '--stale', '--priority', 'recent', '--batch-size', '1000']],
     ['check-resolvable', ['check-resolvable', '--json']],
     ['storage-status', ['storage', 'status', '--json']],
   ]);
@@ -593,10 +723,13 @@ async function testGBrainActionRunsOnlyAllowlistedCommand() {
 
     assert.equal(result.ok, true);
     assert.equal(result.mode, 'live-write');
+    assert.equal(result.pending, false);
     assert.deepEqual(calls, Array.isArray(expectedCalls[0]) ? expectedCalls : [expectedCalls]);
     if (action === 'sync-sources' || action === 'retry-failed-sync') {
       assert.equal(optionsByCall[0].timeout, 120000);
       assert.equal(optionsByCall[1].timeout, 120000);
+    } else if (action === 'embed-missing') {
+      assert.equal(optionsByCall[0].timeout, 1800000);
     }
     assert.doesNotMatch(serialized, /\/Users\/example/);
     assert.doesNotMatch(serialized, /sk-secret/);
@@ -614,6 +747,7 @@ function testGBrainActionCatalogMatchesAllowlist() {
     'sync-sources',
     'retry-failed-sync',
     'embed-stale',
+    'embed-missing',
     'check-resolvable',
     'storage-status',
   ]);
@@ -622,8 +756,15 @@ function testGBrainActionCatalogMatchesAllowlist() {
     assert.ok(action.label, `${action.id} missing label`);
     assert.ok(action.description, `${action.id} missing description`);
     assert.ok(action.kind, `${action.id} missing kind`);
+    assert.ok(action.timeoutMs > 0, `${action.id} missing timeout`);
     assert.match(action.command, /^gbrain /);
   }
+
+  const embedMissing = actions.find((action) => action.id === 'embed-missing');
+  assert.equal(embedMissing.kind, 'repair');
+  assert.equal(embedMissing.timeoutMs, 1800000);
+  assert.equal(embedMissing.refreshAfter, true);
+  assert.equal(embedMissing.command, 'gbrain embed --stale --priority recent --batch-size 1000');
 }
 
 async function testGBrainActionRejectsUnknownAction() {
@@ -714,6 +855,8 @@ function testOverviewAddsTimelineSummaryAndIncidentBanner() {
   await testLiveHealthNormalizesReadOnlyProbe();
   await testLiveHealthBackfillsInventoryFromStatsText();
   await testLiveVersionAppearsInOverview();
+  await testLiveToolsFeaturesAndIntegrationHealth();
+  testLocalRuntimeDetectorVerifiesManagedContractsAndBridges();
   await testLiveSourcesDoNotExposeLocalPaths();
   await testDefaultSourceWithoutPathIsNotFreshnessStale();
   await testLiveSourcesCountsUnknownStatusesAsWarnings();

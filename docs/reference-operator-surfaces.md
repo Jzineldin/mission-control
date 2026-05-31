@@ -24,6 +24,7 @@ maintenance surface with an explicit action allowlist.
 | `GET` | `/api/gbrain/health` | Runs `gbrain health --json` and `gbrain jobs stats --json`, then normalizes health, embeddings, and queue counters |
 | `GET` | `/api/gbrain/sources` | Runs `gbrain sources list --json`, falling back to `gbrain sources list` text parsing |
 | `GET` | `/api/gbrain/version` | Runs `gbrain --version` and normalizes the active CLI version |
+| `GET` | `/api/gbrain/integration-health` | Runs live GBrain tool/feature/source probes and reports Hermes/OpenClaw integration readiness |
 | `GET` | `/api/gbrain/actions` | Returns the allowlisted action catalog rendered by `/gbrain` |
 | `POST` | `/api/gbrain/actions` | Runs one allowlisted local maintenance action and returns redacted command evidence |
 
@@ -33,6 +34,9 @@ Runtime details:
 - PATH includes `~/.bun/bin`, `/opt/homebrew/bin`, `/usr/local/bin`, then the process PATH.
 - Error messages redact bearer tokens, `sk-` API keys, and `/Users/<name>` paths.
 - Live failure returns JSON with `ok: false`, `mode: live-read-only`, `status: unavailable`, `checkedAt`, and a redacted `error`.
+- Read probes prove current health, source, queue, and bridge state only. Repair
+  proof comes from the allowlisted action response and the follow-up overview
+  refresh.
 
 Supported action payloads for `POST /api/gbrain/actions`:
 
@@ -43,6 +47,7 @@ Supported action payloads for `POST /api/gbrain/actions`:
 | `sync-sources` | `gbrain sync --all --no-pull --parallel 1 --timeout 105 --json --yes && gbrain embed --stale` |
 | `retry-failed-sync` | `gbrain sync --all --retry-failed --serial --timeout 105 --no-pull --json --yes && gbrain embed --stale` |
 | `embed-stale` | `gbrain embed --stale` |
+| `embed-missing` | `gbrain embed --stale --priority recent --batch-size 1000` |
 | `check-resolvable` | `gbrain check-resolvable --json` |
 | `storage-status` | `gbrain storage status --json` |
 
@@ -51,7 +56,11 @@ Action safety constraints:
 - No arbitrary command or source id is accepted from the browser.
 - Only one GBrain action may run at a time from Mission Control.
 - Action timeout is action-specific: 30000 ms for fast diagnostics, 60000 ms
-  for previews and routing checks, and 120000 ms for maintenance or repair.
+  for previews and routing checks, 120000 ms for normal maintenance or repair,
+  and 1800000 ms for `embed-missing`.
+- Long repairs use a soft timeout first: Mission Control sends SIGINT, reports
+  `status: timed-out` with `pending: true`, and keeps the action slot busy until
+  the process exits or the hard-kill delay expires.
 - Action output uses the same token, key, and home-path redaction as probes.
 
 The overview payload has these top-level fields:
@@ -66,9 +75,38 @@ The overview payload has these top-level fields:
 | `nodes` | array | Brain map nodes with proof, metrics, risks, and next safe action |
 | `edges` | array | Relationships between nodes and proof node ids |
 | `caveats` | array | Known caveats that do not invalidate the whole surface |
+| `integrationContract` | object | Shared-brain contract: GBrain is the cross-system brain while Hermes and OpenClaw keep their local memory systems |
+| `integrationHealth` | object | Live matrix for GBrain core tools, feature gaps, MCP config, runtime contract install, source freshness, and read/write smoke proof |
 | `live` | object | Raw normalized live health and source probe results |
 
 Node status values are `healthy`, `warning`, `critical`, and `inactive`.
+
+Memory integration boundary:
+
+- GBrain is the shared machine brain for cross-system recall, source search,
+  graph context, and curated durable knowledge.
+- Hermes profile memory and OpenClaw native memory remain their local/private
+  runtime memory systems.
+- Only curated decisions, playbooks, handoffs, and verified task outcomes should
+  be promoted into GBrain.
+- Raw transcripts, secrets, credentials, and untagged private memory must not be
+  mirrored into GBrain.
+
+Core tool contract:
+
+- Hermes and OpenClaw should treat `get_page`, `put_page`, `query`, `recall`,
+  `think`, `sources`, and `health` as the explicit GBrain shared-brain surface.
+- Mission Control verifies this with `gbrain --tools-json`; the canonical MCP
+  tool ids are `get_page`, `put_page`, `query`, `recall`, `think`,
+  `sources_list`, and `get_health`.
+- Mission Control verifies runtime guidance separately, so MCP connectivity is
+  not confused with Hermes/OpenClaw actually being instructed to use GBrain for
+  shared recall/search/writeback when appropriate.
+- `put_page` remains scoped to curated cross-system memory. It is not a raw
+  transcript or credential mirror.
+- `gbrain features --json` recommendations with id `no-integrations` are shown
+  as optional external recipes. They remain visible, but they do not downgrade
+  Hermes/OpenClaw core shared-brain health.
 
 ## Hermes Kanban API
 
