@@ -349,6 +349,34 @@ function testLocalRuntimeDetectorVerifiesManagedContractsAndBridges() {
   assert.equal(runtime.systems.openclaw.durablePipeline.status, 'healthy');
 }
 
+function testLocalRuntimeUsesConfiguredWorkspaceBeforeProjectParent() {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'gbrain-workspace-'));
+  const homeDir = path.join(root, 'home');
+  const clawdRoot = path.join(root, 'actual-workspace');
+  const appRoot = path.join(root, 'standalone', 'mission-control');
+  fs.mkdirSync(path.join(homeDir, '.openclaw'), { recursive: true });
+  fs.mkdirSync(path.join(clawdRoot, 'scripts'), { recursive: true });
+  fs.mkdirSync(path.join(clawdRoot, 'shared-memory/state'), { recursive: true });
+  fs.mkdirSync(appRoot, { recursive: true });
+
+  fs.writeFileSync(path.join(homeDir, '.openclaw/openclaw.json'), JSON.stringify({
+    mcp: { servers: { gbrain: { command: '/x/gbrain', args: ['serve'] } } },
+  }));
+  fs.writeFileSync(path.join(clawdRoot, 'AGENTS.md'), '<!-- mission-control-gbrain-contract:start -->\ncontract\n<!-- mission-control-gbrain-contract:end -->\n');
+  fs.writeFileSync(path.join(clawdRoot, 'scripts/main_memory_to_gbrain_bridge.py'), '# bridge');
+  fs.writeFileSync(path.join(clawdRoot, 'scripts/gbrain_sync_and_embed.sh'), 'python3 "$ROOT/scripts/main_memory_to_gbrain_bridge.py"\n');
+  fs.writeFileSync(path.join(clawdRoot, 'shared-memory/handoffs.md'), '<!-- main-memory-gbrain-bridge:start -->\nentry\n<!-- main-memory-gbrain-bridge:end -->\n');
+
+  const runtime = buildLocalGBrainIntegrationRuntime({
+    homeDir,
+    projectRoot: appRoot,
+    mcConfig: { workspace: clawdRoot },
+  });
+
+  assert.equal(runtime.systems.openclaw.runtimeContract.status, 'healthy');
+  assert.equal(runtime.systems.openclaw.durablePipeline.status, 'healthy');
+}
+
 async function testLiveSourcesDoNotExposeLocalPaths() {
   const freshAt = new Date().toISOString();
   const execFilePromise = async (bin, args) => {
@@ -919,6 +947,7 @@ function testOverviewAddsTimelineSummaryAndIncidentBanner() {
   await testLiveToolsFeaturesAndIntegrationHealth();
   await testThinkRuntimeWarnsWhenToolExistsWithoutActiveModel();
   testLocalRuntimeDetectorVerifiesManagedContractsAndBridges();
+  testLocalRuntimeUsesConfiguredWorkspaceBeforeProjectParent();
   await testLiveSourcesDoNotExposeLocalPaths();
   await testDefaultSourceWithoutPathIsNotFreshnessStale();
   await testLiveSourcesCountsUnknownStatusesAsWarnings();

@@ -337,6 +337,11 @@ function parseJsonFile(filePath) {
 function resolveClawdRoot(options = {}, homeDir = os.homedir()) {
   if (options.clawdRoot) return options.clawdRoot;
   if (options.workspaceRoot) return options.workspaceRoot;
+  const configuredWorkspace = options.mcConfig?.workspace || options.workspacePath;
+  if (configuredWorkspace) return configuredWorkspace;
+  const openclawConfig = parseJsonFile(resolveHomePath(homeDir, '.openclaw/openclaw.json'));
+  const openclawWorkspace = openclawConfig?.agents?.defaults?.workspace;
+  if (openclawWorkspace) return openclawWorkspace;
   if (options.projectRoot) return path.resolve(options.projectRoot, '..');
   return resolveHomePath(homeDir, 'clawd');
 }
