@@ -254,6 +254,50 @@ async function testLiveToolsFeaturesAndIntegrationHealth() {
   assert.equal(overview.integrationHealth.systems.length, 2);
 }
 
+async function testLiveToolsAcceptStringListPayload() {
+  const execFilePromise = async (bin, args) => {
+    assert.equal(bin, 'gbrain');
+    assert.deepEqual(args, ['--tools-json']);
+    return {
+      stdout: JSON.stringify(['get_page', 'put_page', 'query', 'recall', 'think', 'sources_list', 'get_health']),
+      stderr: '',
+    };
+  };
+
+  const tools = await buildLiveGBrainTools({ execFilePromise });
+
+  assert.equal(tools.ok, true);
+  assert.equal(tools.presentCount, 7);
+  assert.equal(tools.missingCount, 0);
+}
+
+async function testLiveToolsAcceptKeyedMapPayload() {
+  const execFilePromise = async (bin, args) => {
+    assert.equal(bin, 'gbrain');
+    assert.deepEqual(args, ['--tools-json']);
+    return {
+      stdout: JSON.stringify({
+        tools: {
+          get_page: { mode: 'read' },
+          put_page: { mode: 'write' },
+          query: { mode: 'read' },
+          recall: { mode: 'read' },
+          think: { mode: 'synthesize' },
+          sources_list: { mode: 'read' },
+          get_health: { mode: 'read' },
+        },
+      }),
+      stderr: '',
+    };
+  };
+
+  const tools = await buildLiveGBrainTools({ execFilePromise });
+
+  assert.equal(tools.ok, true);
+  assert.equal(tools.presentCount, 7);
+  assert.equal(tools.missingCount, 0);
+}
+
 async function testThinkRuntimeWarnsWhenToolExistsWithoutActiveModel() {
   const checkedAt = new Date().toISOString();
   const toolPayload = [
@@ -1028,6 +1072,8 @@ function testOverviewAddsTimelineSummaryAndIncidentBanner() {
   await testLiveHealthBackfillsInventoryFromStatsText();
   await testLiveVersionAppearsInOverview();
   await testLiveToolsFeaturesAndIntegrationHealth();
+  await testLiveToolsAcceptStringListPayload();
+  await testLiveToolsAcceptKeyedMapPayload();
   await testThinkRuntimeWarnsWhenToolExistsWithoutActiveModel();
   await testMissingThinkDoesNotFailBaseReadSmoke();
   testIntegrationWarningsAppearAsTopLevelCaveats();

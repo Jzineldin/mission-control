@@ -455,9 +455,14 @@ function buildLocalGBrainIntegrationRuntime(options = {}) {
 }
 
 function normalizeToolsPayload(payload, checkedAt) {
-  const rawTools = Array.isArray(payload) ? payload : payload?.tools || payload?.data || payload?.items || [];
+  const rawToolsSource = Array.isArray(payload) ? payload : payload?.tools || payload?.data || payload?.items || [];
+  const rawTools = Array.isArray(rawToolsSource)
+    ? rawToolsSource
+    : rawToolsSource && typeof rawToolsSource === 'object'
+    ? Object.entries(rawToolsSource).map(([id, value]) => (value && typeof value === 'object' ? { id, ...value } : id))
+    : [];
   const toolNames = rawTools
-    .map((tool) => String(tool?.name || tool?.id || '').trim())
+    .map((tool) => String(typeof tool === 'string' ? tool : tool?.name || tool?.id || '').trim())
     .filter(Boolean);
   const toolSet = new Set(toolNames);
   const requiredTools = REQUIRED_GBRAIN_TOOLS.map((tool) => ({
