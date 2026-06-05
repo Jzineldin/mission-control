@@ -10,7 +10,7 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const DEFAULT_ADVISORY_URL = 'https://security.snyk.io/packages/tanstack-npm-packages-compromise';
+const DEFAULT_ADVISORY_URL = 'https://security.snyk.io/TanStack-npm-Supply-Chain-Compromise-May-2026';
 const advisoryUrl = process.env.NPM_INCIDENT_ADVISORY_URL || DEFAULT_ADVISORY_URL;
 const repoRoot = process.env.SUPPLY_CHAIN_REPO_ROOT || process.cwd();
 const pruneDirs = new Set(['.git', 'node_modules', 'dist', 'build', '.next', '.turbo', '.cache', 'coverage', 'playwright-report', 'test-results']);
