@@ -1232,9 +1232,10 @@ function buildGBrainIntegrationHealth(live = {}, runtime = {}) {
   const featureGaps = liveFeatures?.recommendations || [];
   const blockingFeatureGaps = featureGaps.filter((item) => item.severity !== 'optional');
   const optionalFeatureGaps = featureGaps.filter((item) => item.severity === 'optional');
-  const readSmokeStatus = liveHealth && missingTools.length === 0 ? 'healthy' : 'warning';
   const baseTools = requiredTools.filter((tool) => GBRAIN_BASE_TOOL_IDS.has(tool.id));
   const presentBaseTools = baseTools.filter((tool) => tool.present);
+  const missingBaseTools = baseTools.filter((tool) => !tool.present);
+  const readSmokeStatus = liveHealth && missingBaseTools.length === 0 ? 'healthy' : 'warning';
   const thinkTool = requiredTools.find((tool) => tool.id === 'think');
   const thinkConfig = runtime?.think || {};
   const thinkProbeAttempted = Boolean(live.tools || live.providers);
@@ -1355,6 +1356,7 @@ function buildGBrainIntegrationHealth(live = {}, runtime = {}) {
       tools: requiredTools,
       baseRequiredCount: baseTools.length,
       basePresentCount: presentBaseTools.length,
+      baseMissingCount: missingBaseTools.length,
     },
     thinkRuntime,
     featureGaps: {
@@ -1372,6 +1374,7 @@ function buildGBrainOverview(live = {}, extra = {}) {
   const liveHealth = live.health?.ok ? live.health : null;
   const liveSources = live.sources?.ok ? live.sources : null;
   const liveVersion = live.version?.ok ? live.version : null;
+  const hasIntegrationRuntime = Boolean(extra.integrationRuntime);
   const integrationHealth = buildGBrainIntegrationHealth(live, extra.integrationRuntime || {});
   const liveAttemptedAt = live.health?.checkedAt || live.sources?.checkedAt || live.version?.checkedAt || live.tools?.checkedAt || live.features?.checkedAt || null;
   const liveCheckedAt = liveHealth?.checkedAt || liveSources?.checkedAt || liveVersion?.checkedAt || liveAttemptedAt;
@@ -1417,6 +1420,12 @@ function buildGBrainOverview(live = {}, extra = {}) {
     : sourceWarnings > 0
     ? [`${sourceWarnings} live source${sourceWarnings === 1 ? '' : 's'} reported a warning status.`]
     : [];
+  const hasRuntimeIntegrationWarning = hasIntegrationRuntime && Boolean(liveAttemptedAt) && integrationHealth.systems.some((system) => [
+    system.mcp?.status,
+    system.runtimeContract?.status,
+    system.readSmoke?.status,
+    system.writeSmoke?.status,
+  ].some((status) => status === 'warning' || status === 'critical'));
   const activeCaveats = [
     ...(healthUnavailable ? ['Live health probe unavailable.'] : []),
     ...(sourcesUnavailable ? ['Live source probe unavailable.'] : []),
@@ -1424,6 +1433,7 @@ function buildGBrainOverview(live = {}, extra = {}) {
     ...(hasMissingEmbeddings ? [`Live health reports ${formatCount(missing)} missing embedding${missing === 1 ? '' : 's'}.`] : []),
     ...(staleSourceCount > 0 ? [`${staleSourceCount} source${staleSourceCount === 1 ? '' : 's'} exceeded freshness thresholds.`] : []),
     ...((sourceWarnings || 0) > 0 ? [`${sourceWarnings} live source${sourceWarnings === 1 ? '' : 's'} reported a warning status.`] : []),
+    ...(hasRuntimeIntegrationWarning ? ['Integration health warning: runtime readiness is degraded.'] : []),
     ...(integrationHealth.thinkRuntime?.status === 'warning' || integrationHealth.thinkRuntime?.status === 'critical'
       ? [`${integrationHealth.thinkRuntime.label}: ${integrationHealth.thinkRuntime.detail}`]
       : []),

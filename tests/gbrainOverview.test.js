@@ -312,6 +312,89 @@ async function testThinkRuntimeWarnsWhenToolExistsWithoutActiveModel() {
   assert.ok(overview.caveats.some((item) => /think exposed but not runtime-ready/i.test(item)));
 }
 
+async function testMissingThinkDoesNotFailBaseReadSmoke() {
+  const checkedAt = new Date().toISOString();
+  const toolPayload = [
+    'get_page',
+    'put_page',
+    'query',
+    'recall',
+    'sources_list',
+    'get_health',
+  ].map((name) => ({ name }));
+  const execFilePromise = async (bin, args) => {
+    assert.equal(bin, 'gbrain');
+    if (args.join(' ') === '--tools-json') return { stdout: JSON.stringify(toolPayload), stderr: '' };
+    throw new Error(`Unexpected command ${args.join(' ')}`);
+  };
+  const health = {
+    ok: true,
+    mode: 'live-read-only',
+    checkedAt,
+    status: 'healthy',
+    score: 100,
+    metrics: { pages: 1, chunks: 1, embedded: 1, missingEmbeddings: 0, stalePages: 0, embeddingCoverage: 1, queue: { waiting: 0, active: 0, stalled: 0 } },
+  };
+  const tools = await buildLiveGBrainTools({ execFilePromise });
+  const runtime = {
+    checkedAt,
+    think: { configured: false, modelConfigured: false, proxyConfigured: false, proof: 'No GBrain chat model configured' },
+    systems: {
+      hermes: { mcpConfigured: true, runtimeContract: { status: 'healthy', label: 'GBrain shared-brain contract installed', proof: 'Hermes contract' }, durablePipeline: { status: 'healthy', label: 'Curated bridge script present', proof: 'Hermes bridge' } },
+      openclaw: { mcpConfigured: true, runtimeContract: { status: 'healthy', label: 'GBrain shared-brain contract installed', proof: 'OpenClaw contract' }, durablePipeline: { status: 'healthy', label: 'Tagged OpenClaw main-memory bridge linked into GBrain sync', proof: 'OpenClaw bridge' } },
+    },
+  };
+
+  const integrationHealth = buildGBrainIntegrationHealth({ health, tools }, runtime);
+
+  assert.equal(integrationHealth.toolContract.basePresentCount, 6);
+  assert.equal(integrationHealth.toolContract.baseMissingCount, 0);
+  assert.equal(integrationHealth.thinkRuntime.status, 'critical');
+  assert.equal(integrationHealth.systems.find((system) => system.id === 'hermes')?.readSmoke.status, 'healthy');
+  assert.equal(integrationHealth.systems.find((system) => system.id === 'openclaw')?.readSmoke.status, 'healthy');
+}
+
+function testIntegrationWarningsAppearAsTopLevelCaveats() {
+  const checkedAt = new Date().toISOString();
+  const health = {
+    ok: true,
+    mode: 'live-read-only',
+    checkedAt,
+    status: 'healthy',
+    score: 100,
+    metrics: { pages: 1, chunks: 1, embedded: 1, missingEmbeddings: 0, stalePages: 0, embeddingCoverage: 1, queue: { waiting: 0, active: 0, stalled: 0 } },
+  };
+  const tools = {
+    ok: true,
+    checkedAt,
+    requiredTools: ['get_page', 'put_page', 'query', 'recall', 'think', 'sources_list', 'get_health'].map((id) => ({ id, label: id, present: true, mode: 'read' })),
+  };
+  const sources = {
+    ok: true,
+    checkedAt,
+    sources: [
+      { id: 'hermes-agent', status: 'synced', lastSyncAt: checkedAt, freshness: { status: 'healthy', syncTracked: true } },
+      { id: 'clawd', status: 'synced', lastSyncAt: checkedAt, freshness: { status: 'healthy', syncTracked: true } },
+    ],
+    freshness: { status: 'healthy', staleCount: 0, defaultThresholdHours: 24 },
+    warningCount: 0,
+  };
+  const runtime = {
+    checkedAt,
+    think: { configured: true, modelConfigured: true, proxyConfigured: false, proof: 'GBrain chat model configured' },
+    systems: {
+      hermes: { mcpConfigured: false, runtimeContract: { status: 'warning', label: 'GBrain shared-brain contract missing', proof: 'Hermes contract missing' }, durablePipeline: { status: 'healthy', label: 'Curated bridge script present', proof: 'Hermes bridge' } },
+      openclaw: { mcpConfigured: true, runtimeContract: { status: 'healthy', label: 'GBrain shared-brain contract installed', proof: 'OpenClaw contract' }, durablePipeline: { status: 'healthy', label: 'Tagged OpenClaw main-memory bridge linked into GBrain sync', proof: 'OpenClaw bridge' } },
+    },
+  };
+
+  const overview = buildGBrainOverview({ health, sources, tools }, { integrationRuntime: runtime });
+
+  assert.equal(overview.cockpit.think.value, 'Ready');
+  assert.ok(overview.caveats.some((item) => /integration health warning/i.test(item)));
+  assert.match(overview.trust.label, /caveats/i);
+}
+
 function testLocalRuntimeDetectorVerifiesManagedContractsAndBridges() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'gbrain-runtime-'));
   const homeDir = path.join(root, 'home');
@@ -946,6 +1029,8 @@ function testOverviewAddsTimelineSummaryAndIncidentBanner() {
   await testLiveVersionAppearsInOverview();
   await testLiveToolsFeaturesAndIntegrationHealth();
   await testThinkRuntimeWarnsWhenToolExistsWithoutActiveModel();
+  await testMissingThinkDoesNotFailBaseReadSmoke();
+  testIntegrationWarningsAppearAsTopLevelCaveats();
   testLocalRuntimeDetectorVerifiesManagedContractsAndBridges();
   testLocalRuntimeUsesConfiguredWorkspaceBeforeProjectParent();
   await testLiveSourcesDoNotExposeLocalPaths();
