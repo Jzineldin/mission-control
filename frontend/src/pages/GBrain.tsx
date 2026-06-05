@@ -89,8 +89,22 @@ interface IntegrationSystemHealth {
   runtimeContract: { status: EvidenceStatus; proof: string; label: string }
   source: { id: string; status: EvidenceStatus; lastSyncAt: string | null; pages: number | null; proof: string }
   tools: IntegrationHealthTool[]
+  thinkRuntime?: ThinkRuntime
   readSmoke: { status: EvidenceStatus; proof: string; checkedAt: string | null }
   writeSmoke: { status: EvidenceStatus; proof: string; label: string }
+}
+
+interface ThinkRuntime {
+  status: EvidenceStatus
+  label: string
+  detail: string
+  proof: string
+  checkedAt: string | null
+  toolPresent: boolean
+  activeModelConfigured: boolean
+  proxyConfigured: boolean
+  readyChatProviderCount: number
+  readyChatProviders: string[]
 }
 
 interface IntegrationHealth {
@@ -107,8 +121,11 @@ interface IntegrationHealth {
     requiredCount: number
     presentCount: number
     missingCount: number
+    baseRequiredCount?: number
+    basePresentCount?: number
     tools: IntegrationHealthTool[]
   }
+  thinkRuntime: ThinkRuntime
   featureGaps: {
     status: EvidenceStatus
     checkedAt: string | null
@@ -296,13 +313,13 @@ const fallbackActions: GBrainActionDefinition[] = [
 ]
 
 const nodePositions: Record<string, { x: number; y: number; size: number }> = {
-  'gbrain-core': { x: 50, y: 48, size: 142 },
-  hermes: { x: 25, y: 24, size: 116 },
-  openclaw: { x: 74, y: 24, size: 116 },
-  codex: { x: 24, y: 70, size: 116 },
-  sources: { x: 75, y: 70, size: 116 },
-  queues: { x: 50, y: 83, size: 112 },
-  'google-bridge': { x: 50, y: 12, size: 112 },
+  'gbrain-core': { x: 50, y: 55, size: 154 },
+  hermes: { x: 18, y: 43, size: 116 },
+  openclaw: { x: 82, y: 43, size: 116 },
+  codex: { x: 18, y: 66, size: 116 },
+  sources: { x: 82, y: 66, size: 116 },
+  queues: { x: 50, y: 82, size: 116 },
+  'google-bridge': { x: 50, y: 32, size: 116 },
 }
 
 function statusColor(status: EvidenceStatus) {
@@ -381,6 +398,15 @@ function kindIcon(kind: NodeKind) {
   return <Link2 size={19} />
 }
 
+function nodeRole(node: GBrainNode) {
+  if (node.kind === 'core') return 'AI Memory Kernel'
+  if (node.kind === 'agent') return 'MCP Server'
+  if (node.kind === 'source') return 'Data & Knowledge'
+  if (node.kind === 'queue') return 'Vector Pipelines'
+  if (node.id === 'google-bridge') return 'Custom Bridge'
+  return 'Integration Layer'
+}
+
 function lineFor(edge: GBrainEdge) {
   const from = nodePositions[edge.from]
   const to = nodePositions[edge.to]
@@ -423,6 +449,36 @@ export default function GBrain() {
   const selectedContractSystem = data?.integrationContract?.systems?.find((system) => system.id === selectedNode?.id)
   const selectedIntegrationSystem = data?.integrationHealth?.systems?.find((system) => system.id === selectedNode?.id)
   const missingIntegrationTools = data?.integrationHealth?.toolContract?.tools?.filter((tool) => !tool.present) || []
+  const healthyNodeCount = (data?.nodes || []).filter((node) => node.status === 'healthy').length
+  const degradedNodeCount = (data?.nodes || []).filter((node) => node.status === 'warning').length
+  const disconnectedNodeCount = (data?.nodes || []).filter((node) => node.status === 'critical' || node.status === 'inactive').length
+  const nodeCount = data?.nodes?.length || 0
+  const mapSignals: { label: string; value: string; detail: string; status: EvidenceStatus }[] = [
+    {
+      label: 'Trust score',
+      value: data ? `${data.trust.score}/100` : '—',
+      detail: data ? `${data.trust.label}; verified ${timeAgo(data.trust.lastVerifiedAt)}` : 'Waiting for live proof',
+      status: data?.trust.status || 'inactive',
+    },
+    {
+      label: 'Systems',
+      value: data?.integrationHealth ? `${data.integrationHealth.connectedCount}/${data.integrationHealth.systemCount}` : `${data?.nodes?.length || 0} nodes`,
+      detail: data?.integrationHealth ? 'All required systems connected' : 'Topology loaded from overview',
+      status: data?.integrationHealth?.status || data?.trust.status || 'inactive',
+    },
+    {
+      label: 'Think runtime',
+      value: data?.integrationHealth?.thinkRuntime ? statusLabel(data.integrationHealth.thinkRuntime.status) : 'Read proof',
+      detail: data?.integrationHealth?.thinkRuntime?.detail || 'Runtime proof appears in the evidence drawer',
+      status: data?.integrationHealth?.thinkRuntime?.status || 'inactive',
+    },
+  ]
+  const mapReady = data?.trust.status === 'healthy' && disconnectedNodeCount === 0
+  const mapSummary = mapReady
+    ? 'All core systems verified and operational'
+    : data?.trust.status === 'critical'
+      ? 'Critical proof requires operator review'
+      : 'Live proof has caveats; review evidence before action'
 
   const runAction = async (action: string) => {
     setRunningAction(action)
@@ -589,46 +645,94 @@ export default function GBrain() {
               <div className={styles.panelMeta}>{data?.mode || 'read-only'}</div>
             </div>
             <div className={styles.mapCanvas}>
-              <svg className={styles.edgeLayer} viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
-                {(data?.edges || []).map((edge) => {
-                  const line = lineFor(edge)
+              <div className={styles.mapStage}>
+                <div className={styles.mapGlow} aria-hidden="true" />
+                <div className={styles.mapOrbit} aria-hidden="true" />
+                <div className={styles.mapInnerOrbit} aria-hidden="true" />
+                <div className={styles.mapSignalBar}>
+                  {mapSignals.map((signal) => (
+                    <div
+                      className={styles.mapSignal}
+                      key={signal.label}
+                      style={{ '--status-color': statusColor(signal.status) } as CSSProperties}
+                    >
+                      <span>{signal.label}</span>
+                      <strong>{signal.value}</strong>
+                      <small>{signal.detail}</small>
+                    </div>
+                  ))}
+                </div>
+                <div className={styles.mapReportCard}>
+                  <span>Last verified</span>
+                  <strong>{data ? timeAgo(data.trust.lastVerifiedAt) : '—'}</strong>
+                  <small>{data?.trust.source || 'Waiting for source proof'}</small>
+                </div>
+                <svg className={styles.edgeLayer} viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+                  {(data?.edges || []).map((edge) => {
+                    const line = lineFor(edge)
+                    return (
+                      <g key={edge.id}>
+                        <line
+                          className={styles.edgeLine}
+                          x1={line.x1}
+                          y1={line.y1}
+                          x2={line.x2}
+                          y2={line.y2}
+                          style={{ '--status-color': statusColor(edge.status) } as CSSProperties}
+                        />
+                        <circle
+                          className={styles.edgePulse}
+                          cx={line.mx}
+                          cy={line.my}
+                          r="0.75"
+                          style={{ '--status-color': statusColor(edge.status) } as CSSProperties}
+                        />
+                      </g>
+                    )
+                  })}
+                </svg>
+
+                {(data?.nodes || []).map((node) => {
+                  const position = nodePositions[node.id] || { x: 50, y: 50, size: 110 }
+                  const active = selectedNode?.id === node.id
                   return (
-                    <g key={edge.id}>
-                      <line
-                        className={styles.edgeLine}
-                        x1={line.x1}
-                        y1={line.y1}
-                        x2={line.x2}
-                        y2={line.y2}
-                        style={{ '--status-color': statusColor(edge.status) } as CSSProperties}
-                      />
-                      <text className={styles.edgeLabel} x={line.mx} y={line.my - 1} textAnchor="middle">{edge.label}</text>
-                    </g>
+                    <button
+                      key={node.id}
+                      className={`${styles.node} ${node.kind === 'core' ? styles.coreNode : ''} ${active ? styles.nodeActive : ''}`}
+                      onClick={() => setSelectedId(node.id)}
+                      style={{
+                        '--node-x': `${position.x}%`,
+                        '--node-y': `${position.y}%`,
+                        '--node-size': `${position.size}px`,
+                        '--status-color': statusColor(node.status),
+                      } as CSSProperties}
+                    >
+                      <span className={styles.nodeIcon}>{kindIcon(node.kind)}</span>
+                      <span className={styles.nodeLabel}>{node.label}</span>
+                      <span className={styles.nodeRole}>{nodeRole(node)}</span>
+                      <span className={styles.nodeStatus}><CheckCircle2 size={11} />{statusLabel(node.status)}</span>
+                    </button>
                   )
                 })}
-              </svg>
-
-              {(data?.nodes || []).map((node) => {
-                const position = nodePositions[node.id] || { x: 50, y: 50, size: 110 }
-                const active = selectedNode?.id === node.id
-                return (
-                  <button
-                    key={node.id}
-                    className={`${styles.node} ${node.kind === 'core' ? styles.coreNode : ''} ${active ? styles.nodeActive : ''}`}
-                    onClick={() => setSelectedId(node.id)}
-                    style={{
-                      '--node-x': `${position.x}%`,
-                      '--node-y': `${position.y}%`,
-                      '--node-size': `${position.size}px`,
-                      '--status-color': statusColor(node.status),
-                    } as CSSProperties}
-                  >
-                    <span className={styles.nodeIcon}>{kindIcon(node.kind)}</span>
-                    <span className={styles.nodeLabel}>{node.label}</span>
-                    <span className={styles.nodeKind}>{statusLabel(node.status)}</span>
-                  </button>
-                )
-              })}
+              </div>
+              <div
+                className={styles.mapActionBand}
+                style={{ '--status-color': statusColor(data?.trust.status || 'inactive') } as CSSProperties}
+              >
+                <span className={styles.mapActionIcon}><RefreshCw size={18} /></span>
+                <div>
+                  <strong>{mapSummary}</strong>
+                  <span>{selectedNode ? `${selectedNode.label}: ${selectedNode.proof.label}` : 'GBrain is ready to read, reason, and remember.'}</span>
+                </div>
+                <div className={styles.mapActionStats}>
+                  <span><i style={{ '--status-color': statusColor('healthy') } as CSSProperties} />{healthyNodeCount}/{nodeCount || '—'} verified</span>
+                  <span><i style={{ '--status-color': statusColor(degradedNodeCount ? 'warning' : 'healthy') } as CSSProperties} />{degradedNodeCount} degraded</span>
+                  <span><i style={{ '--status-color': statusColor(disconnectedNodeCount ? 'critical' : 'healthy') } as CSSProperties} />{data ? `${data.trust.score}%` : '—'} operational</span>
+                </div>
+                <button type="button" onClick={() => refetch()} disabled={loading}>
+                  {loading ? 'Checking...' : 'Run System Check'}
+                </button>
+              </div>
             </div>
             <div className={styles.warningStrip}>
               <AlertTriangle size={15} style={{ color: '#FFD60A', flex: '0 0 auto', marginTop: 1 }} />
@@ -692,11 +796,13 @@ export default function GBrain() {
                           <div className={styles.miniMetric}><span>MCP</span><strong>{selectedIntegrationSystem.mcp.configured ? 'Connected' : 'Missing'}</strong></div>
                           <div className={styles.miniMetric}><span>Runtime</span><strong>{selectedIntegrationSystem.runtimeContract.status}</strong></div>
                           <div className={styles.miniMetric}><span>Source</span><strong>{selectedIntegrationSystem.source.status}</strong></div>
+                          <div className={styles.miniMetric}><span>Think</span><strong>{selectedIntegrationSystem.thinkRuntime?.status || data.integrationHealth.thinkRuntime.status}</strong></div>
                           <div className={styles.miniMetric}><span>Read smoke</span><strong>{selectedIntegrationSystem.readSmoke.status}</strong></div>
                           <div className={styles.miniMetric}><span>Write path</span><strong>{selectedIntegrationSystem.writeSmoke.status}</strong></div>
                         </div>
                         <div className={styles.proofPath}>{selectedIntegrationSystem.mcp.proof}</div>
                         <div className={styles.proofPath}>{selectedIntegrationSystem.runtimeContract.label}</div>
+                        <div className={styles.proofPath}>{selectedIntegrationSystem.thinkRuntime?.detail || data.integrationHealth.thinkRuntime.detail}</div>
                         <div className={styles.proofPath}>{selectedIntegrationSystem.writeSmoke.label}</div>
                       </div>
                     ) : (
@@ -706,9 +812,10 @@ export default function GBrain() {
                           {data.integrationHealth.connectedCount}/{data.integrationHealth.systemCount} systems connected
                         </div>
                         <div className={styles.proofDetail} style={{ marginTop: 7 }}>
-                          {data.integrationHealth.toolContract.presentCount}/{data.integrationHealth.toolContract.requiredCount} core tools present
+                          {data.integrationHealth.toolContract.basePresentCount || data.integrationHealth.toolContract.presentCount}/{data.integrationHealth.toolContract.baseRequiredCount || data.integrationHealth.toolContract.requiredCount} base tools present; think {statusLabel(data.integrationHealth.thinkRuntime.status)}
                           {missingIntegrationTools.length ? `; missing ${missingIntegrationTools.map((tool) => tool.label).join(', ')}` : '; no core tool gaps'}
                         </div>
+                        <div className={styles.proofPath}>{data.integrationHealth.thinkRuntime.detail}</div>
                         <div className={styles.proofPath}>
                           Optional features: {data.integrationHealth.featureGaps.count
                             ? data.integrationHealth.featureGaps.recommendations.map((item) => item.title).join(', ')
