@@ -95,10 +95,15 @@ Memory integration boundary:
 Core tool contract:
 
 - Hermes and OpenClaw should treat `get_page`, `put_page`, `query`, `recall`,
-  `think`, `sources`, and `health` as the explicit GBrain shared-brain surface.
+  `sources`, and `health` as the baseline GBrain shared-brain surface.
 - Mission Control verifies this with `gbrain --tools-json`; the canonical MCP
-  tool ids are `get_page`, `put_page`, `query`, `recall`, `think`,
+  tool ids are `get_page`, `put_page`, `query`, `recall`,
   `sources_list`, and `get_health`.
+- `think` is provider-backed synthesis, not a baseline read capability.
+  Mission Control shows a separate Think runtime warning until GBrain has an
+  active `chat_model`, `models.think`, `GBRAIN_MODEL`, or provider proxy base
+  URL plus live health proof. Tool discovery alone is not enough to call
+  `think` operational.
 - Mission Control verifies runtime guidance separately, so MCP connectivity is
   not confused with Hermes/OpenClaw actually being instructed to use GBrain for
   shared recall/search/writeback when appropriate.

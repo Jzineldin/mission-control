@@ -11,7 +11,8 @@ const { installContract, replaceManagedBlock } = require('../scripts/install-gbr
   const replaced = replaceManagedBlock(first.replace('get_page, put_page', 'old tools'));
 
   assert.equal(first, second);
-  assert.match(replaced, /get_page, put_page, query, recall, think, sources_list, get_health/);
+  assert.match(replaced, /get_page, put_page, query, recall, sources_list, get_health/);
+  assert.match(replaced, /Treat think as provider-backed synthesis/);
   assert.doesNotMatch(replaced, /old tools/);
 })();
 

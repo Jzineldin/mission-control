@@ -3,6 +3,8 @@ const util = require('util');
 const os = require('os');
 const fs = require('fs');
 const path = require('path');
+const http = require('http');
+const https = require('https');
 const { execFile } = require('child_process');
 const { createGBrainTimelineService } = require('../services/gbrainTimeline');
 
@@ -31,6 +33,7 @@ const REQUIRED_GBRAIN_TOOLS = [
   { id: 'sources_list', label: 'sources', mode: 'read', purpose: 'Inspect registered shared-brain sources and freshness.' },
   { id: 'get_health', label: 'health', mode: 'read', purpose: 'Verify GBrain health before relying on shared context.' },
 ];
+const GBRAIN_BASE_TOOL_IDS = new Set(['get_page', 'put_page', 'query', 'recall', 'sources_list', 'get_health']);
 const GBRAIN_RUNTIME_CONTRACT_MARKER = 'mission-control-gbrain-contract';
 const GBRAIN_INTEGRATION_CONTRACT = {
   role: 'shared-brain',
@@ -361,11 +364,31 @@ function detectOpenClawGBrainConfig(homeDir = os.homedir()) {
   };
 }
 
+function detectGBrainThinkConfig(homeDir = os.homedir(), processEnv = process.env) {
+  const configPath = resolveHomePath(homeDir, '.gbrain/config.json');
+  const config = parseJsonFile(configPath) || {};
+  const activeModel = config?.chat_model || config?.models?.think || config?.models?.default || processEnv.GBRAIN_MODEL || null;
+  const proxyBaseUrl = config?.provider_base_urls?.litellm || config?.provider_base_urls?.openrouter || processEnv.LITELLM_BASE_URL || processEnv.OPENROUTER_BASE_URL || null;
+  const configured = Boolean(activeModel || proxyBaseUrl);
+  return {
+    configured,
+    modelConfigured: Boolean(activeModel),
+    proxyConfigured: Boolean(proxyBaseUrl),
+    proof: configured
+      ? [
+          activeModel ? 'GBrain chat model configured' : '',
+          proxyBaseUrl ? 'provider proxy base URL configured' : '',
+        ].filter(Boolean).join(' + ')
+      : 'No GBrain chat_model, models.think, GBRAIN_MODEL, or provider proxy base URL configured',
+  };
+}
+
 function buildLocalGBrainIntegrationRuntime(options = {}) {
   const homeDir = options.homeDir || os.homedir();
   const clawdRoot = resolveClawdRoot(options, homeDir);
   const hermesConfig = detectHermesGBrainConfig(homeDir);
   const openclawConfig = detectOpenClawGBrainConfig(homeDir);
+  const thinkConfig = detectGBrainThinkConfig(homeDir, options.processEnv || process.env);
   const hermesBridgeScript = resolveHomePath(homeDir, '.hermes/profiles/hmudur/scripts/hermes_hmudur_memory_bridge.py');
   const hermesBridgeState = path.join(clawdRoot, 'shared-memory/state/hermes-hmudur-memory-bridge.json');
   const sharedMemorySyncScript = path.join(clawdRoot, 'scripts/gbrain_sync_and_embed.sh');
@@ -386,6 +409,7 @@ function buildLocalGBrainIntegrationRuntime(options = {}) {
 
   return {
     checkedAt: new Date().toISOString(),
+    think: thinkConfig,
     systems: {
       hermes: {
         mcpConfigured: hermesConfig.configured,
@@ -468,6 +492,79 @@ function normalizeFeaturesPayload(payload, checkedAt) {
   };
 }
 
+function normalizeProvidersPayload(payload, checkedAt) {
+  const options = Array.isArray(payload?.options) ? payload.options : [];
+  const chatOptions = options
+    .filter((item) => item?.touchpoint === 'chat')
+    .map((item) => ({
+      id: sanitizeMessage(item?.id || ''),
+      envReady: item?.env_ready === true,
+      tier: sanitizeMessage(item?.tier || ''),
+    }))
+    .filter((item) => item.id);
+  const readyChatOptions = chatOptions.filter((item) => item.envReady);
+  return {
+    ok: true,
+    mode: 'live-read-only',
+    checkedAt,
+    chatOptions,
+    readyChatCount: readyChatOptions.length,
+    readyChatProviders: readyChatOptions.map((item) => item.id),
+  };
+}
+
+
+function defaultHermesProxyBaseUrl(processEnv = process.env) {
+  return processEnv.HERMES_PROXY_BASE_URL || processEnv.HERMES_PROXY_URL || 'http://127.0.0.1:8645';
+}
+
+function probeJsonEndpoint(url, timeoutMs = 2000) {
+  return new Promise((resolve) => {
+    let parsed;
+    try {
+      parsed = new URL(url);
+    } catch (error) {
+      resolve({ ok: false, error: 'invalid URL' });
+      return;
+    }
+    const client = parsed.protocol === 'https:' ? https : http;
+    const request = client.get(parsed, { timeout: timeoutMs }, (response) => {
+      let body = '';
+      response.setEncoding('utf8');
+      response.on('data', (chunk) => {
+        body += chunk;
+        if (body.length > 4096) request.destroy();
+      });
+      response.on('end', () => {
+        let payload = null;
+        try { payload = body ? JSON.parse(body) : null; } catch (_) { payload = null; }
+        resolve({ ok: response.statusCode >= 200 && response.statusCode < 300, statusCode: response.statusCode, payload });
+      });
+    });
+    request.on('timeout', () => request.destroy(new Error('timeout')));
+    request.on('error', (error) => resolve({ ok: false, error: error.message }));
+  });
+}
+
+async function buildLiveHermesProxyStatus(options = {}) {
+  const processEnv = options.processEnv || process.env;
+  const checkedAt = new Date().toISOString();
+  const baseUrl = String(options.hermesProxyBaseUrl || defaultHermesProxyBaseUrl(processEnv)).replace(/\/v1\/?$/, '').replace(/\/$/, '');
+  const result = await probeJsonEndpoint(`${baseUrl}/health`, options.hermesProxyTimeoutMs || 2000);
+  const authenticated = result.payload?.authenticated === true;
+  const upstream = sanitizeMessage(result.payload?.upstream || 'Hermes proxy');
+  return {
+    ok: result.ok && authenticated,
+    mode: 'live-read-only',
+    checkedAt,
+    status: result.ok && authenticated ? 'healthy' : 'warning',
+    label: result.ok && authenticated ? 'Hermes proxy ready' : 'Hermes proxy unavailable',
+    detail: result.ok && authenticated
+      ? `${upstream} local proxy authenticated`
+      : `Hermes proxy health probe failed${result.error ? `: ${sanitizeMessage(result.error)}` : ''}`,
+  };
+}
+
 async function buildLiveGBrainTools(options = {}) {
   const execFilePromise = options.execFilePromise || defaultExecFilePromise;
   const checkedAt = new Date().toISOString();
@@ -497,6 +594,24 @@ async function buildLiveGBrainFeatures(options = {}) {
     status: 'unavailable',
     error: result.error || 'gbrain features --json did not return parseable output',
     recommendations: [],
+  };
+}
+
+async function buildLiveGBrainProviders(options = {}) {
+  const execFilePromise = options.execFilePromise || defaultExecFilePromise;
+  const checkedAt = new Date().toISOString();
+  const result = await runGBrain(execFilePromise, ['providers', 'explain', '--json']);
+  const payload = parseJsonFromOutput(result.stdout);
+  if (result.ok && payload) return normalizeProvidersPayload(payload, checkedAt);
+  return {
+    ok: false,
+    mode: 'live-read-only',
+    checkedAt,
+    status: 'unavailable',
+    error: result.error || 'gbrain providers explain --json did not return parseable output',
+    chatOptions: [],
+    readyChatCount: 0,
+    readyChatProviders: [],
   };
 }
 
@@ -1099,6 +1214,8 @@ function buildGBrainIntegrationHealth(live = {}, runtime = {}) {
   const liveSources = live.sources?.ok ? live.sources : null;
   const liveTools = live.tools?.ok ? live.tools : null;
   const liveFeatures = live.features?.ok ? live.features : null;
+  const liveProviders = live.providers?.ok ? live.providers : null;
+  const liveHermesProxy = live.hermesProxy?.ok ? live.hermesProxy : null;
   const toolsUnavailable = Boolean(live.tools && !live.tools.ok);
   const sourcesUnavailable = Boolean(live.sources && !live.sources.ok);
   const requiredTools = liveTools?.requiredTools || REQUIRED_GBRAIN_TOOLS.map((tool) => ({ ...tool, present: false }));
@@ -1111,6 +1228,52 @@ function buildGBrainIntegrationHealth(live = {}, runtime = {}) {
   const blockingFeatureGaps = featureGaps.filter((item) => item.severity !== 'optional');
   const optionalFeatureGaps = featureGaps.filter((item) => item.severity === 'optional');
   const readSmokeStatus = liveHealth && missingTools.length === 0 ? 'healthy' : 'warning';
+  const baseTools = requiredTools.filter((tool) => GBRAIN_BASE_TOOL_IDS.has(tool.id));
+  const presentBaseTools = baseTools.filter((tool) => tool.present);
+  const thinkTool = requiredTools.find((tool) => tool.id === 'think');
+  const thinkConfig = runtime?.think || {};
+  const thinkProbeAttempted = Boolean(live.tools || live.providers);
+  const hasHermesProxyThinkPath = Boolean(liveHermesProxy);
+  const thinkRuntimeStatus = !thinkProbeAttempted
+    ? 'inactive'
+    : !thinkTool?.present
+    ? 'critical'
+    : (!thinkConfig.configured && !hasHermesProxyThinkPath) || !liveHealth
+    ? 'warning'
+    : 'healthy';
+  const thinkRuntime = {
+    status: thinkRuntimeStatus,
+    label: thinkRuntimeStatus === 'healthy'
+      ? 'think runtime configured'
+      : thinkRuntimeStatus === 'critical'
+      ? 'think tool missing'
+      : thinkRuntimeStatus === 'warning'
+      ? 'think exposed but not runtime-ready'
+      : 'think runtime not probed',
+    detail: !thinkProbeAttempted
+      ? 'Live tool/provider probes have not run yet.'
+      : !thinkTool?.present
+      ? 'GBrain tool discovery did not advertise think.'
+      : !thinkConfig.configured && !hasHermesProxyThinkPath
+      ? 'Tool discovery advertises think, but no active chat model, provider proxy, or healthy Hermes proxy path is configured for the brain.'
+      : !liveHealth
+      ? 'A provider path is configured, but live GBrain health proof is unavailable; do not rely on think synthesis yet.'
+      : hasHermesProxyThinkPath && !thinkConfig.configured
+      ? liveHermesProxy.detail
+      : 'Tool discovery, provider configuration, and live health proof are present.',
+    proof: [
+      'gbrain --tools-json',
+      live.providers ? 'gbrain providers explain --json' : '',
+      liveHermesProxy ? 'Hermes proxy /health' : '',
+      thinkConfig.proof || 'think runtime config not checked',
+    ].filter(Boolean).join(' + '),
+    checkedAt: liveProviders?.checkedAt || live.providers?.checkedAt || liveTools?.checkedAt || runtime?.checkedAt || null,
+    toolPresent: Boolean(thinkTool?.present),
+    activeModelConfigured: thinkConfig.modelConfigured === true,
+    proxyConfigured: thinkConfig.proxyConfigured === true || hasHermesProxyThinkPath,
+    readyChatProviderCount: liveProviders?.readyChatCount ?? 0,
+    readyChatProviders: liveProviders?.readyChatProviders || [],
+  };
 
   const systems = GBRAIN_INTEGRATION_CONTRACT.systems.map((system) => {
     const source = system.id === 'hermes' ? hermesSource : openclawSource;
@@ -1119,9 +1282,10 @@ function buildGBrainIntegrationHealth(live = {}, runtime = {}) {
     const contractStatus = runtimeSystem.runtimeContract?.status || 'warning';
     const durableStatus = runtimeSystem.durablePipeline?.status || (system.id === 'hermes' ? 'warning' : 'warning');
     const sourceStatus = sourceStatusFor(source, sourcesUnavailable);
-    const status = [mcpStatus, contractStatus, durableStatus, sourceStatus, readSmokeStatus].includes('critical')
+    const statusInputs = [mcpStatus, contractStatus, durableStatus, sourceStatus, readSmokeStatus, thinkRuntime.status].filter((item) => item !== 'inactive');
+    const status = statusInputs.includes('critical')
       ? 'critical'
-      : [mcpStatus, contractStatus, durableStatus, sourceStatus, readSmokeStatus].includes('warning')
+      : statusInputs.includes('warning')
       ? 'warning'
       : 'healthy';
 
@@ -1147,6 +1311,7 @@ function buildGBrainIntegrationHealth(live = {}, runtime = {}) {
         proof: source ? 'gbrain sources list' : 'source not found in live GBrain list',
       },
       tools: requiredTools.map((tool) => ({ id: tool.id, label: tool.label, present: tool.present, mode: tool.mode })),
+      thinkRuntime,
       readSmoke: {
         status: readSmokeStatus,
         proof: liveHealth ? 'gbrain call get_health + gbrain --tools-json' : 'health/tool discovery unavailable',
@@ -1164,7 +1329,7 @@ function buildGBrainIntegrationHealth(live = {}, runtime = {}) {
   const healthyCount = systems.filter((system) => system.status === 'healthy').length;
   const status = toolsUnavailable
     ? 'warning'
-    : missingTools.length > 0 || blockingFeatureGaps.length > 0 || healthyCount < systems.length
+    : missingTools.length > 0 || blockingFeatureGaps.length > 0 || thinkRuntime.status === 'critical' || thinkRuntime.status === 'warning' || healthyCount < systems.length
     ? 'warning'
     : 'healthy';
 
@@ -1177,13 +1342,16 @@ function buildGBrainIntegrationHealth(live = {}, runtime = {}) {
     systemCount: systems.length,
     healthyCount,
     toolContract: {
-      status: toolsUnavailable ? 'warning' : missingTools.length > 0 ? 'warning' : 'healthy',
+      status: toolsUnavailable ? 'warning' : missingTools.length > 0 || thinkRuntime.status === 'warning' || thinkRuntime.status === 'critical' ? 'warning' : 'healthy',
       checkedAt: liveTools?.checkedAt || null,
       requiredCount: requiredTools.length,
       presentCount: presentTools.length,
       missingCount: missingTools.length,
       tools: requiredTools,
+      baseRequiredCount: baseTools.length,
+      basePresentCount: presentBaseTools.length,
     },
+    thinkRuntime,
     featureGaps: {
       status: blockingFeatureGaps.length > 0 ? 'warning' : live.features && !liveFeatures ? 'warning' : 'healthy',
       checkedAt: liveFeatures?.checkedAt || live.features?.checkedAt || null,
@@ -1251,6 +1419,9 @@ function buildGBrainOverview(live = {}, extra = {}) {
     ...(hasMissingEmbeddings ? [`Live health reports ${formatCount(missing)} missing embedding${missing === 1 ? '' : 's'}.`] : []),
     ...(staleSourceCount > 0 ? [`${staleSourceCount} source${staleSourceCount === 1 ? '' : 's'} exceeded freshness thresholds.`] : []),
     ...((sourceWarnings || 0) > 0 ? [`${sourceWarnings} live source${sourceWarnings === 1 ? '' : 's'} reported a warning status.`] : []),
+    ...(integrationHealth.thinkRuntime?.status === 'warning' || integrationHealth.thinkRuntime?.status === 'critical'
+      ? [`${integrationHealth.thinkRuntime.label}: ${integrationHealth.thinkRuntime.detail}`]
+      : []),
   ];
   const hasActiveCaveats = activeCaveats.length > 0;
 
@@ -1511,8 +1682,15 @@ function buildGBrainOverview(live = {}, extra = {}) {
       integration: {
         label: 'Integration health',
         value: `${integrationHealth.connectedCount}/${integrationHealth.systemCount} connected`,
-        detail: `${integrationHealth.toolContract.presentCount}/${integrationHealth.toolContract.requiredCount} core tools; ${integrationHealth.featureGaps.optionalCount} optional feature${integrationHealth.featureGaps.optionalCount === 1 ? '' : 's'}`,
+        detail: `${integrationHealth.toolContract.basePresentCount}/${integrationHealth.toolContract.baseRequiredCount} base tools; think ${statusLabelText(integrationHealth.thinkRuntime.status)}; ${integrationHealth.featureGaps.optionalCount} optional feature${integrationHealth.featureGaps.optionalCount === 1 ? '' : 's'}`,
         status: integrationHealth.status,
+        proofNodeId: 'gbrain-core',
+      },
+      think: {
+        label: 'Think runtime',
+        value: integrationHealth.thinkRuntime.status === 'healthy' ? 'Ready' : integrationHealth.thinkRuntime.status === 'inactive' ? 'Not probed' : 'Unverified',
+        detail: integrationHealth.thinkRuntime.detail,
+        status: integrationHealth.thinkRuntime.status === 'inactive' ? 'warning' : integrationHealth.thinkRuntime.status,
         proofNodeId: 'gbrain-core',
       },
       autopilot: { label: 'Operator actions', value: 'Allowlisted', detail: `${listGBrainActions().length} local actions; probes remain read-only`, status: 'healthy', proofNodeId: 'gbrain-core' },
@@ -1553,6 +1731,13 @@ function buildGBrainOverview(live = {}, extra = {}) {
   return overview;
 }
 
+function statusLabelText(status) {
+  if (status === 'healthy') return 'ready';
+  if (status === 'critical') return 'missing';
+  if (status === 'warning') return 'unverified';
+  return 'not probed';
+}
+
 function buildGBrainRouter(options = {}) {
   const router = express.Router();
   const timelineService = options.timelineService || createGBrainTimelineService({
@@ -1562,17 +1747,19 @@ function buildGBrainRouter(options = {}) {
   });
 
   router.get('/api/gbrain/overview', async (req, res) => {
-    const [health, sources, version, tools, features] = await Promise.all([
+    const [health, sources, version, tools, features, providers, hermesProxy] = await Promise.all([
       buildLiveGBrainHealth(options),
       buildLiveGBrainSources(options),
       buildLiveGBrainVersion(options),
       buildLiveGBrainTools(options),
       buildLiveGBrainFeatures(options),
+      buildLiveGBrainProviders(options),
+      buildLiveHermesProxyStatus(options),
     ]);
     const integrationRuntime = buildLocalGBrainIntegrationRuntime(options);
-    const overview = buildGBrainOverview({ health, sources, version, tools, features }, { integrationRuntime });
+    const overview = buildGBrainOverview({ health, sources, version, tools, features, providers, hermesProxy }, { integrationRuntime });
     const result = await timelineService.captureOverview(overview);
-    res.json(buildGBrainOverview({ health, sources, version, tools, features }, {
+    res.json(buildGBrainOverview({ health, sources, version, tools, features, providers, hermesProxy }, {
       integrationRuntime,
       timelineSummary: result.timelineSummary,
       incidentBanner: result.timelineSummary?.incidentBanner || null,
@@ -1592,13 +1779,15 @@ function buildGBrainRouter(options = {}) {
   });
 
   router.get('/api/gbrain/integration-health', async (req, res) => {
-    const [health, sources, tools, features] = await Promise.all([
+    const [health, sources, tools, features, providers, hermesProxy] = await Promise.all([
       buildLiveGBrainHealth(options),
       buildLiveGBrainSources(options),
       buildLiveGBrainTools(options),
       buildLiveGBrainFeatures(options),
+      buildLiveGBrainProviders(options),
+      buildLiveHermesProxyStatus(options),
     ]);
-    res.json(buildGBrainIntegrationHealth({ health, sources, tools, features }, buildLocalGBrainIntegrationRuntime(options)));
+    res.json(buildGBrainIntegrationHealth({ health, sources, tools, features, providers, hermesProxy }, buildLocalGBrainIntegrationRuntime(options)));
   });
 
   router.get('/api/gbrain/actions', (req, res) => {
@@ -1629,6 +1818,8 @@ module.exports = {
   buildLiveGBrainVersion,
   buildLiveGBrainTools,
   buildLiveGBrainFeatures,
+  buildLiveGBrainProviders,
+  buildLiveHermesProxyStatus,
   buildGBrainIntegrationHealth,
   buildLocalGBrainIntegrationRuntime,
   listGBrainActions,

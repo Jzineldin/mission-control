@@ -10,6 +10,7 @@ const {
   buildLiveGBrainVersion,
   buildLiveGBrainTools,
   buildLiveGBrainFeatures,
+  buildLiveGBrainProviders,
   buildGBrainIntegrationHealth,
   buildLocalGBrainIntegrationRuntime,
   listGBrainActions,
@@ -223,6 +224,7 @@ async function testLiveToolsFeaturesAndIntegrationHealth() {
   };
   const runtime = {
     checkedAt,
+    think: { configured: true, modelConfigured: true, proxyConfigured: false, proof: 'GBrain chat model configured' },
     systems: {
       hermes: { mcpConfigured: true, mcpProof: 'Hermes profile mcp_servers.gbrain', runtimeContract: { status: 'healthy', label: 'GBrain shared-brain contract installed', proof: 'Hermes hmudur MEMORY.md managed block' }, durablePipeline: { status: 'healthy', label: 'Curated bridge script present', proof: 'Hermes bridge state file present' } },
       openclaw: { mcpConfigured: true, mcpProof: 'OpenClaw mcp.servers.gbrain', runtimeContract: { status: 'healthy', label: 'GBrain shared-brain contract installed', proof: 'OpenClaw AGENTS.md managed block' }, durablePipeline: { status: 'warning', label: 'Dedicated exporter not verified', proof: 'shared-memory sync' } },
@@ -244,11 +246,70 @@ async function testLiveToolsFeaturesAndIntegrationHealth() {
   assert.equal(integrationHealth.featureGaps.optionalCount, 1);
   assert.equal(integrationHealth.featureGaps.blockingCount, 0);
   assert.equal(integrationHealth.status, 'warning');
+  assert.equal(integrationHealth.thinkRuntime.status, 'healthy');
   assert.equal(integrationHealth.systems.find((system) => system.id === 'hermes')?.status, 'healthy');
   assert.equal(integrationHealth.systems.find((system) => system.id === 'openclaw')?.writeSmoke.status, 'warning');
   assert.equal(overview.cockpit.integration.value, '2/2 connected');
-  assert.match(overview.cockpit.integration.detail, /7\/7 core tools; 1 optional feature/i);
+  assert.match(overview.cockpit.integration.detail, /6\/6 base tools; think ready; 1 optional feature/i);
   assert.equal(overview.integrationHealth.systems.length, 2);
+}
+
+async function testThinkRuntimeWarnsWhenToolExistsWithoutActiveModel() {
+  const checkedAt = new Date().toISOString();
+  const toolPayload = [
+    'get_page',
+    'put_page',
+    'query',
+    'recall',
+    'think',
+    'sources_list',
+    'get_health',
+  ].map((name) => ({ name }));
+  const execFilePromise = async (bin, args) => {
+    assert.equal(bin, 'gbrain');
+    if (args.join(' ') === '--tools-json') return { stdout: JSON.stringify(toolPayload), stderr: '' };
+    if (args.join(' ') === 'providers explain --json') {
+      return {
+        stdout: JSON.stringify({
+          options: [
+            { id: 'openai:gpt-5.2', touchpoint: 'chat', env_ready: true, tier: 'native' },
+          ],
+        }),
+        stderr: '',
+      };
+    }
+    throw new Error(`Unexpected command ${args.join(' ')}`);
+  };
+  const health = {
+    ok: true,
+    mode: 'live-read-only',
+    checkedAt,
+    status: 'healthy',
+    score: 100,
+    metrics: { pages: 1, chunks: 1, embedded: 1, missingEmbeddings: 0, stalePages: 0, embeddingCoverage: 1, queue: { waiting: 0, active: 0, stalled: 0 } },
+  };
+  const tools = await buildLiveGBrainTools({ execFilePromise });
+  const providers = await buildLiveGBrainProviders({ execFilePromise });
+  const runtime = {
+    checkedAt,
+    think: { configured: false, modelConfigured: false, proxyConfigured: false, proof: 'No GBrain chat_model, models.think, GBRAIN_MODEL, or provider proxy base URL configured' },
+    systems: {
+      hermes: { mcpConfigured: true, runtimeContract: { status: 'healthy', label: 'GBrain shared-brain contract installed', proof: 'Hermes contract' }, durablePipeline: { status: 'healthy', label: 'Curated bridge script present', proof: 'Hermes bridge' } },
+      openclaw: { mcpConfigured: true, runtimeContract: { status: 'healthy', label: 'GBrain shared-brain contract installed', proof: 'OpenClaw contract' }, durablePipeline: { status: 'healthy', label: 'Tagged OpenClaw main-memory bridge linked into GBrain sync', proof: 'OpenClaw bridge' } },
+    },
+  };
+
+  const integrationHealth = buildGBrainIntegrationHealth({ health, tools, providers }, runtime);
+  const overview = buildGBrainOverview({ health, tools, providers }, { integrationRuntime: runtime });
+
+  assert.equal(providers.readyChatCount, 1);
+  assert.equal(integrationHealth.toolContract.presentCount, 7);
+  assert.equal(integrationHealth.toolContract.basePresentCount, 6);
+  assert.equal(integrationHealth.thinkRuntime.status, 'warning');
+  assert.match(integrationHealth.thinkRuntime.detail, /no active chat model/i);
+  assert.equal(overview.cockpit.think.status, 'warning');
+  assert.match(overview.cockpit.integration.detail, /think unverified/i);
+  assert.ok(overview.caveats.some((item) => /think exposed but not runtime-ready/i.test(item)));
 }
 
 function testLocalRuntimeDetectorVerifiesManagedContractsAndBridges() {
@@ -856,6 +917,7 @@ function testOverviewAddsTimelineSummaryAndIncidentBanner() {
   await testLiveHealthBackfillsInventoryFromStatsText();
   await testLiveVersionAppearsInOverview();
   await testLiveToolsFeaturesAndIntegrationHealth();
+  await testThinkRuntimeWarnsWhenToolExistsWithoutActiveModel();
   testLocalRuntimeDetectorVerifiesManagedContractsAndBridges();
   await testLiveSourcesDoNotExposeLocalPaths();
   await testDefaultSourceWithoutPathIsNotFreshnessStale();
