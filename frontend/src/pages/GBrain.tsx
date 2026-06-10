@@ -819,7 +819,7 @@ export default function GBrain() {
                           {data.integrationHealth.connectedCount}/{data.integrationHealth.systemCount} systems connected
                         </div>
                         <div className={styles.proofDetail} style={{ marginTop: 7 }}>
-                          {data.integrationHealth.toolContract.basePresentCount || data.integrationHealth.toolContract.presentCount}/{data.integrationHealth.toolContract.baseRequiredCount || data.integrationHealth.toolContract.requiredCount} base tools present; think {statusLabel(data.integrationHealth.thinkRuntime.status)}
+                          {data.integrationHealth.toolContract.basePresentCount ?? data.integrationHealth.toolContract.presentCount}/{data.integrationHealth.toolContract.baseRequiredCount ?? data.integrationHealth.toolContract.requiredCount} base tools present; think {statusLabel(data.integrationHealth.thinkRuntime.status)}
                           {missingIntegrationTools.length ? `; missing ${missingIntegrationTools.map((tool) => tool.label).join(', ')}` : '; no core tool gaps'}
                         </div>
                         <div className={styles.proofPath}>{data.integrationHealth.thinkRuntime.detail}</div>
