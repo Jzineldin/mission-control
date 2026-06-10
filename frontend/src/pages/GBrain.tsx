@@ -453,6 +453,9 @@ export default function GBrain() {
   const degradedNodeCount = (data?.nodes || []).filter((node) => node.status === 'warning').length
   const disconnectedNodeCount = (data?.nodes || []).filter((node) => node.status === 'critical' || node.status === 'inactive').length
   const nodeCount = data?.nodes?.length || 0
+  const integrationConnectedCount = data?.integrationHealth?.connectedCount ?? 0
+  const integrationSystemCount = data?.integrationHealth?.systemCount ?? 0
+  const allIntegrationSystemsConnected = Boolean(data?.integrationHealth && integrationConnectedCount === integrationSystemCount)
   const mapSignals: { label: string; value: string; detail: string; status: EvidenceStatus }[] = [
     {
       label: 'Trust score',
@@ -462,8 +465,12 @@ export default function GBrain() {
     },
     {
       label: 'Systems',
-      value: data?.integrationHealth ? `${data.integrationHealth.connectedCount}/${data.integrationHealth.systemCount}` : `${data?.nodes?.length || 0} nodes`,
-      detail: data?.integrationHealth ? 'All required systems connected' : 'Topology loaded from overview',
+      value: data?.integrationHealth ? `${integrationConnectedCount}/${integrationSystemCount}` : `${data?.nodes?.length || 0} nodes`,
+      detail: data?.integrationHealth
+        ? allIntegrationSystemsConnected
+          ? 'All required systems connected'
+          : `${integrationSystemCount - integrationConnectedCount} required system${integrationSystemCount - integrationConnectedCount === 1 ? '' : 's'} missing runtime proof`
+        : 'Topology loaded from overview',
       status: data?.integrationHealth?.status || data?.trust.status || 'inactive',
     },
     {
