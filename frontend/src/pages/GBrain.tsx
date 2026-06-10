@@ -57,6 +57,85 @@ interface CockpitMetric {
   proofNodeId: string
 }
 
+interface IntegrationSystem {
+  id: string
+  label: string
+  localMemory: string
+  gbrainUse: string
+  proof: string
+}
+
+interface IntegrationContract {
+  role: string
+  label: string
+  summary: string
+  localMemoryBoundary: string
+  writePolicy: string
+  systems: IntegrationSystem[]
+}
+
+interface IntegrationHealthTool {
+  id: string
+  label: string
+  mode: string
+  present: boolean
+}
+
+interface IntegrationSystemHealth {
+  id: string
+  label: string
+  status: EvidenceStatus
+  mcp: { configured: boolean; status: EvidenceStatus; proof: string }
+  runtimeContract: { status: EvidenceStatus; proof: string; label: string }
+  source: { id: string; status: EvidenceStatus; lastSyncAt: string | null; pages: number | null; proof: string }
+  tools: IntegrationHealthTool[]
+  thinkRuntime?: ThinkRuntime
+  readSmoke: { status: EvidenceStatus; proof: string; checkedAt: string | null }
+  writeSmoke: { status: EvidenceStatus; proof: string; label: string }
+}
+
+interface ThinkRuntime {
+  status: EvidenceStatus
+  label: string
+  detail: string
+  proof: string
+  checkedAt: string | null
+  toolPresent: boolean
+  activeModelConfigured: boolean
+  proxyConfigured: boolean
+  readyChatProviderCount: number
+  readyChatProviders: string[]
+}
+
+interface IntegrationHealth {
+  ok: boolean
+  status: EvidenceStatus
+  checkedAt: string
+  connectedCount: number
+  systemCount: number
+  healthyCount: number
+  systems: IntegrationSystemHealth[]
+  toolContract: {
+    status: EvidenceStatus
+    checkedAt: string | null
+    requiredCount: number
+    presentCount: number
+    missingCount: number
+    baseRequiredCount?: number
+    basePresentCount?: number
+    tools: IntegrationHealthTool[]
+  }
+  thinkRuntime: ThinkRuntime
+  featureGaps: {
+    status: EvidenceStatus
+    checkedAt: string | null
+    count: number
+    blockingCount?: number
+    optionalCount?: number
+    recommendations: { id: string; priority: number | null; title: string; pitch: string; command: string }[]
+  }
+}
+
 interface GBrainOverview {
   ok: boolean
   mode: string
@@ -75,6 +154,8 @@ interface GBrainOverview {
   edges: GBrainEdge[]
   warnings: string[]
   caveats?: string[]
+  integrationContract?: IntegrationContract
+  integrationHealth?: IntegrationHealth
   handoff: {
     source: string
     recommendedNextSlice: string
@@ -183,6 +264,7 @@ interface GBrainActionResult {
   error?: string
   checkedAt: string
   refreshAfter?: boolean
+  pending?: boolean
 }
 
 interface GBrainActionDefinition {
@@ -192,6 +274,7 @@ interface GBrainActionDefinition {
   kind: string
   command: string
   refreshAfter: boolean
+  timeoutMs?: number
 }
 
 interface GBrainActionsResponse {
@@ -203,10 +286,11 @@ const fallbackActions: GBrainActionDefinition[] = [
   {
     id: 'sync-sources',
     label: 'Sync local sources',
-    description: 'Incrementally sync every registered local source without remote pulls.',
+    description: 'Incrementally sync every registered local source without remote pulls, then embed stale chunks.',
     kind: 'maintenance',
-    command: 'gbrain sync --all --no-pull --parallel 1 --json --yes',
+    command: 'gbrain sync --all --no-pull --parallel 1 --timeout 105 --json --yes && gbrain embed --stale',
     refreshAfter: true,
+    timeoutMs: 120000,
   },
   {
     id: 'embed-stale',
@@ -215,17 +299,27 @@ const fallbackActions: GBrainActionDefinition[] = [
     kind: 'maintenance',
     command: 'gbrain embed --stale',
     refreshAfter: true,
+    timeoutMs: 120000,
+  },
+  {
+    id: 'embed-missing',
+    label: 'Backfill missing embeddings',
+    description: 'Backfill missing embedding vectors using the stale-chunk fast path, then refresh live proof.',
+    kind: 'repair',
+    command: 'gbrain embed --stale --priority recent --batch-size 1000',
+    refreshAfter: true,
+    timeoutMs: 1800000,
   },
 ]
 
 const nodePositions: Record<string, { x: number; y: number; size: number }> = {
-  'gbrain-core': { x: 50, y: 48, size: 142 },
-  hermes: { x: 25, y: 24, size: 116 },
-  openclaw: { x: 74, y: 24, size: 116 },
-  codex: { x: 24, y: 70, size: 116 },
-  sources: { x: 75, y: 70, size: 116 },
-  queues: { x: 50, y: 83, size: 112 },
-  'google-bridge': { x: 50, y: 12, size: 112 },
+  'gbrain-core': { x: 50, y: 55, size: 154 },
+  hermes: { x: 18, y: 43, size: 116 },
+  openclaw: { x: 82, y: 43, size: 116 },
+  codex: { x: 18, y: 66, size: 116 },
+  sources: { x: 82, y: 66, size: 116 },
+  queues: { x: 50, y: 82, size: 116 },
+  'google-bridge': { x: 50, y: 32, size: 116 },
 }
 
 function statusColor(status: EvidenceStatus) {
@@ -242,12 +336,75 @@ function statusLabel(status: EvidenceStatus) {
   return 'Read-only'
 }
 
+function proofScopeFor(data: GBrainOverview | null | undefined, loading: boolean) {
+  if (loading) {
+    return {
+      label: 'Checking live proof',
+      detail: 'Refreshing read probes before showing operator trust state.',
+      status: 'inactive' as EvidenceStatus,
+    }
+  }
+
+  if (!data) {
+    return {
+      label: 'No proof loaded',
+      detail: 'The cockpit has not received a GBrain overview payload yet.',
+      status: 'inactive' as EvidenceStatus,
+    }
+  }
+
+  if (data.mode === 'live-read-only') {
+    return {
+      label: data.integrationContract?.label || 'Read proof only',
+      detail: data.integrationContract?.summary || 'Health, sources, queues, and bridge checks are live; write and repair proof stays in allowlisted actions.',
+      status: data.trust.status,
+    }
+  }
+
+  return {
+    label: data.mode === 'read-only-fixture' ? 'Saved audit baseline' : 'Bounded operator surface',
+    detail: 'Use the evidence drawer before treating this state as current operational proof.',
+    status: data.trust.status,
+  }
+}
+
+function actionKindLabel(kind: string) {
+  if (kind === 'diagnostic') return 'Check'
+  if (kind === 'preview') return 'Dry run'
+  if (kind === 'repair') return 'Repair'
+  if (kind === 'maintenance') return 'Maintain'
+  return 'Action'
+}
+
+function actionKindColor(kind: string) {
+  if (kind === 'diagnostic') return '#64D2FF'
+  if (kind === 'preview') return '#BF5AF2'
+  if (kind === 'repair') return '#FFD60A'
+  return '#32D74B'
+}
+
+function formatActionTimeout(timeoutMs?: number) {
+  if (!timeoutMs || timeoutMs <= 0) return ''
+  const minutes = Math.round(timeoutMs / 60000)
+  if (minutes >= 1) return minutes === 1 ? '1m' : `${minutes}m`
+  return `${Math.round(timeoutMs / 1000)}s`
+}
+
 function kindIcon(kind: NodeKind) {
   if (kind === 'core') return <Brain size={22} />
   if (kind === 'agent') return <Bot size={19} />
   if (kind === 'source') return <Database size={19} />
   if (kind === 'queue') return <RefreshCw size={19} />
   return <Link2 size={19} />
+}
+
+function nodeRole(node: GBrainNode) {
+  if (node.kind === 'core') return 'AI Memory Kernel'
+  if (node.kind === 'agent') return 'MCP Server'
+  if (node.kind === 'source') return 'Data & Knowledge'
+  if (node.kind === 'queue') return 'Vector Pipelines'
+  if (node.id === 'google-bridge') return 'Custom Bridge'
+  return 'Integration Layer'
 }
 
 function lineFor(edge: GBrainEdge) {
@@ -288,6 +445,47 @@ export default function GBrain() {
   }, [data?.live?.sources?.sources])
   const actions = actionsData?.actions?.length ? actionsData.actions : fallbackActions
   const canRunActions = Boolean(data)
+  const proofScope = proofScopeFor(data, loading)
+  const selectedContractSystem = data?.integrationContract?.systems?.find((system) => system.id === selectedNode?.id)
+  const selectedIntegrationSystem = data?.integrationHealth?.systems?.find((system) => system.id === selectedNode?.id)
+  const missingIntegrationTools = data?.integrationHealth?.toolContract?.tools?.filter((tool) => !tool.present) || []
+  const healthyNodeCount = (data?.nodes || []).filter((node) => node.status === 'healthy').length
+  const degradedNodeCount = (data?.nodes || []).filter((node) => node.status === 'warning').length
+  const disconnectedNodeCount = (data?.nodes || []).filter((node) => node.status === 'critical' || node.status === 'inactive').length
+  const nodeCount = data?.nodes?.length || 0
+  const integrationConnectedCount = data?.integrationHealth?.connectedCount ?? 0
+  const integrationSystemCount = data?.integrationHealth?.systemCount ?? 0
+  const allIntegrationSystemsConnected = Boolean(data?.integrationHealth && integrationConnectedCount === integrationSystemCount)
+  const mapSignals: { label: string; value: string; detail: string; status: EvidenceStatus }[] = [
+    {
+      label: 'Trust score',
+      value: data ? `${data.trust.score}/100` : '—',
+      detail: data ? `${data.trust.label}; verified ${timeAgo(data.trust.lastVerifiedAt)}` : 'Waiting for live proof',
+      status: data?.trust.status || 'inactive',
+    },
+    {
+      label: 'Systems',
+      value: data?.integrationHealth ? `${integrationConnectedCount}/${integrationSystemCount}` : `${data?.nodes?.length || 0} nodes`,
+      detail: data?.integrationHealth
+        ? allIntegrationSystemsConnected
+          ? 'All required systems connected'
+          : `${integrationSystemCount - integrationConnectedCount} required system${integrationSystemCount - integrationConnectedCount === 1 ? '' : 's'} missing runtime proof`
+        : 'Topology loaded from overview',
+      status: data?.integrationHealth?.status || data?.trust.status || 'inactive',
+    },
+    {
+      label: 'Think runtime',
+      value: data?.integrationHealth?.thinkRuntime ? statusLabel(data.integrationHealth.thinkRuntime.status) : 'Read proof',
+      detail: data?.integrationHealth?.thinkRuntime?.detail || 'Runtime proof appears in the evidence drawer',
+      status: data?.integrationHealth?.thinkRuntime?.status || 'inactive',
+    },
+  ]
+  const mapReady = data?.trust.status === 'healthy' && disconnectedNodeCount === 0
+  const mapSummary = mapReady
+    ? 'All core systems verified and operational'
+    : data?.trust.status === 'critical'
+      ? 'Critical proof requires operator review'
+      : 'Live proof has caveats; review evidence before action'
 
   const runAction = async (action: string) => {
     setRunningAction(action)
@@ -300,7 +498,7 @@ export default function GBrain() {
       })
       const result = await response.json()
       setActionResult(result)
-      if (response.ok && result.refreshAfter) await refetch()
+      if (result.refreshAfter) await refetch()
     } catch (err) {
       setActionResult({
         ok: false,
@@ -334,8 +532,21 @@ export default function GBrain() {
             style={{ '--status-color': statusColor(data?.trust.status || 'inactive') } as CSSProperties}
           >
             <span className={styles.trustDot} />
-            {loading ? 'Loading trust state' : data?.trust.label || 'No trust state'}
+            <span>
+              <strong>{loading ? 'Loading trust state' : data?.trust.label || 'No trust state'}</strong>
+              <small>{data?.trust.score !== undefined ? `${data.trust.score}/100` : 'Refresh'}</small>
+            </span>
           </button>
+        </div>
+
+        <div
+          className={styles.proofScope}
+          style={{ '--status-color': statusColor(proofScope.status) } as CSSProperties}
+          role="status"
+        >
+          <ShieldCheck size={15} />
+          <strong>{proofScope.label}</strong>
+          <span>{proofScope.detail}</span>
         </div>
 
         {error ? <GlassCard><div className={styles.error}>{error}</div></GlassCard> : null}
@@ -374,44 +585,58 @@ export default function GBrain() {
               {timelineSummary ? (
                 <div className={styles.timelineHealth}>
                   <div className={styles.metricTop}>
-                    <span className={styles.metricLabel}>Timeline health</span>
+                    <span className={styles.metricLabel}>Timeline ledger</span>
                     <span className={styles.statusDot} style={{ '--status-color': statusColor(timelineSummary.status) } as CSSProperties} />
                   </div>
-                  <div className={styles.metricValue}>{timelineSummary.retainedEntryCount}</div>
+                  <div className={styles.metricValue}>{timelineSummary.retainedEntryCount} retained</div>
                   <div className={styles.metricDetail}>
-                    {timelineSummary.lastCapturedAt ? `${timeAgo(timelineSummary.lastCapturedAt)} · ${timelineSummary.lastCaptureReason}` : timelineSummary.lastCaptureReason}
+                    {timelineSummary.lastCapturedAt ? `Last proof ${timeAgo(timelineSummary.lastCapturedAt)} · ${timelineSummary.lastCaptureReason}` : timelineSummary.lastCaptureReason}
                   </div>
+                  <div className={styles.metricSubDetail}>{timelineSummary.malformedLineCount} malformed · duplicate skips tracked</div>
                 </div>
               ) : null}
               <div className={styles.actionPanel}>
                 <div className={styles.actionHeader}>
-                  <span>Operator Actions</span>
-                  <small>{runningAction ? 'running' : 'local write'}</small>
+                  <span>Allowlisted actions</span>
+                  <small>{runningAction ? 'running' : `${actions.length} local`}</small>
                 </div>
                 <div className={styles.actionList}>
-                  {actions.map((action) => (
-                    <button
-                      key={action.id}
-                      className={styles.actionButton}
-                      type="button"
-                      disabled={!canRunActions || Boolean(runningAction)}
-                      title={action.command}
-                      onClick={() => runAction(action.id)}
-                    >
-                      {action.kind === 'diagnostic' || action.kind === 'preview' ? <RefreshCw size={13} /> : <Play size={13} />}
-                      <span>
-                        <strong>{runningAction === action.id ? `${action.label}...` : action.label}</strong>
-                        <small>{action.description}</small>
-                      </span>
-                    </button>
-                  ))}
+                  {actions.map((action) => {
+                    const timeoutLabel = formatActionTimeout(action.timeoutMs)
+                    return (
+                      <button
+                        key={action.id}
+                        className={styles.actionButton}
+                        type="button"
+                        disabled={!canRunActions || Boolean(runningAction)}
+                        title={`${action.command}${timeoutLabel ? ` · timeout ${timeoutLabel}` : ''}`}
+                        style={{ '--action-color': actionKindColor(action.kind) } as CSSProperties}
+                        onClick={() => runAction(action.id)}
+                      >
+                        {action.kind === 'diagnostic' || action.kind === 'preview' ? <RefreshCw size={13} /> : <Play size={13} />}
+                        <span>
+                          <span className={styles.actionTitleRow}>
+                            <strong>{runningAction === action.id ? `${action.label}...` : action.label}</strong>
+                            <em>{[actionKindLabel(action.kind), timeoutLabel].filter(Boolean).join(' · ')}</em>
+                          </span>
+                          <small className={styles.actionDescription}>{action.description}</small>
+                        </span>
+                      </button>
+                    )
+                  })}
                 </div>
                 {actionResult ? (
                   <div
                     className={styles.actionResult}
                     style={{ '--status-color': statusColor(actionResult.ok ? 'healthy' : 'warning') } as CSSProperties}
                   >
-                    <strong>{actionResult.ok ? `${actionResult.label} complete` : `${actionResult.label || actionResult.action} failed`}</strong>
+                    <strong>
+                      {actionResult.ok
+                        ? `${actionResult.label} complete`
+                        : actionResult.pending
+                          ? `${actionResult.label || actionResult.action} stopping`
+                          : `${actionResult.label || actionResult.action} failed`}
+                    </strong>
                     <span>{actionResult.error || actionResult.summary}</span>
                   </div>
                 ) : null}
@@ -427,46 +652,94 @@ export default function GBrain() {
               <div className={styles.panelMeta}>{data?.mode || 'read-only'}</div>
             </div>
             <div className={styles.mapCanvas}>
-              <svg className={styles.edgeLayer} viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
-                {(data?.edges || []).map((edge) => {
-                  const line = lineFor(edge)
+              <div className={styles.mapStage}>
+                <div className={styles.mapGlow} aria-hidden="true" />
+                <div className={styles.mapOrbit} aria-hidden="true" />
+                <div className={styles.mapInnerOrbit} aria-hidden="true" />
+                <div className={styles.mapSignalBar}>
+                  {mapSignals.map((signal) => (
+                    <div
+                      className={styles.mapSignal}
+                      key={signal.label}
+                      style={{ '--status-color': statusColor(signal.status) } as CSSProperties}
+                    >
+                      <span>{signal.label}</span>
+                      <strong>{signal.value}</strong>
+                      <small>{signal.detail}</small>
+                    </div>
+                  ))}
+                </div>
+                <div className={styles.mapReportCard}>
+                  <span>Last verified</span>
+                  <strong>{data ? timeAgo(data.trust.lastVerifiedAt) : '—'}</strong>
+                  <small>{data?.trust.source || 'Waiting for source proof'}</small>
+                </div>
+                <svg className={styles.edgeLayer} viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+                  {(data?.edges || []).map((edge) => {
+                    const line = lineFor(edge)
+                    return (
+                      <g key={edge.id}>
+                        <line
+                          className={styles.edgeLine}
+                          x1={line.x1}
+                          y1={line.y1}
+                          x2={line.x2}
+                          y2={line.y2}
+                          style={{ '--status-color': statusColor(edge.status) } as CSSProperties}
+                        />
+                        <circle
+                          className={styles.edgePulse}
+                          cx={line.mx}
+                          cy={line.my}
+                          r="0.75"
+                          style={{ '--status-color': statusColor(edge.status) } as CSSProperties}
+                        />
+                      </g>
+                    )
+                  })}
+                </svg>
+
+                {(data?.nodes || []).map((node) => {
+                  const position = nodePositions[node.id] || { x: 50, y: 50, size: 110 }
+                  const active = selectedNode?.id === node.id
                   return (
-                    <g key={edge.id}>
-                      <line
-                        className={styles.edgeLine}
-                        x1={line.x1}
-                        y1={line.y1}
-                        x2={line.x2}
-                        y2={line.y2}
-                        style={{ '--status-color': statusColor(edge.status) } as CSSProperties}
-                      />
-                      <text className={styles.edgeLabel} x={line.mx} y={line.my - 1} textAnchor="middle">{edge.label}</text>
-                    </g>
+                    <button
+                      key={node.id}
+                      className={`${styles.node} ${node.kind === 'core' ? styles.coreNode : ''} ${active ? styles.nodeActive : ''}`}
+                      onClick={() => setSelectedId(node.id)}
+                      style={{
+                        '--node-x': `${position.x}%`,
+                        '--node-y': `${position.y}%`,
+                        '--node-size': `${position.size}px`,
+                        '--status-color': statusColor(node.status),
+                      } as CSSProperties}
+                    >
+                      <span className={styles.nodeIcon}>{kindIcon(node.kind)}</span>
+                      <span className={styles.nodeLabel}>{node.label}</span>
+                      <span className={styles.nodeRole}>{nodeRole(node)}</span>
+                      <span className={styles.nodeStatus}><CheckCircle2 size={11} />{statusLabel(node.status)}</span>
+                    </button>
                   )
                 })}
-              </svg>
-
-              {(data?.nodes || []).map((node) => {
-                const position = nodePositions[node.id] || { x: 50, y: 50, size: 110 }
-                const active = selectedNode?.id === node.id
-                return (
-                  <button
-                    key={node.id}
-                    className={`${styles.node} ${node.kind === 'core' ? styles.coreNode : ''} ${active ? styles.nodeActive : ''}`}
-                    onClick={() => setSelectedId(node.id)}
-                    style={{
-                      '--node-x': `${position.x}%`,
-                      '--node-y': `${position.y}%`,
-                      '--node-size': `${position.size}px`,
-                      '--status-color': statusColor(node.status),
-                    } as CSSProperties}
-                  >
-                    <span className={styles.nodeIcon}>{kindIcon(node.kind)}</span>
-                    <span className={styles.nodeLabel}>{node.label}</span>
-                    <span className={styles.nodeKind}>{statusLabel(node.status)}</span>
-                  </button>
-                )
-              })}
+              </div>
+              <div
+                className={styles.mapActionBand}
+                style={{ '--status-color': statusColor(data?.trust.status || 'inactive') } as CSSProperties}
+              >
+                <span className={styles.mapActionIcon}><RefreshCw size={18} /></span>
+                <div>
+                  <strong>{mapSummary}</strong>
+                  <span>{selectedNode ? `${selectedNode.label}: ${selectedNode.proof.label}` : 'GBrain is ready to read, reason, and remember.'}</span>
+                </div>
+                <div className={styles.mapActionStats}>
+                  <span><i style={{ '--status-color': statusColor('healthy') } as CSSProperties} />{healthyNodeCount}/{nodeCount || '—'} verified</span>
+                  <span><i style={{ '--status-color': statusColor(degradedNodeCount ? 'warning' : 'healthy') } as CSSProperties} />{degradedNodeCount} degraded</span>
+                  <span><i style={{ '--status-color': statusColor(disconnectedNodeCount ? 'critical' : 'healthy') } as CSSProperties} />{data ? `${data.trust.score}%` : '—'} operational</span>
+                </div>
+                <button type="button" onClick={() => refetch()} disabled={loading}>
+                  {loading ? 'Checking...' : 'Run System Check'}
+                </button>
+              </div>
             </div>
             <div className={styles.warningStrip}>
               <AlertTriangle size={15} style={{ color: '#FFD60A', flex: '0 0 auto', marginTop: 1 }} />
@@ -495,6 +768,68 @@ export default function GBrain() {
                         <strong>{metric.value}</strong>
                       </div>
                     ))}
+                  </div>
+                ) : null}
+
+                {data?.integrationContract && (selectedNode.id === 'gbrain-core' || selectedContractSystem) ? (
+                  <div className={styles.section}>
+                    <h3>{data.integrationContract.label}</h3>
+                    <div className={styles.proofBox}>
+                      <div className={styles.proofLabel}>
+                        <ShieldCheck size={13} style={{ marginRight: 6, verticalAlign: -2 }} />
+                        {selectedContractSystem?.label || 'GBrain'}
+                      </div>
+                      <div className={styles.proofDetail} style={{ marginTop: 7 }}>
+                        {selectedContractSystem
+                          ? `${selectedContractSystem.localMemory} ${selectedContractSystem.gbrainUse}`
+                          : data.integrationContract.summary}
+                      </div>
+                      <div className={styles.proofPath}>{selectedContractSystem?.proof || data.integrationContract.localMemoryBoundary}</div>
+                      <div className={styles.proofPath}>{data.integrationContract.writePolicy}</div>
+                    </div>
+                  </div>
+                ) : null}
+
+                {data?.integrationHealth && (selectedNode.id === 'gbrain-core' || selectedIntegrationSystem) ? (
+                  <div className={styles.section}>
+                    <h3>Integration Health</h3>
+                    {selectedIntegrationSystem ? (
+                      <div className={styles.proofBox}>
+                        <div className={styles.proofLabel}>
+                          <CheckCircle2 size={13} style={{ marginRight: 6, verticalAlign: -2 }} />
+                          {selectedIntegrationSystem.label}
+                        </div>
+                        <div className={styles.miniMetrics} style={{ marginTop: 9 }}>
+                          <div className={styles.miniMetric}><span>MCP</span><strong>{selectedIntegrationSystem.mcp.configured ? 'Connected' : 'Missing'}</strong></div>
+                          <div className={styles.miniMetric}><span>Runtime</span><strong>{selectedIntegrationSystem.runtimeContract.status}</strong></div>
+                          <div className={styles.miniMetric}><span>Source</span><strong>{selectedIntegrationSystem.source.status}</strong></div>
+                          <div className={styles.miniMetric}><span>Think</span><strong>{selectedIntegrationSystem.thinkRuntime?.status || data.integrationHealth.thinkRuntime.status}</strong></div>
+                          <div className={styles.miniMetric}><span>Read smoke</span><strong>{selectedIntegrationSystem.readSmoke.status}</strong></div>
+                          <div className={styles.miniMetric}><span>Write path</span><strong>{selectedIntegrationSystem.writeSmoke.status}</strong></div>
+                        </div>
+                        <div className={styles.proofPath}>{selectedIntegrationSystem.mcp.proof}</div>
+                        <div className={styles.proofPath}>{selectedIntegrationSystem.runtimeContract.label}</div>
+                        <div className={styles.proofPath}>{selectedIntegrationSystem.thinkRuntime?.detail || data.integrationHealth.thinkRuntime.detail}</div>
+                        <div className={styles.proofPath}>{selectedIntegrationSystem.writeSmoke.label}</div>
+                      </div>
+                    ) : (
+                      <div className={styles.proofBox}>
+                        <div className={styles.proofLabel}>
+                          <CheckCircle2 size={13} style={{ marginRight: 6, verticalAlign: -2 }} />
+                          {data.integrationHealth.connectedCount}/{data.integrationHealth.systemCount} systems connected
+                        </div>
+                        <div className={styles.proofDetail} style={{ marginTop: 7 }}>
+                          {data.integrationHealth.toolContract.basePresentCount ?? data.integrationHealth.toolContract.presentCount}/{data.integrationHealth.toolContract.baseRequiredCount ?? data.integrationHealth.toolContract.requiredCount} base tools present; think {statusLabel(data.integrationHealth.thinkRuntime.status)}
+                          {missingIntegrationTools.length ? `; missing ${missingIntegrationTools.map((tool) => tool.label).join(', ')}` : '; no core tool gaps'}
+                        </div>
+                        <div className={styles.proofPath}>{data.integrationHealth.thinkRuntime.detail}</div>
+                        <div className={styles.proofPath}>
+                          Optional features: {data.integrationHealth.featureGaps.count
+                            ? data.integrationHealth.featureGaps.recommendations.map((item) => item.title).join(', ')
+                            : 'none reported'}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ) : null}
 

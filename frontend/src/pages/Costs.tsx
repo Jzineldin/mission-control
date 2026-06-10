@@ -416,7 +416,8 @@ function getServiceColor(name: string) {
   return '#8E8E93'
 }
 
-function calculateTrend(current: number, previous: number) {
+function calculateTrend(current: number, previous: number | null | undefined) {
+  if (previous === null || previous === undefined || !Number.isFinite(previous)) return null
   if (!previous && !current) return null
   if (!previous || Math.abs(previous) < 0.01) {
     return current > 0
@@ -431,6 +432,28 @@ function calculateTrend(current: number, previous: number) {
     percentage: absPercentage,
     label,
   }
+}
+
+function sumCostRows(rows: Array<{ totalCost?: number; cost?: number }> = []) {
+  return rows.reduce((sum, row) => sum + Number(row.totalCost ?? row.cost ?? 0), 0)
+}
+
+function previousCodexbarRows(days: CodexBarDailyEntry[] = [], period: 'day' | '7d' | 'month') {
+  if (period === 'day') return days.slice(-2, -1)
+  if (period === '7d') return days.slice(-14, -7)
+  return days.slice(-60, -30)
+}
+
+function comparisonLabels(period: 'day' | '7d' | 'month') {
+  if (period === 'day') return { period: 'vs previous day', daily: 'vs previous day' }
+  if (period === '7d') return { period: 'vs previous 7 days', daily: 'vs previous 7d avg' }
+  return { period: 'vs previous 30 days', daily: 'vs previous 30d avg' }
+}
+
+function formatComparisonValue(value: number | null | undefined) {
+  return value === null || value === undefined || !Number.isFinite(value)
+    ? 'No previous baseline'
+    : formatCurrency(value)
 }
 
 function TrendBadge({ trend }: { trend: ReturnType<typeof calculateTrend> }) {
@@ -894,10 +917,12 @@ export default function Costs() {
           setBudgetInput((tokens?.budget?.monthly || 0).toString())
           setLoading(false)
 
-          const hasDetailedAgentSplit = hasUsableAgentSplitData(tokens)
           const needsDetailedRetry = (
-            (tokens?.source === 'sessions.fast_fallback' || (tokens?.meta?.refreshing && !hasDetailedAgentSplit))
-            && !hasDetailedAgentSplit
+            (
+              tokens?.source === 'sessions.fast_fallback'
+              || tokens?.meta?.refreshing
+              || tokens?.meta?.stale
+            )
             && attempt < 60
           )
           if (needsDetailedRetry) {
@@ -960,7 +985,7 @@ export default function Costs() {
     if (!codexbarActive) return []
     if (period === 'day') return codexbarCosts?.daily?.slice(-1) || []
     if (period === '7d') return codexbarCosts?.daily?.slice(-7) || []
-    return codexbarCosts?.daily || []
+    return codexbarCosts?.daily?.slice(-30) || []
   }, [codexbarActive, codexbarCosts?.daily, period])
 
   const chartSeries = useMemo<ChartSeriesItem[]>(() => {
@@ -1221,7 +1246,10 @@ export default function Costs() {
   const agentSplitPeriodLabel = loadedCostsPeriodKey && loadedCostsPeriodKey in periodLabels
     ? periodLabels[loadedCostsPeriodKey as keyof typeof periodLabels]
     : activePeriodLabel
-  const codexbarPeriodCost = codexbarPeriodDays.reduce((sum, day) => sum + (day.totalCost || 0), 0)
+  const codexbarPeriodCost = sumCostRows(codexbarPeriodDays)
+  const codexbarPreviousDays = previousCodexbarRows(codexbarCosts?.daily || [], period)
+  const codexbarPreviousPeriodCost = codexbarPreviousDays.length ? sumCostRows(codexbarPreviousDays) : null
+  const codexbarPreviousDailyAvg = codexbarPreviousPeriodCost !== null ? codexbarPreviousPeriodCost / codexbarPreviousDays.length : null
   const codexbarPeriodTokens = codexbarPeriodDays.reduce((sum, day) => sum + (day.totalTokens || 0), 0)
 
   const currentPeriodCost = codexbarActive
@@ -1241,10 +1269,15 @@ export default function Costs() {
         ? currentPeriodCost / Math.max(trackedDays.length, 1)
         : tokenBasedCost / 30
 
-  const previousPeriodCost = tokenData?.summary?.previousPeriodUsd || 0
-  const previousDayCost = tokenData?.summary?.yesterdayUsd || 0
+  const previousPeriodCost = codexbarActive
+    ? codexbarPreviousPeriodCost
+    : tokenData?.summary?.previousPeriodUsd ?? null
+  const previousDailyAvg = codexbarActive
+    ? codexbarPreviousDailyAvg
+    : tokenData?.summary?.yesterdayUsd ?? null
+  const compareLabel = comparisonLabels(period)
   const monthlyTrend = calculateTrend(currentPeriodCost, previousPeriodCost)
-  const dailyTrend = calculateTrend(dailyAvg, previousDayCost)
+  const dailyTrend = calculateTrend(dailyAvg, previousDailyAvg)
 
   const projectedMonthly = dailyAvg * 30
   const costSourceLabel = hasAwsData
@@ -1876,7 +1909,7 @@ export default function Costs() {
               </p>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginTop: '10px', flexWrap: 'wrap' }}>
                 <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.45)' }}>
-                  vs previous month {formatCurrency(previousPeriodCost)}
+                  {compareLabel.period} {formatComparisonValue(previousPeriodCost)}
                 </div>
                 <TrendBadge trend={monthlyTrend} />
               </div>
@@ -1919,7 +1952,7 @@ export default function Costs() {
               </p>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginTop: '10px', flexWrap: 'wrap' }}>
                 <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.45)' }}>
-                  vs previous day {formatCurrency(previousDayCost)}
+                  {compareLabel.daily} {formatComparisonValue(previousDailyAvg)}
                 </div>
                 <TrendBadge trend={dailyTrend} />
               </div>

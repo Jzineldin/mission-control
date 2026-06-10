@@ -93,6 +93,31 @@ async function runBehaviorTests() {
     assert.equal(summary.summary.periodTokens, 41, 'message and token_count usage records should contribute to totals');
     assert.equal(summary.byService[0].sessions, 1, 'multiple usage records in one file should count as one session');
   });
+
+  await withTempHome(async (home) => {
+    const today = new Date();
+    const nestedDir = path.join(
+      home,
+      '.openclaw',
+      'agents',
+      'main',
+      'sessions',
+      String(today.getFullYear()),
+      String(today.getMonth() + 1).padStart(2, '0'),
+      String(today.getDate()).padStart(2, '0'),
+    );
+    fs.mkdirSync(nestedDir, { recursive: true });
+    const sessionFile = path.join(nestedDir, 'missing-model.jsonl');
+    const timestamp = today.toISOString();
+
+    fs.appendFileSync(sessionFile, `${JSON.stringify({ type: 'session_meta', payload: { model_provider: 'openai' } })}\n`);
+    writeTokenCountLine(sessionFile, timestamp, 21);
+
+    const summary = await buildForPeriod('day');
+    assert.equal(summary.byService[0].name, 'openai/gpt-5.5', 'missing OpenClaw Codex model should land in the configured default model bucket');
+    assert.equal(summary.byService[0].costSource, 'included', 'default GPT-5.5 bucket should be subscription-included, not unknown spend');
+    assert.equal(summary.byService[0].tokens, 21, 'default model bucket should preserve token totals');
+  });
 }
 
 runBehaviorTests()

@@ -38,15 +38,33 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  min-height: 34px;
-  padding: 7px 11px;
+  min-height: 42px;
+  padding: 7px 12px;
   border: 1px solid rgba(255, 214, 10, 0.28);
   border-radius: 8px;
   background: rgba(255, 214, 10, 0.1);
   color: rgba(255, 255, 255, 0.88);
-  font-size: 12px;
-  font-weight: 700;
+  text-align: left;
   white-space: nowrap;
+}
+
+.trustBadge span:last-child {
+  display: grid;
+  gap: 2px;
+}
+
+.trustBadge strong {
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 12px;
+  font-weight: 760;
+  line-height: 1.2;
+}
+
+.trustBadge small {
+  color: rgba(255, 255, 255, 0.52);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.1;
 }
 
 .trustDot,
@@ -56,6 +74,35 @@
   border-radius: 999px;
   background: var(--status-color);
   box-shadow: 0 0 14px color-mix(in srgb, var(--status-color) 70%, transparent);
+}
+
+.proofScope {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  border: 1px solid color-mix(in srgb, var(--status-color) 34%, rgba(255, 255, 255, 0.09));
+  border-radius: 8px;
+  padding: 9px 12px;
+  background: color-mix(in srgb, var(--status-color) 9%, rgba(255, 255, 255, 0.035));
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.proofScope svg {
+  color: var(--status-color);
+}
+
+.proofScope strong {
+  color: rgba(255, 255, 255, 0.86);
+  font-size: 12px;
+  font-weight: 760;
+  white-space: nowrap;
+}
+
+.proofScope span {
+  min-width: 0;
 }
 
 .incidentBanner {
@@ -93,8 +140,21 @@
 .layout {
   display: grid;
   grid-template-columns: minmax(230px, 0.68fr) minmax(520px, 1.6fr) minmax(300px, 0.82fr);
+  grid-template-areas: "rail map drawer";
   gap: 12px;
   align-items: stretch;
+}
+
+.rail {
+  grid-area: rail;
+}
+
+.mapPanel {
+  grid-area: map;
+}
+
+.drawer {
+  grid-area: drawer;
 }
 
 .rail,
@@ -160,13 +220,20 @@
   background: rgba(255, 255, 255, 0.025);
 }
 
+.metricSubDetail {
+  color: rgba(255, 255, 255, 0.34);
+  font-size: 10px;
+  line-height: 1.35;
+}
+
 .actionPanel {
+  container-type: inline-size;
   display: grid;
   gap: 8px;
-  border: 1px solid rgba(50, 215, 75, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.09);
   border-radius: 8px;
   padding: 10px;
-  background: rgba(50, 215, 75, 0.045);
+  background: rgba(255, 255, 255, 0.025);
 }
 
 .actionHeader {
@@ -190,55 +257,96 @@
 .actionList {
   display: grid;
   gap: 7px;
-  max-height: 282px;
+  max-height: clamp(282px, 34vh, 440px);
   overflow: auto;
   padding-right: 2px;
 }
 
 .actionButton {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
+  display: flex;
   align-items: flex-start;
   gap: 8px;
   width: 100%;
-  min-height: 52px;
-  border: 1px solid rgba(50, 215, 75, 0.2);
+  height: max-content;
+  min-height: 64px;
+  border: 1px solid color-mix(in srgb, var(--action-color) 24%, rgba(255, 255, 255, 0.08));
   border-radius: 8px;
-  padding: 8px;
-  background: rgba(50, 215, 75, 0.1);
+  padding: 9px;
+  background: color-mix(in srgb, var(--action-color) 9%, rgba(255, 255, 255, 0.035));
   color: rgba(255, 255, 255, 0.88);
   text-align: left;
   cursor: pointer;
 }
 
 .actionButton svg {
+  flex: 0 0 auto;
   margin-top: 2px;
-  color: #32d74b;
+  color: var(--action-color);
 }
 
-.actionButton span {
+.actionButton > span {
+  flex: 1 1 auto;
   min-width: 0;
   display: grid;
-  gap: 2px;
+  gap: 5px;
+}
+
+.actionButton .actionTitleRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 0;
 }
 
 .actionButton strong {
+  min-width: 0;
   color: rgba(255, 255, 255, 0.88);
   font-size: 12px;
   font-weight: 720;
   line-height: 1.25;
+  overflow-wrap: anywhere;
 }
 
-.actionButton small {
+.actionButton em {
+  align-self: flex-start;
+  border: 1px solid color-mix(in srgb, var(--action-color) 38%, rgba(255, 255, 255, 0.1));
+  border-radius: 999px;
+  padding: 2px 6px;
+  background: color-mix(in srgb, var(--action-color) 14%, transparent);
+  color: rgba(255, 255, 255, 0.66);
+  font-size: 9px;
+  font-style: normal;
+  font-weight: 760;
+  line-height: 1.1;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.actionDescription {
+  display: block;
+  min-width: 0;
   color: rgba(255, 255, 255, 0.52);
   font-size: 10px;
   font-weight: 520;
-  line-height: 1.3;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+@container (max-width: 215px) {
+  .actionButton .actionTitleRow {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 4px;
+  }
+
+  .actionButton em {
+    justify-self: flex-start;
+  }
 }
 
 .actionButton:hover:not(:disabled) {
-  border-color: rgba(50, 215, 75, 0.38);
-  background: rgba(50, 215, 75, 0.15);
+  border-color: color-mix(in srgb, var(--action-color) 46%, rgba(255, 255, 255, 0.12));
+  background: color-mix(in srgb, var(--action-color) 13%, rgba(255, 255, 255, 0.04));
 }
 
 .actionButton:disabled {
@@ -299,22 +407,194 @@
 }
 
 .mapCanvas {
-  position: relative;
-  min-height: 560px;
+  display: grid;
+  grid-template-rows: minmax(590px, 1fr) auto;
+  min-height: 690px;
   margin: 14px;
   border: 1px solid rgba(255, 255, 255, 0.09);
   border-radius: 8px;
   overflow: hidden;
   background:
-    linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.032) 1px, transparent 1px),
-    radial-gradient(circle at 50% 44%, rgba(10, 132, 255, 0.16), transparent 34%),
-    rgba(5, 9, 13, 0.42);
-  background-size: 48px 48px, 48px 48px, auto, auto;
+    linear-gradient(90deg, rgba(255, 255, 255, 0.032) 1px, transparent 1px),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+    radial-gradient(circle at 50% 47%, rgba(50, 215, 75, 0.15), transparent 24%),
+    radial-gradient(circle at 18% 18%, rgba(100, 210, 255, 0.12), transparent 24%),
+    radial-gradient(circle at 82% 70%, rgba(255, 214, 10, 0.08), transparent 25%),
+    linear-gradient(180deg, rgba(16, 23, 31, 0.88), rgba(5, 8, 12, 0.96));
+  background-size: 48px 48px, 48px 48px, auto, auto, auto, auto;
+}
+
+.mapStage {
+  position: relative;
+  min-height: 590px;
+  overflow: hidden;
+}
+
+.mapStage::before {
+  position: absolute;
+  left: 58px;
+  right: 58px;
+  top: 150px;
+  bottom: 36px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 50%;
+  content: '';
+  opacity: 0.8;
+}
+
+.mapStage::after {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.055), transparent 18%),
+    radial-gradient(circle at 50% 50%, transparent 42%, rgba(0, 0, 0, 0.25) 100%);
+  content: '';
+  pointer-events: none;
+}
+
+.mapGlow {
+  position: absolute;
+  z-index: 0;
+  left: 50%;
+  top: 55%;
+  width: min(390px, 72%);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle, rgba(50, 215, 75, 0.2), rgba(100, 210, 255, 0.08) 38%, transparent 70%);
+  filter: blur(2px);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.mapOrbit,
+.mapInnerOrbit {
+  position: absolute;
+  z-index: 0;
+  left: 50%;
+  top: 55%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.mapOrbit {
+  width: min(430px, 76%);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  background:
+    conic-gradient(from 18deg, transparent 0deg, rgba(50, 215, 75, 0.2) 22deg, transparent 44deg, transparent 126deg, rgba(100, 210, 255, 0.14) 150deg, transparent 176deg, transparent 270deg, rgba(255, 214, 10, 0.12) 292deg, transparent 318deg);
+  mask: radial-gradient(circle, transparent 62%, black 63%);
+  opacity: 0.85;
+}
+
+.mapInnerOrbit {
+  width: min(245px, 45%);
+  border: 1px solid rgba(50, 215, 75, 0.22);
+  box-shadow:
+    0 0 40px rgba(50, 215, 75, 0.08),
+    inset 0 0 28px rgba(50, 215, 75, 0.08);
+  opacity: 0.9;
+}
+
+.mapSignalBar {
+  position: absolute;
+  z-index: 3;
+  left: 12px;
+  right: 184px;
+  top: 12px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.mapSignal {
+  display: grid;
+  grid-template-rows: auto auto 1fr;
+  gap: 6px;
+  min-width: 0;
+  min-height: 78px;
+  border: 1px solid color-mix(in srgb, var(--status-color) 28%, rgba(255, 255, 255, 0.08));
+  border-radius: 8px;
+  padding: 12px 14px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--status-color) 10%, rgba(255, 255, 255, 0.045)), rgba(8, 12, 17, 0.72));
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.22);
+  backdrop-filter: blur(12px);
+}
+
+.mapSignal span {
+  color: rgba(255, 255, 255, 0.46);
+  font-size: 11px;
+  font-weight: 760;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.mapSignal strong {
+  min-width: 0;
+  overflow: hidden;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 24px;
+  font-weight: 760;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mapSignal small {
+  min-width: 0;
+  overflow: hidden;
+  color: rgba(255, 255, 255, 0.58);
+  font-size: 11px;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mapReportCard {
+  position: absolute;
+  z-index: 3;
+  right: 12px;
+  top: 12px;
+  display: grid;
+  gap: 6px;
+  width: 164px;
+  min-height: 78px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 8px;
+  padding: 12px;
+  background: rgba(8, 12, 17, 0.72);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.22);
+  backdrop-filter: blur(12px);
+}
+
+.mapReportCard span {
+  color: rgba(255, 255, 255, 0.46);
+  font-size: 10px;
+  font-weight: 760;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.mapReportCard strong {
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 18px;
+  line-height: 1.15;
+}
+
+.mapReportCard small {
+  overflow: hidden;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 10px;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .edgeLayer {
   position: absolute;
+  z-index: 1;
   inset: 0;
   width: 100%;
   height: 100%;
@@ -323,19 +603,21 @@
 
 .edgeLine {
   stroke: var(--status-color);
-  stroke-width: 0.35;
+  stroke-width: 0.34;
   stroke-linecap: round;
-  opacity: 0.72;
+  opacity: 0.58;
+  filter: drop-shadow(0 0 5px color-mix(in srgb, var(--status-color) 58%, transparent));
 }
 
-.edgeLabel {
-  fill: rgba(255, 255, 255, 0.7);
-  font-size: 1.55px;
-  font-weight: 650;
+.edgePulse {
+  fill: color-mix(in srgb, var(--status-color) 74%, white 8%);
+  opacity: 0.82;
+  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--status-color) 80%, transparent));
 }
 
 .node {
   position: absolute;
+  z-index: 2;
   left: var(--node-x);
   top: var(--node-y);
   width: var(--node-size);
@@ -343,28 +625,48 @@
   transform: translate(-50%, -50%);
   display: grid;
   place-items: center;
-  gap: 5px;
+  gap: 6px;
   border: 1px solid color-mix(in srgb, var(--status-color) 48%, rgba(255, 255, 255, 0.08));
   border-radius: 8px;
   padding: 10px;
   background:
-    linear-gradient(180deg, color-mix(in srgb, var(--status-color) 14%, transparent), rgba(255, 255, 255, 0.045)),
-    rgba(10, 14, 19, 0.92);
+    linear-gradient(180deg, color-mix(in srgb, var(--status-color) 18%, rgba(255, 255, 255, 0.055)), rgba(255, 255, 255, 0.04)),
+    rgba(8, 13, 18, 0.9);
   color: rgba(255, 255, 255, 0.9);
-  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.3);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 16px 36px rgba(0, 0, 0, 0.34);
   text-align: center;
   cursor: pointer;
+  backdrop-filter: blur(14px);
+  transition: border-color 140ms ease, box-shadow 140ms ease, transform 140ms ease;
+}
+
+.node:hover {
+  transform: translate(-50%, -50%) scale(1.025);
+  border-color: color-mix(in srgb, var(--status-color) 74%, white 9%);
 }
 
 .nodeActive {
   border-color: color-mix(in srgb, var(--status-color) 82%, white 10%);
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--status-color) 40%, transparent), 0 18px 48px rgba(0, 0, 0, 0.38);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--status-color) 42%, transparent),
+    0 0 28px color-mix(in srgb, var(--status-color) 18%, transparent),
+    0 18px 48px rgba(0, 0, 0, 0.38);
 }
 
 .coreNode {
-  width: 142px;
-  min-height: 142px;
+  width: 154px;
+  min-height: 154px;
   border-radius: 50%;
+  border-width: 1.5px;
+  background:
+    radial-gradient(circle at 50% 30%, color-mix(in srgb, var(--status-color) 34%, rgba(255, 255, 255, 0.08)), transparent 31%),
+    radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.055), transparent 62%),
+    linear-gradient(180deg, rgba(12, 24, 18, 0.98), rgba(7, 13, 15, 0.98));
+  box-shadow:
+    0 0 0 10px color-mix(in srgb, var(--status-color) 6%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--status-color) 32%, transparent),
+    0 26px 66px rgba(0, 0, 0, 0.48),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
 .nodeIcon {
@@ -373,14 +675,17 @@
   width: 34px;
   height: 34px;
   border-radius: 8px;
-  background: color-mix(in srgb, var(--status-color) 18%, rgba(255, 255, 255, 0.05));
+  background: color-mix(in srgb, var(--status-color) 22%, rgba(255, 255, 255, 0.06));
   color: var(--status-color);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
 .coreNode .nodeIcon {
-  width: 44px;
-  height: 44px;
+  width: 48px;
+  height: 48px;
   border-radius: 50%;
+  background:
+    radial-gradient(circle, color-mix(in srgb, var(--status-color) 42%, rgba(255, 255, 255, 0.12)), color-mix(in srgb, var(--status-color) 20%, rgba(255, 255, 255, 0.06)));
 }
 
 .nodeLabel {
@@ -390,10 +695,144 @@
   line-height: 1.2;
 }
 
-.nodeKind {
-  color: rgba(255, 255, 255, 0.48);
+.nodeRole {
+  color: rgba(255, 255, 255, 0.58);
   font-size: 10px;
+  line-height: 1.2;
+}
+
+.nodeStatus {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  max-width: 100%;
+  border: 1px solid color-mix(in srgb, var(--status-color) 35%, rgba(255, 255, 255, 0.08));
+  border-radius: 999px;
+  padding: 4px 7px;
+  background: color-mix(in srgb, var(--status-color) 10%, transparent);
+  color: color-mix(in srgb, var(--status-color) 82%, white 18%);
+  font-size: 9px;
+  font-weight: 760;
+  line-height: 1;
   text-transform: uppercase;
+}
+
+.nodeStatus svg {
+  flex: 0 0 auto;
+}
+
+.mapActionBand {
+  position: relative;
+  z-index: 4;
+  margin: 0 12px 12px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    "icon summary action"
+    "stats stats stats";
+  align-items: center;
+  gap: 9px 12px;
+  border: 1px solid color-mix(in srgb, var(--status-color) 26%, rgba(255, 255, 255, 0.09));
+  border-radius: 8px;
+  padding: 13px 14px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--status-color) 7%, rgba(255, 255, 255, 0.045)), rgba(8, 12, 17, 0.82));
+  box-shadow: 0 16px 34px rgba(0, 0, 0, 0.28);
+  backdrop-filter: blur(14px);
+}
+
+.mapActionIcon {
+  grid-area: icon;
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--status-color) 18%, rgba(255, 255, 255, 0.06));
+  color: var(--status-color);
+}
+
+.mapActionBand > div:not(.mapActionStats) {
+  grid-area: summary;
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.mapActionBand > div:not(.mapActionStats) strong {
+  overflow: hidden;
+  color: rgba(255, 255, 255, 0.88);
+  font-size: 13px;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mapActionBand > div:not(.mapActionStats) span {
+  overflow: hidden;
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 12px;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mapActionStats {
+  grid-area: stats;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.mapActionStats span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  padding: 5px 7px;
+  background: rgba(255, 255, 255, 0.035);
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 10px;
+  font-weight: 680;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.mapActionStats i {
+  flex: 0 0 auto;
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--status-color);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--status-color) 58%, transparent);
+}
+
+.mapActionBand button {
+  grid-area: action;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 10px 13px;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.86);
+  font-size: 12px;
+  font-weight: 720;
+  cursor: pointer;
+}
+
+.mapActionBand button:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--status-color) 34%, rgba(255, 255, 255, 0.16));
+  background: color-mix(in srgb, var(--status-color) 10%, rgba(255, 255, 255, 0.06));
+}
+
+.mapActionBand button:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
 }
 
 .drawerBody {
@@ -716,9 +1155,31 @@
   text-align: right;
 }
 
+@media (max-width: 1560px) and (min-width: 1121px) {
+  .page {
+    max-width: 1280px;
+  }
+
+  .layout {
+    grid-template-columns: minmax(220px, 280px) minmax(680px, 1fr);
+    grid-template-areas:
+      "rail map"
+      "drawer drawer";
+    align-items: start;
+  }
+
+  .drawer {
+    min-height: auto;
+  }
+}
+
 @media (max-width: 1120px) {
   .layout {
     grid-template-columns: 1fr;
+    grid-template-areas:
+      "rail"
+      "map"
+      "drawer";
   }
 
   .rail,
@@ -728,7 +1189,7 @@
   }
 
   .mapCanvas {
-    min-height: 620px;
+    min-height: 760px;
   }
 }
 
@@ -739,26 +1200,79 @@
 
   .trustBadge {
     width: 100%;
-    justify-content: center;
+    justify-content: flex-start;
+  }
+
+  .proofScope {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .proofScope span {
+    grid-column: 2;
   }
 
   .mapCanvas {
-    min-height: 720px;
+    min-height: 880px;
+  }
+
+  .mapSignalBar {
+    grid-template-columns: 1fr;
+    right: auto;
+    width: min(170px, calc(50% - 18px));
+  }
+
+  .mapSignal {
+    min-height: 72px;
+    padding: 10px;
+  }
+
+  .mapSignal strong {
+    font-size: 17px;
+  }
+
+  .mapReportCard {
+    width: min(150px, calc(50% - 18px));
+    padding: 10px;
+  }
+
+  .mapOrbit {
+    width: min(360px, 88%);
+  }
+
+  .mapInnerOrbit {
+    width: min(210px, 55%);
   }
 
   .node {
-    width: 104px;
-    min-height: 104px;
+    width: 96px;
+    min-height: 96px;
     padding: 8px;
   }
 
   .coreNode {
-    width: 126px;
-    min-height: 126px;
+    width: 118px;
+    min-height: 118px;
   }
 
-  .edgeLabel {
+  .mapActionBand {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "summary"
+      "stats"
+      "action";
+    gap: 9px;
+  }
+
+  .mapActionIcon {
     display: none;
+  }
+
+  .mapActionStats {
+    justify-content: flex-start;
+  }
+
+  .mapActionBand button {
+    width: 100%;
   }
 
   .miniMetrics {
