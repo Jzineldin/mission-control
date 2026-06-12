@@ -1,5 +1,3 @@
-@import "tailwindcss";
-
 :root {
   /* macOS System Colors */
   --system-bg: #1c1c1e;
@@ -41,10 +39,29 @@
   --vibrancy-saturation: 180%;
 }
 
-* {
+/* Base reset — covers what Tailwind preflight used to provide: zero default
+   borders, inherited typography on form controls, transparent buttons. */
+*,
+*::before,
+*::after {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
+  border: 0 solid;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+  letter-spacing: inherit;
+}
+
+button {
+  background-color: transparent;
+  background-image: none;
 }
 
 html, body, #root {
