@@ -1,0 +1,10 @@
+.header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+}
+
+.subtitle {
+  margin: 4px 0 0;
+}

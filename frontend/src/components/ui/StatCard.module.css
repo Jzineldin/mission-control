@@ -1,0 +1,62 @@
+.inner {
+  padding: 20px;
+}
+
+.innerMobile {
+  padding: 10px 12px;
+}
+
+.top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.topMobile {
+  margin-bottom: 6px;
+}
+
+.iconWrap {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* background is set via --stat-color CSS variable inline */
+  background: color-mix(in srgb, var(--stat-color, rgba(255,255,255,0.5)) 20%, transparent);
+}
+
+.iconWrapMobile {
+  width: 26px;
+  height: 26px;
+}
+
+.label {
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.45);
+  text-transform: uppercase;
+}
+
+.labelMobile {
+  font-size: 10px;
+}
+
+.value {
+  font-size: 24px;
+  font-weight: 300;
+  color: rgba(255, 255, 255, 0.92);
+  font-variant-numeric: tabular-nums;
+  margin: 0;
+}
+
+.valueMobile {
+  font-size: 20px;
+}
+
+.suffix {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.45);
+}

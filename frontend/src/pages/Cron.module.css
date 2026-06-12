@@ -1,0 +1,1086 @@
+/* ── Page layout ─────────────────────────────────────────────── */
+
+.page {
+  max-width: 1280px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.pageMobile {
+  gap: 14px;
+}
+
+/* ── Header row ──────────────────────────────────────────────── */
+
+.headerRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.createBtn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: #007AFF;
+  border: none;
+  border-radius: 8px;
+  color: white;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.15s;
+}
+
+.createBtn:hover {
+  background: #0056CC;
+  transform: translateY(-1px);
+}
+
+.createBtnMobile {
+  padding: 8px 12px;
+  font-size: 13px;
+}
+
+/* ── Toast ───────────────────────────────────────────────────── */
+
+.toast {
+  padding: 10px 18px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 500;
+  /* Colors driven by .toastOk / .toastError */
+}
+
+.toastOk {
+  background: rgba(50, 215, 75, 0.15);
+  border: 1px solid rgba(50, 215, 75, 0.3);
+  color: #32D74B;
+}
+
+.toastError {
+  background: rgba(255, 69, 58, 0.15);
+  border: 1px solid rgba(255, 69, 58, 0.3);
+  color: #FF453A;
+}
+
+/* ── Summary stat grid ───────────────────────────────────────── */
+
+.summaryGrid {
+  display: grid;
+  gap: 16px;
+}
+
+/* Column count is set inline because it depends on isMobile state */
+
+/* ── Stat card interactive wrapper (inside GlassCard noPad) ──── */
+
+.statInner {
+  padding: 20px;
+  cursor: pointer;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: transparent;
+  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s, transform 0.15s;
+}
+
+.statInnerMobile {
+  padding: 10px 12px;
+}
+
+.statInner:hover {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
+/* Active state driven by CSS var --stat-color set inline */
+.statInnerActive {
+  border-color: var(--stat-color);
+  background: color-mix(in srgb, var(--stat-color) 8%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--stat-color) 13%, transparent);
+}
+
+.statInnerActive:hover {
+  background: color-mix(in srgb, var(--stat-color) 8%, transparent);
+  border-color: var(--stat-color);
+}
+
+.statTop {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.statTopMobile {
+  margin-bottom: 6px;
+}
+
+.statIconWrap {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* background tint via --stat-color */
+  background: color-mix(in srgb, var(--stat-color, rgba(255,255,255,0.5)) 13%, transparent);
+}
+
+.statIconWrapMobile {
+  width: 26px;
+  height: 26px;
+}
+
+.statLabel {
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.45);
+  text-transform: uppercase;
+}
+
+.statLabelMobile {
+  font-size: 10px;
+}
+
+.statValue {
+  font-size: 24px;
+  font-weight: 300;
+  color: rgba(255, 255, 255, 0.92);
+  font-variant-numeric: tabular-nums;
+  margin: 0;
+}
+
+.statValueMobile {
+  font-size: 20px;
+}
+
+/* ── Scheduler filter pills ──────────────────────────────────── */
+
+.schedulerBar {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.schedulerPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 13px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  /* active/inactive driven via --pill-color set inline */
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.035);
+  color: rgba(255, 255, 255, 0.62);
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+}
+
+.schedulerPillMobile {
+  padding: 6px 10px;
+}
+
+.schedulerPillActive {
+  border-color: var(--pill-color);
+  background: color-mix(in srgb, var(--pill-color) 9%, transparent);
+  color: var(--pill-color);
+}
+
+.schedulerPillCount {
+  border-radius: 999px;
+  padding: 1px 7px;
+  font-variant-numeric: tabular-nums;
+  background: rgba(255, 255, 255, 0.13);
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.schedulerPillCountActive {
+  background: var(--pill-color);
+  color: rgba(0, 0, 0, 0.82);
+}
+
+/* ── Quick filter bar (desktop only) ─────────────────────────── */
+
+.filterBar {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.filterBtn {
+  padding: 6px 14px;
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.filterBtn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.8);
+}
+
+/* Active state: border/bg/color driven by --filter-color set inline */
+.filterBtnActive {
+  border-color: var(--filter-color);
+  background: color-mix(in srgb, var(--filter-color) 9%, transparent);
+  color: var(--filter-color);
+}
+
+.filterBtnActive:hover {
+  background: color-mix(in srgb, var(--filter-color) 9%, transparent);
+  color: var(--filter-color);
+}
+
+.filterBtnCount {
+  border-radius: 10px;
+  padding: 1px 7px;
+  font-size: 11px;
+  font-weight: 700;
+  background: rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.filterBtnCountActive {
+  background: var(--filter-color);
+  color: rgba(0, 0, 0, 0.8);
+}
+
+.filterCount {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.35);
+  align-self: center;
+  margin-left: 8px;
+}
+
+/* ── Search bar ───────────────────────────────────────────────── */
+
+.searchWrap {
+  position: relative;
+}
+
+.searchInput {
+  width: 100%;
+  padding: 12px 44px 12px 16px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 14px;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.searchInputMobile {
+  padding: 10px 40px 10px 12px;
+}
+
+.searchClear {
+  position: absolute;
+  top: 50%;
+  right: 10px;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.6);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.searchClear:hover {
+  background: rgba(255, 255, 255, 0.14);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+/* ── Loading / error states ───────────────────────────────────── */
+
+.loadingWrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 256px;
+}
+
+.spinner {
+  width: 32px;
+  height: 32px;
+  border: 2px solid #007AFF;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+.errorPad {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.errorPadMobile {
+  padding: 16px;
+}
+
+.errorTitle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #FF453A;
+}
+
+.errorMessage {
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 13px;
+}
+
+.retryBtn {
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.06);
+  color: white;
+  cursor: pointer;
+}
+
+/* ── Mobile card list ─────────────────────────────────────────── */
+
+.cardList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.groupHeader {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.groupHeaderCount {
+  color: rgba(255, 255, 255, 0.35);
+  font-weight: 700;
+}
+
+.cardPad {
+  padding: 14px;
+}
+
+.overlapPill {
+  margin-bottom: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgba(191, 90, 242, 0.14);
+  border: 1px solid rgba(191, 90, 242, 0.26);
+  color: #D8B4FE;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.cardTopRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.cardNameWrap {
+  flex: 1;
+  min-width: 0;
+}
+
+.cardName {
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.92);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin: 0;
+}
+
+.cardSchedulerBadge {
+  margin-top: 4px;
+}
+
+.scheduleCode {
+  font-size: 11px;
+  color: #BF5AF2;
+  background: rgba(255, 255, 255, 0.06);
+  padding: 3px 8px;
+  border-radius: 5px;
+  font-family: monospace;
+  display: inline-block;
+  margin-bottom: 10px;
+}
+
+.cardSection {
+  margin-bottom: 10px;
+}
+
+.cardMiniLabel {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.4);
+  text-transform: uppercase;
+  font-weight: 600;
+  margin: 0 0 4px;
+}
+
+.cardDetailsGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.cardDetailLabel {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.4);
+  text-transform: uppercase;
+  font-weight: 600;
+  margin: 0 0 2px;
+}
+
+.cardDetailValue {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.65);
+  margin: 0;
+}
+
+.cardModelRow {
+  margin-bottom: 10px;
+}
+
+.cardModelInner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.modelSelect {
+  width: 100%;
+  min-width: 0;
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  padding: 4px 6px;
+  font-size: 12px;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.modelText {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.cardActions {
+  display: flex;
+  gap: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.runBtnCard {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.deleteBtnCard {
+  padding: 6px 8px;
+  background: rgba(255, 69, 58, 0.1);
+  border: 1px solid rgba(255, 69, 58, 0.2);
+  border-radius: 6px;
+  color: #FF453A;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.deleteBtnCard:hover {
+  background: rgba(255, 69, 58, 0.18);
+}
+
+.btnDisabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+/* ── Desktop table grid layout ───────────────────────────────── */
+
+/* The table uses a fixed grid. We replicate the JS constant here so the
+   motion.div rows and the header div can share the same layout via className
+   instead of a style spread. */
+.tableGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 70px minmax(92px, 0.7fr) 144px 72px 72px 250px 62px;
+  column-gap: 12px;
+  align-items: center;
+}
+
+/* ── Desktop table ────────────────────────────────────────────── */
+
+.tableWrap {
+  overflow-x: hidden;
+}
+
+.tableInner {
+  width: 100%;
+}
+
+.tableHead {
+  padding: 13px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.tableHeadCell {
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  white-space: nowrap;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.tableGroupHeader {
+  padding: 10px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.tableRow {
+  padding: 13px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  transition: background 0.15s, box-shadow 0.15s;
+}
+
+.tableRowFailed {
+  background: rgba(255, 69, 58, 0.06);
+  box-shadow: inset 3px 0 0 #FF453A;
+}
+
+.tableCell {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.cellName {
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.92);
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  line-height: 1.25;
+  margin: 0;
+}
+
+.cellNameFailed {
+  color: #FF6B6B;
+}
+
+.cellId {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.35);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: monospace;
+  margin: 2px 0 0;
+}
+
+.scheduleCodeDesktop {
+  max-width: 100%;
+  font-size: 12px;
+  color: #BF5AF2;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-family: monospace;
+  line-height: 1.35;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.overlapTag {
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(191, 90, 242, 0.14);
+  border: 1px solid rgba(191, 90, 242, 0.24);
+  color: #D8B4FE;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.statusCell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.statusCellInner {
+  min-width: 0;
+}
+
+.successBarWrap {
+  margin-top: 4px;
+  width: 58px;
+}
+
+.timeCell {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.65);
+  margin: 0;
+}
+
+.timeCellSub {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.4);
+  margin: 2px 0 0;
+}
+
+.timeCellEmpty {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.3);
+}
+
+.modelCell {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.modelSelectDesktop {
+  width: 100%;
+  min-width: 0;
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  padding: 4px 6px;
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.modelTextDesktop {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.actionsCell {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.runBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 26px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  color: rgba(255, 255, 255, 0.8);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.runBtn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.deleteBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 26px;
+  background: rgba(255, 69, 58, 0.1);
+  border: 1px solid rgba(255, 69, 58, 0.2);
+  border-radius: 6px;
+  color: #FF453A;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.deleteBtn:hover {
+  background: rgba(255, 69, 58, 0.15);
+}
+
+/* ── SuccessBar (inside Cron.tsx) ─────────────────────────────── */
+
+.successBarOuter {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 64px;
+}
+
+.successBarTop {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.successBarPct {
+  font-size: 13px;
+  font-weight: 600;
+  /* color driven by barColor inline */
+}
+
+.successBarTotal {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.successBarTrack {
+  width: 100%;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.successBarFill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.3s;
+  /* width and background driven inline */
+}
+
+.successBarFailed {
+  font-size: 10px;
+  color: #FF453A;
+}
+
+/* ── ToggleSwitch ─────────────────────────────────────────────── */
+
+.toggleTrack {
+  width: 44px;
+  height: 24px;
+  border-radius: 12px;
+  position: relative;
+  cursor: pointer;
+  transition: background 0.2s;
+  flex-shrink: 0;
+}
+
+.toggleThumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 10px;
+  background: white;
+  position: absolute;
+  top: 2px;
+  transition: left 0.2s;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+/* ── Scheduler badge ──────────────────────────────────────────── */
+
+.schedulerBadge {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  /* border, background, color driven via --scheduler-color set inline */
+  border: 1px solid color-mix(in srgb, var(--scheduler-color) 33%, transparent);
+  background: color-mix(in srgb, var(--scheduler-color) 9%, transparent);
+  color: var(--scheduler-color);
+}
+
+/* ── Modal overlay ────────────────────────────────────────────── */
+
+.modalOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(8px);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px;
+}
+
+.modalOverlayMobile {
+  padding: 16px;
+}
+
+.modalPanel {
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 16px;
+  padding: 32px;
+  width: 100%;
+  max-width: 600px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.modalPanelMobile {
+  padding: 20px;
+}
+
+.modalHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+}
+
+.modalHeaderMobile {
+  margin-bottom: 16px;
+}
+
+.modalTitle {
+  font-size: 20px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.92);
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.modalTitleMobile {
+  font-size: 18px;
+}
+
+.modalClose {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.6);
+  cursor: pointer;
+  padding: 4px;
+  font-size: 18px;
+}
+
+.modalForm {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.modalFormMobile {
+  gap: 16px;
+}
+
+/* ── Form fields inside modal ─────────────────────────────────── */
+
+.fieldLabel {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.7);
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.fieldInput,
+.fieldSelect,
+.fieldTextarea {
+  width: 100%;
+  padding: 12px 16px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 14px;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.fieldInputMobile,
+.fieldSelectMobile,
+.fieldTextareaMobile {
+  padding: 10px 12px;
+}
+
+.fieldInputMono {
+  font-family: monospace;
+}
+
+.fieldTextarea {
+  resize: vertical;
+  font-family: inherit;
+}
+
+.presetRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.presetBtn {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  padding: 4px 8px;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 11px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.presetBtn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.fieldHint {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.5);
+  margin: 4px 0 0;
+}
+
+.modalActions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  margin-top: 16px;
+}
+
+.modalActionsMobile {
+  margin-top: 8px;
+}
+
+.cancelBtn {
+  padding: 12px 20px;
+  background: none;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.cancelBtn:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.cancelBtnMobile {
+  padding: 10px 16px;
+}
+
+.submitBtn {
+  padding: 12px 20px;
+  background: #007AFF;
+  border: none;
+  border-radius: 8px;
+  color: white;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.submitBtn:hover {
+  background: #0056CC;
+}
+
+.submitBtnMobile {
+  padding: 10px 16px;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.spinIcon {
+  animation: spin 1s linear infinite;
+}
+
+/* ── Misc static helpers ──────────────────────────────────────── */
+
+.errorWrap {
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+.iconBlue {
+  color: #007AFF;
+}
+
+.scheduleColInner {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}

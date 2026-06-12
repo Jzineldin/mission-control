@@ -1,12 +1,15 @@
 import { Fragment, useMemo, useState } from 'react'
+import type { CSSProperties } from 'react'
 import { Clock, Play, Pause, AlertTriangle, XCircle, Plus, Trash2, RotateCcw, Cpu } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import PageTransition from '../components/PageTransition'
 import { useIsMobile } from '../lib/useIsMobile'
 import GlassCard from '../components/GlassCard'
 import StatusBadge from '../components/StatusBadge'
+import PageHeader from '../components/ui/PageHeader'
 import { useApi, timeAgo, formatDate } from '../lib/hooks'
 import { normalizeCronStatus } from '../lib/status'
+import styles from './Cron.module.css'
 
 interface CronHistoryEntry {
   status?: string
@@ -26,16 +29,16 @@ function calcSuccessRate(history: CronHistoryEntry[]): { rate: string; pct: numb
 function SuccessBar({ rate }: { rate: { rate: string; pct: number; total: number; ok: number; failed: number } }) {
   const barColor = rate.pct === 100 ? '#32D74B' : rate.pct >= 75 ? '#FFD60A' : rate.pct >= 50 ? '#FF9500' : '#FF453A'
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 64 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <span style={{ fontSize: 13, fontWeight: 600, color: barColor }}>{rate.rate}</span>
-        <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>{rate.total}x</span>
+    <div className={styles.successBarOuter}>
+      <div className={styles.successBarTop}>
+        <span className={styles.successBarPct} style={{ color: barColor }}>{rate.rate}</span>
+        <span className={styles.successBarTotal}>{rate.total}x</span>
       </div>
-      <div style={{ width: '100%', height: 4, background: 'rgba(255,255,255,0.1)', borderRadius: 2, overflow: 'hidden' }}>
-        <div style={{ width: `${rate.pct}%`, height: '100%', background: barColor, borderRadius: 2, transition: 'width 0.3s' }} />
+      <div className={styles.successBarTrack}>
+        <div className={styles.successBarFill} style={{ width: `${rate.pct}%`, background: barColor }} />
       </div>
       {rate.failed > 0 && (
-        <span style={{ fontSize: 10, color: '#FF453A' }}>{rate.failed} failed</span>
+        <span className={styles.successBarFailed}>{rate.failed} failed</span>
       )}
     </div>
   )
@@ -114,20 +117,6 @@ const CRON_MODEL_ALIASES: Record<string, string> = {
 
 const CLOUD_AGENT_MODEL = 'openai-codex/gpt-5.5'
 const DISALLOWED_CLOUD_MODEL_RE = /^(anthropic\/|claude-cli\/|openrouter\/|qwen\/|minimax|minimax-portal\/|openai\/gpt-5\.4|openai-codex\/gpt-5\.[234])/i
-const CRON_TABLE_COLUMNS = 'minmax(0, 1fr) 70px minmax(92px, 0.7fr) 144px 72px 72px 250px 62px'
-const CRON_TABLE_GAP = 12
-
-const cronTableGridStyle = {
-  display: 'grid',
-  gridTemplateColumns: CRON_TABLE_COLUMNS,
-  columnGap: CRON_TABLE_GAP,
-  alignItems: 'center',
-} as const
-
-const cronTableCellStyle = {
-  minWidth: 0,
-  overflow: 'hidden',
-} as const
 
 function getCronScheduler(job?: CronJob): CronScheduler {
   return job?.scheduler === 'hermes' ? 'hermes' : 'openclaw'
@@ -144,7 +133,10 @@ function getCronSchedulerColor(job?: CronJob) {
 function SchedulerBadge({ job }: { job: CronJob }) {
   const color = getCronSchedulerColor(job)
   return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', width: 'fit-content', padding: '2px 7px', borderRadius: 999, border: `1px solid ${color}55`, background: `${color}18`, color, fontSize: 10, fontWeight: 800, letterSpacing: '0.05em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
+    <span
+      className={styles.schedulerBadge}
+      style={{ '--scheduler-color': color } as CSSProperties}
+    >
       {getCronSchedulerLabel(job)}
     </span>
   )
@@ -294,7 +286,7 @@ function CreateJobModal({ isOpen, onClose, onSubmit, modelOptions }: CreateJobMo
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    
+
     if (!formData.name || !formData.schedule || !formData.message) {
       alert('Name, schedule, and message are required')
       return
@@ -319,7 +311,7 @@ function CreateJobModal({ isOpen, onClose, onSubmit, modelOptions }: CreateJobMo
     setFormData({
       name: '',
       schedule: '',
-      sessionTarget: 'isolated', 
+      sessionTarget: 'isolated',
       payloadType: 'agentTurn',
       message: '',
       model: ''
@@ -330,81 +322,30 @@ function CreateJobModal({ isOpen, onClose, onSubmit, modelOptions }: CreateJobMo
   if (!isOpen) return null
 
   return (
-    <div style={{
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      background: 'rgba(0,0,0,0.6)',
-      backdropFilter: 'blur(8px)',
-      zIndex: 1000,
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      padding: m ? 16 : 32
-    }}>
+    <div className={m ? `${styles.modalOverlay} ${styles.modalOverlayMobile}` : styles.modalOverlay}>
       <motion.div
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.9 }}
-        style={{
-          background: 'rgba(255,255,255,0.08)',
-          backdropFilter: 'blur(20px)',
-          border: '1px solid rgba(255,255,255,0.12)',
-          borderRadius: 16,
-          padding: m ? 20 : 32,
-          width: '100%',
-          maxWidth: 600,
-          maxHeight: '90vh',
-          overflowY: 'auto'
-        }}
+        className={m ? `${styles.modalPanel} ${styles.modalPanelMobile}` : styles.modalPanel}
       >
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          marginBottom: m ? 16 : 24
-        }}>
-          <h2 style={{
-            fontSize: m ? 18 : 20,
-            fontWeight: 600,
-            color: 'rgba(255,255,255,0.92)',
-            margin: 0,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8
-          }}>
-            <Plus size={m ? 16 : 18} style={{ color: '#007AFF' }} />
+        <div className={m ? `${styles.modalHeader} ${styles.modalHeaderMobile}` : styles.modalHeader}>
+          <h2 className={m ? `${styles.modalTitle} ${styles.modalTitleMobile}` : styles.modalTitle}>
+            <Plus size={m ? 16 : 18} className={styles.iconBlue} />
             Create Cron Job
           </h2>
           <button
             onClick={onClose}
-            style={{
-              background: 'none',
-              border: 'none',
-              color: 'rgba(255,255,255,0.6)',
-              cursor: 'pointer',
-              padding: 4,
-              fontSize: 18
-            }}
+            className={styles.modalClose}
           >
             ×
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: m ? 16 : 20 }}>
+        <form onSubmit={handleSubmit} className={m ? `${styles.modalForm} ${styles.modalFormMobile}` : styles.modalForm}>
           {/* Name */}
           <div>
-            <label style={{
-              display: 'block',
-              fontSize: 12,
-              fontWeight: 600,
-              color: 'rgba(255,255,255,0.7)',
-              marginBottom: 6,
-              textTransform: 'uppercase',
-              letterSpacing: '0.1em'
-            }}>
+            <label className={styles.fieldLabel}>
               Name
             </label>
             <input
@@ -412,31 +353,13 @@ function CreateJobModal({ isOpen, onClose, onSubmit, modelOptions }: CreateJobMo
               value={formData.name}
               onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
               placeholder="e.g. Check emails"
-              style={{
-                width: '100%',
-                padding: m ? '10px 12px' : '12px 16px',
-                background: 'rgba(255,255,255,0.05)',
-                border: '1px solid rgba(255,255,255,0.1)',
-                borderRadius: 8,
-                color: 'rgba(255,255,255,0.9)',
-                fontSize: 14,
-                outline: 'none',
-                boxSizing: 'border-box'
-              }}
+              className={m ? `${styles.fieldInput} ${styles.fieldInputMobile}` : styles.fieldInput}
             />
           </div>
 
           {/* Schedule */}
           <div>
-            <label style={{
-              display: 'block',
-              fontSize: 12,
-              fontWeight: 600,
-              color: 'rgba(255,255,255,0.7)',
-              marginBottom: 6,
-              textTransform: 'uppercase',
-              letterSpacing: '0.1em'
-            }}>
+            <label className={styles.fieldLabel}>
               Schedule
             </label>
             <input
@@ -444,90 +367,36 @@ function CreateJobModal({ isOpen, onClose, onSubmit, modelOptions }: CreateJobMo
               value={formData.schedule}
               onChange={(e) => setFormData(prev => ({ ...prev, schedule: e.target.value }))}
               placeholder="0 8 * * * (daily at 8am)"
-              style={{
-                width: '100%',
-                padding: m ? '10px 12px' : '12px 16px',
-                background: 'rgba(255,255,255,0.05)',
-                border: '1px solid rgba(255,255,255,0.1)',
-                borderRadius: 8,
-                color: 'rgba(255,255,255,0.9)',
-                fontSize: 14,
-                fontFamily: 'monospace',
-                outline: 'none',
-                boxSizing: 'border-box'
-              }}
+              className={m
+                ? `${styles.fieldInput} ${styles.fieldInputMobile} ${styles.fieldInputMono}`
+                : `${styles.fieldInput} ${styles.fieldInputMono}`}
             />
-            <div style={{
-              display: 'flex',
-              flexWrap: 'wrap',
-              gap: 6,
-              marginTop: 8
-            }}>
+            <div className={styles.presetRow}>
               {CRON_PRESETS.map((preset) => (
                 <button
                   key={preset.label}
                   type="button"
                   onClick={() => handlePresetClick(preset.expr)}
-                  style={{
-                    background: 'rgba(255,255,255,0.08)',
-                    border: '1px solid rgba(255,255,255,0.1)',
-                    borderRadius: 6,
-                    padding: '4px 8px',
-                    color: 'rgba(255,255,255,0.7)',
-                    fontSize: 11,
-                    cursor: 'pointer',
-                    transition: 'all 0.15s'
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.background = 'rgba(255,255,255,0.12)'
-                    e.currentTarget.style.color = 'rgba(255,255,255,0.9)'
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background = 'rgba(255,255,255,0.08)'
-                    e.currentTarget.style.color = 'rgba(255,255,255,0.7)'
-                  }}
+                  className={styles.presetBtn}
                 >
                   {preset.label}
                 </button>
               ))}
             </div>
-            <p style={{
-              fontSize: 10,
-              color: 'rgba(255,255,255,0.5)',
-              marginTop: 4,
-              margin: '4px 0 0'
-            }}>
+            <p className={styles.fieldHint}>
               Format: minute hour day month weekday (* = any)
             </p>
           </div>
 
           {/* Session Target */}
           <div>
-            <label style={{
-              display: 'block',
-              fontSize: 12,
-              fontWeight: 600,
-              color: 'rgba(255,255,255,0.7)',
-              marginBottom: 6,
-              textTransform: 'uppercase',
-              letterSpacing: '0.1em'
-            }}>
+            <label className={styles.fieldLabel}>
               Session Target
             </label>
             <select
               value={formData.sessionTarget}
               onChange={(e) => setFormData(prev => ({ ...prev, sessionTarget: e.target.value }))}
-              style={{
-                width: '100%',
-                padding: m ? '10px 12px' : '12px 16px',
-                background: 'rgba(255,255,255,0.05)',
-                border: '1px solid rgba(255,255,255,0.1)',
-                borderRadius: 8,
-                color: 'rgba(255,255,255,0.9)',
-                fontSize: 14,
-                outline: 'none',
-                boxSizing: 'border-box'
-              }}
+              className={m ? `${styles.fieldSelect} ${styles.fieldSelectMobile}` : styles.fieldSelect}
             >
               <option value="main">main</option>
               <option value="isolated">isolated</option>
@@ -536,31 +405,13 @@ function CreateJobModal({ isOpen, onClose, onSubmit, modelOptions }: CreateJobMo
 
           {/* Payload Type */}
           <div>
-            <label style={{
-              display: 'block',
-              fontSize: 12,
-              fontWeight: 600,
-              color: 'rgba(255,255,255,0.7)',
-              marginBottom: 6,
-              textTransform: 'uppercase',
-              letterSpacing: '0.1em'
-            }}>
+            <label className={styles.fieldLabel}>
               Payload Type
             </label>
             <select
               value={formData.payloadType}
               onChange={(e) => setFormData(prev => ({ ...prev, payloadType: e.target.value }))}
-              style={{
-                width: '100%',
-                padding: m ? '10px 12px' : '12px 16px',
-                background: 'rgba(255,255,255,0.05)',
-                border: '1px solid rgba(255,255,255,0.1)',
-                borderRadius: 8,
-                color: 'rgba(255,255,255,0.9)',
-                fontSize: 14,
-                outline: 'none',
-                boxSizing: 'border-box'
-              }}
+              className={m ? `${styles.fieldSelect} ${styles.fieldSelectMobile}` : styles.fieldSelect}
             >
               <option value="systemEvent">systemEvent</option>
               <option value="agentTurn">agentTurn</option>
@@ -569,15 +420,7 @@ function CreateJobModal({ isOpen, onClose, onSubmit, modelOptions }: CreateJobMo
 
           {/* Message */}
           <div>
-            <label style={{
-              display: 'block',
-              fontSize: 12,
-              fontWeight: 600,
-              color: 'rgba(255,255,255,0.7)',
-              marginBottom: 6,
-              textTransform: 'uppercase',
-              letterSpacing: '0.1em'
-            }}>
+            <label className={styles.fieldLabel}>
               Message
             </label>
             <textarea
@@ -585,50 +428,20 @@ function CreateJobModal({ isOpen, onClose, onSubmit, modelOptions }: CreateJobMo
               onChange={(e) => setFormData(prev => ({ ...prev, message: e.target.value }))}
               placeholder="Task description or prompt..."
               rows={3}
-              style={{
-                width: '100%',
-                padding: m ? '10px 12px' : '12px 16px',
-                background: 'rgba(255,255,255,0.05)',
-                border: '1px solid rgba(255,255,255,0.1)',
-                borderRadius: 8,
-                color: 'rgba(255,255,255,0.9)',
-                fontSize: 14,
-                outline: 'none',
-                resize: 'vertical',
-                fontFamily: 'inherit',
-                boxSizing: 'border-box'
-              }}
+              className={m ? `${styles.fieldTextarea} ${styles.fieldTextareaMobile}` : styles.fieldTextarea}
             />
           </div>
 
           {/* Model (optional, only if agentTurn) */}
           {formData.payloadType === 'agentTurn' && (
             <div>
-              <label style={{
-                display: 'block',
-                fontSize: 12,
-                fontWeight: 600,
-                color: 'rgba(255,255,255,0.7)',
-                marginBottom: 6,
-                textTransform: 'uppercase',
-                letterSpacing: '0.1em'
-              }}>
+              <label className={styles.fieldLabel}>
                 Model (Optional)
               </label>
               <select
                 value={formData.model}
                 onChange={(e) => setFormData(prev => ({ ...prev, model: e.target.value }))}
-                style={{
-                  width: '100%',
-                  padding: m ? '10px 12px' : '12px 16px',
-                  background: 'rgba(255,255,255,0.05)',
-                  border: '1px solid rgba(255,255,255,0.1)',
-                  borderRadius: 8,
-                  color: 'rgba(255,255,255,0.9)',
-                  fontSize: 14,
-                  outline: 'none',
-                  boxSizing: 'border-box'
-                }}
+                className={m ? `${styles.fieldSelect} ${styles.fieldSelectMobile}` : styles.fieldSelect}
               >
                 {modelOptions.map((option) => (
                   <option key={option.value || 'default'} value={option.value}>
@@ -640,56 +453,17 @@ function CreateJobModal({ isOpen, onClose, onSubmit, modelOptions }: CreateJobMo
           )}
 
           {/* Actions */}
-          <div style={{
-            display: 'flex',
-            gap: 12,
-            justifyContent: 'flex-end',
-            marginTop: m ? 8 : 16
-          }}>
+          <div className={m ? `${styles.modalActions} ${styles.modalActionsMobile}` : styles.modalActions}>
             <button
               type="button"
               onClick={onClose}
-              style={{
-                padding: m ? '10px 16px' : '12px 20px',
-                background: 'none',
-                border: '1px solid rgba(255,255,255,0.2)',
-                borderRadius: 8,
-                color: 'rgba(255,255,255,0.7)',
-                fontSize: 14,
-                fontWeight: 500,
-                cursor: 'pointer',
-                transition: 'all 0.15s'
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = 'rgba(255,255,255,0.05)'
-                e.currentTarget.style.color = 'rgba(255,255,255,0.9)'
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'none'
-                e.currentTarget.style.color = 'rgba(255,255,255,0.7)'
-              }}
+              className={m ? `${styles.cancelBtn} ${styles.cancelBtnMobile}` : styles.cancelBtn}
             >
               Cancel
             </button>
             <button
               type="submit"
-              style={{
-                padding: m ? '10px 16px' : '12px 20px',
-                background: '#007AFF',
-                border: 'none',
-                borderRadius: 8,
-                color: 'white',
-                fontSize: 14,
-                fontWeight: 600,
-                cursor: 'pointer',
-                transition: 'all 0.15s'
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = '#0056CC'
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = '#007AFF'
-              }}
+              className={m ? `${styles.submitBtn} ${styles.submitBtnMobile}` : styles.submitBtn}
             >
               Create Job
             </button>
@@ -701,33 +475,24 @@ function CreateJobModal({ isOpen, onClose, onSubmit, modelOptions }: CreateJobMo
 }
 
 function ToggleSwitch({ enabled, onChange, disabled = false }: { enabled: boolean; onChange: (enabled: boolean) => void; disabled?: boolean }) {
+  // background and opacity are dynamic (depend on enabled + disabled state)
+  const trackBg = disabled
+    ? (enabled ? 'rgba(50,215,75,0.45)' : 'rgba(255,255,255,0.13)')
+    : (enabled ? '#32D74B' : 'rgba(255,255,255,0.2)')
+
   return (
     <div
       onClick={() => { if (!disabled) onChange(!enabled) }}
+      className={styles.toggleTrack}
       style={{
-        width: 44,
-        height: 24,
-        borderRadius: 12,
-        background: disabled ? (enabled ? 'rgba(50,215,75,0.45)' : 'rgba(255,255,255,0.13)') : (enabled ? '#32D74B' : 'rgba(255,255,255,0.2)'),
-        position: 'relative',
+        background: trackBg,
         cursor: disabled ? 'not-allowed' : 'pointer',
-        transition: 'background 0.2s',
-        flexShrink: 0,
-        opacity: disabled ? 0.65 : 1
+        opacity: disabled ? 0.65 : 1,
       }}
     >
       <div
-        style={{
-          width: 20,
-          height: 20,
-          borderRadius: 10,
-          background: 'white',
-          position: 'absolute',
-          top: 2,
-          left: enabled ? 22 : 2,
-          transition: 'left 0.2s',
-          boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
-        }}
+        className={styles.toggleThumb}
+        style={{ left: enabled ? 22 : 2 }}
       />
     </div>
   )
@@ -841,7 +606,7 @@ export default function Cron() {
     if (job.actions?.delete === false) return
     const jobId = job.id
     if (!confirm('Are you sure you want to delete this cron job?')) return
-    
+
     setActionLoading(`delete-${jobId}`)
     try {
       const response = await fetch(`/api/cron/${jobId}`, {
@@ -912,8 +677,8 @@ export default function Cron() {
   if (loading && !data) {
     return (
       <PageTransition>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 256 }}>
-          <div style={{ width: 32, height: 32, border: '2px solid #007AFF', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+        <div className={styles.loadingWrap}>
+          <div className={styles.spinner} />
         </div>
       </PageTransition>
     )
@@ -922,18 +687,18 @@ export default function Cron() {
   if (error && !data) {
     return (
       <PageTransition>
-        <div style={{ maxWidth: 960, margin: '0 auto' }}>
+        <div className={styles.errorWrap}>
           <GlassCard noPad>
-            <div style={{ padding: m ? 16 : 24, display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: '#FF453A' }}>
+            <div className={m ? `${styles.errorPad} ${styles.errorPadMobile}` : styles.errorPad}>
+              <div className={styles.errorTitle}>
                 <AlertTriangle size={18} />
                 <strong>Cron API unavailable</strong>
               </div>
-              <div style={{ color: 'rgba(255,255,255,0.72)', fontSize: 13 }}>{error}</div>
+              <div className={styles.errorMessage}>{error}</div>
               <div>
                 <button
                   onClick={refetch}
-                  style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.16)', background: 'rgba(255,255,255,0.06)', color: 'white' }}
+                  className={styles.retryBtn}
                 >
                   Retry
                 </button>
@@ -948,39 +713,17 @@ export default function Cron() {
   return (
     <>
       <PageTransition>
-        <div style={{ maxWidth: 1280, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: m ? 14 : 28 }}>
+        <div className={m ? `${styles.page} ${styles.pageMobile}` : styles.page}>
           {/* Header */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div>
-              <h1 className="text-title" style={{ display: 'flex', alignItems: 'center', gap: 10, margin: 0 }}>
-                <Clock size={m ? 18 : 22} style={{ color: '#007AFF' }} /> Cron Jobs
-              </h1>
-              <p className="text-body" style={{ marginTop: 4, margin: '4px 0 0' }}>Scheduled jobs that run automatically</p>
-            </div>
+          <div className={styles.headerRow}>
+            <PageHeader
+              icon={<Clock size={m ? 18 : 22} className={styles.iconBlue} />}
+              title="Cron Jobs"
+              subtitle="Scheduled jobs that run automatically"
+            />
             <button
               onClick={() => setShowCreateModal(true)}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 8,
-                padding: m ? '8px 12px' : '10px 16px',
-                background: '#007AFF',
-                border: 'none',
-                borderRadius: 8,
-                color: 'white',
-                fontSize: m ? 13 : 14,
-                fontWeight: 600,
-                cursor: 'pointer',
-                transition: 'all 0.15s'
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = '#0056CC'
-                e.currentTarget.style.transform = 'translateY(-1px)'
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = '#007AFF'
-                e.currentTarget.style.transform = 'translateY(0)'
-              }}
+              className={m ? `${styles.createBtn} ${styles.createBtnMobile}` : styles.createBtn}
             >
               <Plus size={m ? 14 : 16} />
               Create Job
@@ -989,18 +732,16 @@ export default function Cron() {
 
           {/* Toast notification */}
           {toast && (
-            <div style={{
-              padding: '10px 18px', borderRadius: 10, fontSize: 13, fontWeight: 500,
-              background: toast.startsWith('✅') ? 'rgba(50,215,75,0.15)' : 'rgba(255,69,58,0.15)',
-              border: `1px solid ${toast.startsWith('✅') ? 'rgba(50,215,75,0.3)' : 'rgba(255,69,58,0.3)'}`,
-              color: toast.startsWith('✅') ? '#32D74B' : '#FF453A',
-            }}>
+            <div className={`${styles.toast} ${toast.startsWith('✅') ? styles.toastOk : styles.toastError}`}>
               {toast}
             </div>
           )}
 
           {/* Summary Cards */}
-          <div style={{ display: 'grid', gridTemplateColumns: `repeat(${m ? 2 : 5}, 1fr)`, gap: m ? 8 : 16 }}>
+          <div
+            className={styles.summaryGrid}
+            style={{ gridTemplateColumns: `repeat(${m ? 2 : 5}, 1fr)`, gap: m ? 8 : 16 }}
+          >
             {([
               { key: 'all', label: 'All', icon: Cpu, color: 'rgba(255,255,255,0.5)', count: jobs.length },
               { key: 'active', label: 'Active', icon: Play, color: '#32D74B', count: jobs.filter((j: CronJob) => normalizeCronStatus(j.status, j.enabled) === 'active').length },
@@ -1020,41 +761,28 @@ export default function Cron() {
                     }
                   }}
                   aria-pressed={statusFilter === item.key}
-                  style={{
-                    padding: m ? '10px 12px' : 20,
-                    cursor: 'pointer',
-                    borderRadius: 18,
-                    border: `1px solid ${statusFilter === item.key ? item.color : 'rgba(255,255,255,0.08)'}`,
-                    background: statusFilter === item.key ? `${item.color}14` : 'transparent',
-                    boxShadow: statusFilter === item.key ? `inset 0 0 0 1px ${item.color}22` : 'none',
-                    transition: 'background 0.15s, border-color 0.15s, box-shadow 0.15s, transform 0.15s'
-                  }}
-                  onMouseEnter={(e) => {
-                    if (statusFilter !== item.key) {
-                      e.currentTarget.style.background = 'rgba(255,255,255,0.04)'
-                      e.currentTarget.style.borderColor = 'rgba(255,255,255,0.16)'
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (statusFilter !== item.key) {
-                      e.currentTarget.style.background = 'transparent'
-                      e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'
-                    }
-                  }}
+                  className={[
+                    m ? `${styles.statInner} ${styles.statInnerMobile}` : styles.statInner,
+                    statusFilter === item.key ? styles.statInnerActive : '',
+                  ].join(' ')}
+                  style={{ '--stat-color': item.color } as CSSProperties}
                 >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: m ? 6 : 12 }}>
-                    <div style={{ width: m ? 26 : 32, height: m ? 26 : 32, borderRadius: 8, background: `${item.color}20`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <div className={m ? `${styles.statTop} ${styles.statTopMobile}` : styles.statTop}>
+                    <div
+                      className={m ? `${styles.statIconWrap} ${styles.statIconWrapMobile}` : styles.statIconWrap}
+                      style={{ '--stat-color': item.color } as CSSProperties}
+                    >
                       <item.icon size={m ? 12 : 14} style={{ color: item.color }} />
                     </div>
-                    <span style={{ fontSize: m ? 10 : 12, fontWeight: 600, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase' }}>{item.label}</span>
+                    <span className={m ? `${styles.statLabel} ${styles.statLabelMobile}` : styles.statLabel}>{item.label}</span>
                   </div>
-                  <p style={{ fontSize: m ? 20 : 24, fontWeight: 300, color: 'rgba(255,255,255,0.92)', fontVariantNumeric: 'tabular-nums', margin: 0 }}>{item.count}</p>
+                  <p className={m ? `${styles.statValue} ${styles.statValueMobile}` : styles.statValue}>{item.count}</p>
                 </div>
               </GlassCard>
             ))}
           </div>
 
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+          <div className={styles.schedulerBar}>
             {([
               { key: 'all', label: 'All schedulers', count: jobs.length, color: 'rgba(255,255,255,0.62)' },
               { key: 'openclaw', label: 'OpenClaw', count: jobs.filter((job) => getCronScheduler(job) === 'openclaw').length, color: '#BF5AF2' },
@@ -1063,25 +791,23 @@ export default function Cron() {
               <button
                 key={item.key}
                 onClick={() => setSchedulerFilter(item.key)}
-                style={{
-                  display: 'inline-flex', alignItems: 'center', gap: 8,
-                  padding: m ? '6px 10px' : '7px 13px',
-                  borderRadius: 999,
-                  border: `1px solid ${schedulerFilter === item.key ? item.color : 'rgba(255,255,255,0.14)'}`,
-                  background: schedulerFilter === item.key ? `${item.color}18` : 'rgba(255,255,255,0.035)',
-                  color: schedulerFilter === item.key ? item.color : 'rgba(255,255,255,0.62)',
-                  fontSize: 12, fontWeight: 800, cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.04em'
-                }}
+                className={[
+                  m ? `${styles.schedulerPill} ${styles.schedulerPillMobile}` : styles.schedulerPill,
+                  schedulerFilter === item.key ? styles.schedulerPillActive : '',
+                ].join(' ')}
+                style={{ '--pill-color': item.color } as CSSProperties}
               >
                 {item.label}
-                <span style={{ borderRadius: 999, padding: '1px 7px', background: schedulerFilter === item.key ? item.color : 'rgba(255,255,255,0.13)', color: schedulerFilter === item.key ? 'rgba(0,0,0,0.82)' : 'rgba(255,255,255,0.55)', fontVariantNumeric: 'tabular-nums' }}>{item.count}</span>
+                <span className={schedulerFilter === item.key ? `${styles.schedulerPillCount} ${styles.schedulerPillCountActive}` : styles.schedulerPillCount}>
+                  {item.count}
+                </span>
               </button>
             ))}
           </div>
 
           {/* Quick Filter Bar */}
           {!m && (
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <div className={styles.filterBar}>
               {([
                 { key: 'all', label: 'All Jobs', color: 'rgba(255,255,255,0.6)' },
                 { key: 'active', label: 'Active', color: '#32D74B' },
@@ -1092,43 +818,14 @@ export default function Cron() {
                 <button
                   key={f.key}
                   onClick={() => setStatusFilter(f.key)}
-                  style={{
-                    padding: '6px 14px',
-                    borderRadius: 20,
-                    border: '1px solid',
-                    borderColor: statusFilter === f.key ? f.color : 'rgba(255,255,255,0.15)',
-                    background: statusFilter === f.key ? `${f.color}18` : 'rgba(255,255,255,0.04)',
-                    color: statusFilter === f.key ? f.color : 'rgba(255,255,255,0.55)',
-                    fontSize: 12,
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    transition: 'all 0.15s',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 6,
-                  }}
-                  onMouseEnter={(e) => {
-                    if (statusFilter !== f.key) {
-                      e.currentTarget.style.background = 'rgba(255,255,255,0.08)'
-                      e.currentTarget.style.color = 'rgba(255,255,255,0.8)'
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (statusFilter !== f.key) {
-                      e.currentTarget.style.background = 'rgba(255,255,255,0.04)'
-                      e.currentTarget.style.color = 'rgba(255,255,255,0.55)'
-                    }
-                  }}
+                  className={[
+                    styles.filterBtn,
+                    statusFilter === f.key ? styles.filterBtnActive : '',
+                  ].join(' ')}
+                  style={{ '--filter-color': f.color } as CSSProperties}
                 >
                   {f.label}
-                  <span style={{
-                    background: statusFilter === f.key ? f.color : 'rgba(255,255,255,0.15)',
-                    color: statusFilter === f.key ? 'rgba(0,0,0,0.8)' : 'rgba(255,255,255,0.5)',
-                    borderRadius: 10,
-                    padding: '1px 7px',
-                    fontSize: 11,
-                    fontWeight: 700,
-                  }}>
+                  <span className={statusFilter === f.key ? `${styles.filterBtnCount} ${styles.filterBtnCountActive}` : styles.filterBtnCount}>
                     {f.key === 'all'
                       ? jobs.length
                       : f.key === 'active'
@@ -1141,13 +838,13 @@ export default function Cron() {
                   </span>
                 </button>
               ))}
-              <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.35)', alignSelf: 'center', marginLeft: 8 }}>
+              <span className={styles.filterCount}>
                 {filteredJobs.length !== jobs.length ? `Showing ${filteredJobs.length} of ${jobs.length}` : `${jobs.length} total`}
               </span>
             </div>
           )}
 
-          <div style={{ position: 'relative' }}>
+          <div className={styles.searchWrap}>
             <input
               type="text"
               value={jobSearch}
@@ -1160,17 +857,7 @@ export default function Cron() {
               }}
               placeholder="Search jobs by name, id, scheduler..."
               aria-label="Search cron jobs by name, id, or scheduler"
-              style={{
-                width: '100%',
-                padding: m ? '10px 40px 10px 12px' : '12px 44px 12px 16px',
-                background: 'rgba(255,255,255,0.05)',
-                border: '1px solid rgba(255,255,255,0.1)',
-                borderRadius: 8,
-                color: 'rgba(255,255,255,0.9)',
-                fontSize: 14,
-                outline: 'none',
-                boxSizing: 'border-box'
-              }}
+              className={m ? `${styles.searchInput} ${styles.searchInputMobile}` : styles.searchInput}
             />
             {jobSearch ? (
               <button
@@ -1178,31 +865,7 @@ export default function Cron() {
                 onClick={() => setJobSearch('')}
                 aria-label="Clear cron job search"
                 title="Clear search"
-                style={{
-                  position: 'absolute',
-                  top: '50%',
-                  right: 10,
-                  transform: 'translateY(-50%)',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  width: 24,
-                  height: 24,
-                  padding: 0,
-                  border: 'none',
-                  borderRadius: 999,
-                  background: 'rgba(255,255,255,0.08)',
-                  color: 'rgba(255,255,255,0.6)',
-                  cursor: 'pointer'
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = 'rgba(255,255,255,0.14)'
-                  e.currentTarget.style.color = 'rgba(255,255,255,0.9)'
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = 'rgba(255,255,255,0.08)'
-                  e.currentTarget.style.color = 'rgba(255,255,255,0.6)'
-                }}
+                className={styles.searchClear}
               >
                 <XCircle size={14} />
               </button>
@@ -1212,7 +875,7 @@ export default function Cron() {
           {/* Jobs — card layout on mobile, table on desktop */}
           {m ? (
             /* MOBILE: Card list */
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div className={styles.cardList}>
               {filteredJobs.map((job: CronJob, i: number) => (
                 (() => {
                   const overlapMarker = overlapState.markers.get(job.id)
@@ -1220,9 +883,15 @@ export default function Cron() {
                   return (
                 <Fragment key={job.id}>
                   {showGroupHeader ? (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: i === 0 ? '0 0 2px' : '12px 0 2px', color: getCronSchedulerColor(job), fontSize: 12, fontWeight: 900, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+                    <div
+                      className={styles.groupHeader}
+                      style={{
+                        margin: i === 0 ? '0 0 2px' : '12px 0 2px',
+                        color: getCronSchedulerColor(job),
+                      }}
+                    >
                       {getCronSchedulerLabel(job)}
-                      <span style={{ color: 'rgba(255,255,255,0.35)', fontWeight: 700 }}>{filteredJobs.filter((candidate) => getCronScheduler(candidate) === getCronScheduler(job)).length} jobs</span>
+                      <span className={styles.groupHeaderCount}>{filteredJobs.filter((candidate) => getCronScheduler(candidate) === getCronScheduler(job)).length} jobs</span>
                     </div>
                   ) : null}
                 <motion.div
@@ -1232,18 +901,18 @@ export default function Cron() {
                   transition={{ delay: 0.1 + i * 0.03 }}
                 >
                   <GlassCard delay={0} noPad>
-                    <div style={{ padding: 14 }}>
+                    <div className={styles.cardPad}>
                       {overlapMarker ? (
-                        <div style={{ marginBottom: 8, display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 8px', borderRadius: 999, background: 'rgba(191,90,242,0.14)', border: '1px solid rgba(191,90,242,0.26)', color: '#D8B4FE', fontSize: 11, fontWeight: 600 }}>
+                        <div className={styles.overlapPill}>
                           <Clock size={11} />
                           {overlapMarker.label}
                         </div>
                       ) : null}
                       {/* Top: name + toggle */}
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <p style={{ fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.92)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', margin: 0 }}>{job.name}</p>
-                          <div style={{ marginTop: 4 }}><SchedulerBadge job={job} /></div>
+                      <div className={styles.cardTopRow}>
+                        <div className={styles.cardNameWrap}>
+                          <p className={styles.cardName}>{job.name}</p>
+                          <div className={styles.cardSchedulerBadge}><SchedulerBadge job={job} /></div>
                         </div>
                         <ToggleSwitch
                           enabled={job.enabled}
@@ -1253,38 +922,38 @@ export default function Cron() {
                       </div>
 
                       {/* Schedule */}
-                      <code style={{ fontSize: 11, color: '#BF5AF2', background: 'rgba(255,255,255,0.06)', padding: '3px 8px', borderRadius: 5, fontFamily: 'monospace', display: 'inline-block', marginBottom: 10 }}>
+                      <code className={styles.scheduleCode}>
                         {job.schedule}
                       </code>
-                      
+
                       {/* Status */}
-                      <div style={{ marginBottom: 10 }}>
+                      <div className={styles.cardSection}>
                         <StatusBadge status={normalizeCronStatus(job.status, job.enabled)} label={job.enabled ? job.status : 'disabled'} />
                       </div>
 
                       {/* Success Rate */}
                       {(() => { const sr = calcSuccessRate(job.history); return sr ? (
-                        <div style={{ marginBottom: 10 }}>
-                          <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', fontWeight: 600, marginBottom: 4, margin: '0 0 4px' }}>Success Rate</p>
+                        <div className={styles.cardSection}>
+                          <p className={styles.cardMiniLabel}>Success Rate</p>
                           <SuccessBar rate={sr} />
                         </div>
                       ) : null })()}
-                      
+
                       {/* Details grid */}
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 10 }}>
+                      <div className={styles.cardDetailsGrid}>
                         <div>
-                          <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', fontWeight: 600, marginBottom: 2, margin: '0 0 2px' }}>Last Run</p>
-                          <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.65)', margin: 0 }}>{job.lastRun ? timeAgo(job.lastRun) : '—'}</p>
+                          <p className={styles.cardDetailLabel}>Last Run</p>
+                          <p className={styles.cardDetailValue}>{job.lastRun ? timeAgo(job.lastRun) : '—'}</p>
                         </div>
                         <div>
-                          <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', fontWeight: 600, marginBottom: 2, margin: '0 0 2px' }}>Next Run</p>
-                          <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.65)', margin: 0 }}>{job.nextRun ? timeAgo(job.nextRun) : '—'}</p>
+                          <p className={styles.cardDetailLabel}>Next Run</p>
+                          <p className={styles.cardDetailValue}>{job.nextRun ? timeAgo(job.nextRun) : '—'}</p>
                         </div>
                       </div>
 
-                      <div style={{ marginBottom: 10 }}>
-                        <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', fontWeight: 600, marginBottom: 2, margin: '0 0 2px' }}>Model</p>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <div className={styles.cardModelRow}>
+                        <p className={styles.cardDetailLabel}>Model</p>
+                        <div className={styles.cardModelInner}>
                           <Cpu size={12} color='#8e8e93' />
                           {job.payload === 'agentTurn' ? (
                             <select
@@ -1292,20 +961,9 @@ export default function Cron() {
                               onChange={(e) => handleModelChange(job, e.target.value)}
                               disabled={actionLoading === `model-${job.id}` || job.actions?.model === false}
                               title={`Change model: ${displayCronModel(job.model)}`}
+                              className={styles.modelSelect}
                               style={{
-                                width: '100%',
-                                minWidth: 0,
-                                background: 'rgba(255,255,255,0.05)',
-                                color: 'rgba(255,255,255,0.85)',
-                                border: '1px solid rgba(255,255,255,0.1)',
-                                borderRadius: 6,
-                                padding: '4px 6px',
-                                fontSize: 12,
-                                margin: 0,
                                 cursor: (actionLoading === `model-${job.id}` || job.actions?.model === false) ? 'not-allowed' : 'pointer',
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                                whiteSpace: 'nowrap',
                               }}
                             >
                               {modelOptions.map((option) => (
@@ -1315,36 +973,23 @@ export default function Cron() {
                               ))}
                             </select>
                           ) : (
-                            <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.55)' }}>{job.model || 'session default'}</span>
+                            <span className={styles.modelText}>{job.model || 'session default'}</span>
                           )}
                         </div>
                       </div>
 
                       {/* Actions */}
-                      <div style={{ display: 'flex', gap: 8, paddingTop: 8, borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                      <div className={styles.cardActions}>
                         <button
                           onClick={() => handleRun(job)}
                           disabled={actionLoading === `run-${job.id}` || job.actions?.run === false}
-                          style={{
-                            flex: 1,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            gap: 6,
-                            padding: '6px 10px',
-                            background: 'rgba(255,255,255,0.08)',
-                            border: '1px solid rgba(255,255,255,0.1)',
-                            borderRadius: 6,
-                            color: 'rgba(255,255,255,0.8)',
-                            fontSize: 12,
-                            fontWeight: 500,
-                            cursor: (actionLoading === `run-${job.id}` || job.actions?.run === false) ? 'not-allowed' : 'pointer',
-                            transition: 'all 0.15s',
-                            opacity: (actionLoading === `run-${job.id}` || job.actions?.run === false) ? 0.45 : 1
-                          }}
+                          className={[
+                            styles.runBtnCard,
+                            (actionLoading === `run-${job.id}` || job.actions?.run === false) ? styles.btnDisabled : '',
+                          ].join(' ')}
                         >
                           {actionLoading === `run-${job.id}` ? (
-                            <RotateCcw size={12} style={{ animation: 'spin 1s linear infinite' }} />
+                            <RotateCcw size={12} className={styles.spinIcon} />
                           ) : (
                             <Play size={12} />
                           )}
@@ -1353,16 +998,10 @@ export default function Cron() {
                         <button
                           onClick={() => handleDelete(job)}
                           disabled={actionLoading === `delete-${job.id}` || job.actions?.delete === false}
-                          style={{
-                            padding: '6px 8px',
-                            background: 'rgba(255,69,58,0.1)',
-                            border: '1px solid rgba(255,69,58,0.2)',
-                            borderRadius: 6,
-                            color: '#FF453A',
-                            cursor: (actionLoading === `delete-${job.id}` || job.actions?.delete === false) ? 'not-allowed' : 'pointer',
-                            transition: 'all 0.15s',
-                            opacity: (actionLoading === `delete-${job.id}` || job.actions?.delete === false) ? 0.45 : 1
-                          }}
+                          className={[
+                            styles.deleteBtnCard,
+                            (actionLoading === `delete-${job.id}` || job.actions?.delete === false) ? styles.btnDisabled : '',
+                          ].join(' ')}
                         >
                           <Trash2 size={12} />
                         </button>
@@ -1378,11 +1017,11 @@ export default function Cron() {
           ) : (
             /* DESKTOP: Table */
             <GlassCard delay={0.2} hover={false} noPad>
-              <div style={{ overflowX: 'hidden' }}>
-                <div style={{ width: '100%' }}>
-              <div style={{ ...cronTableGridStyle, padding: '13px 16px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+              <div className={styles.tableWrap}>
+                <div className={styles.tableInner}>
+              <div className={`${styles.tableGrid} ${styles.tableHead}`}>
                 {['Name', 'Source', 'Schedule', 'Status', 'Last Run', 'Next Run', 'Model', 'Actions'].map((h) => (
-                  <span key={h} style={{ ...cronTableCellStyle, color: 'rgba(255,255,255,0.45)', fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.12em', whiteSpace: 'nowrap' }}>{h}</span>
+                  <span key={h} className={styles.tableHeadCell}>{h}</span>
                 ))}
               </div>
               {filteredJobs.map((job: CronJob, i: number) => {
@@ -1394,7 +1033,14 @@ export default function Cron() {
                 return (
                   <Fragment key={job.id}>
                     {showGroupHeader ? (
-                      <div style={{ padding: '10px 16px', borderTop: i === 0 ? 'none' : '1px solid rgba(255,255,255,0.08)', borderBottom: '1px solid rgba(255,255,255,0.05)', background: `${getCronSchedulerColor(job)}10`, color: getCronSchedulerColor(job), fontSize: 11, fontWeight: 900, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+                      <div
+                        className={styles.tableGroupHeader}
+                        style={{
+                          borderTop: i === 0 ? 'none' : '1px solid rgba(255,255,255,0.08)',
+                          background: `${getCronSchedulerColor(job)}10`,
+                          color: getCronSchedulerColor(job),
+                        }}
+                      >
                         {getCronSchedulerLabel(job)} · {filteredJobs.filter((candidate) => getCronScheduler(candidate) === getCronScheduler(job)).length} jobs
                       </div>
                     ) : null}
@@ -1403,14 +1049,7 @@ export default function Cron() {
                     initial={{ opacity: 0, x: -10 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: 0.25 + i * 0.04 }}
-                    style={{
-                      ...cronTableGridStyle,
-                      padding: '13px 16px',
-                      borderBottom: '1px solid rgba(255,255,255,0.04)',
-                      boxShadow: isFailed ? 'inset 3px 0 0 #FF453A' : 'inset 3px 0 0 transparent',
-                      background: isFailed ? 'rgba(255,69,58,0.06)' : 'transparent',
-                      transition: 'background 0.15s, box-shadow 0.15s',
-                    }}
+                    className={[styles.tableGrid, styles.tableRow, isFailed ? styles.tableRowFailed : ''].join(' ')}
                     onMouseEnter={(e) => {
                       if (!isFailed) e.currentTarget.style.background = 'rgba(255,255,255,0.02)'
                     }}
@@ -1419,17 +1058,17 @@ export default function Cron() {
                     }}
                   >
                     {/* Name */}
-                    <div style={cronTableCellStyle}>
-                      <p title={job.name} style={{ fontSize: 13, fontWeight: 600, color: isFailed ? '#FF6B6B' : 'rgba(255,255,255,0.92)', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', lineHeight: 1.25, margin: 0 }}>{job.name}</p>
-                      <p title={job.sourceId || job.id} style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'monospace', margin: '2px 0 0' }}>{job.sourceId || job.id}</p>
+                    <div className={styles.tableCell}>
+                      <p title={job.name} className={[styles.cellName, isFailed ? styles.cellNameFailed : ''].join(' ')}>{job.name}</p>
+                      <p title={job.sourceId || job.id} className={styles.cellId}>{job.sourceId || job.id}</p>
                     </div>
-                    <div style={cronTableCellStyle}><SchedulerBadge job={job} /></div>
+                    <div className={styles.tableCell}><SchedulerBadge job={job} /></div>
                     {/* Schedule */}
-                    <div style={cronTableCellStyle}>
-                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 6 }}>
-                        <code style={{ maxWidth: '100%', fontSize: 12, color: '#BF5AF2', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)', padding: '4px 8px', borderRadius: 6, fontFamily: 'monospace', lineHeight: 1.35, whiteSpace: 'normal', overflowWrap: 'anywhere' }}>{job.schedule}</code>
+                    <div className={styles.tableCell}>
+                      <div className={styles.scheduleColInner}>
+                        <code className={styles.scheduleCodeDesktop}>{job.schedule}</code>
                         {overlapMarker ? (
-                          <span title={overlapMarker.detail} style={{ display: 'inline-flex', width: 'fit-content', alignItems: 'center', gap: 6, padding: '3px 8px', borderRadius: 999, background: 'rgba(191,90,242,0.14)', border: '1px solid rgba(191,90,242,0.24)', color: '#D8B4FE', fontSize: 10, fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+                          <span title={overlapMarker.detail} className={styles.overlapTag}>
                             <Clock size={10} />
                             {overlapMarker.count} jobs
                           </span>
@@ -1437,37 +1076,37 @@ export default function Cron() {
                       </div>
                     </div>
                     {/* Status */}
-                    <div style={{ ...cronTableCellStyle, display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div className={`${styles.tableCell} ${styles.statusCell}`}>
                       <ToggleSwitch
                         enabled={job.enabled}
                         onChange={() => handleToggle(job, job.enabled)}
                         disabled={job.actions?.toggle === false}
                       />
-                      <div style={{ minWidth: 0 }}>
+                      <div className={styles.statusCellInner}>
                         <StatusBadge status={normStatus} label={job.enabled ? job.status : 'disabled'} />
-                        {sr ? <div style={{ marginTop: 4, width: 58 }}><SuccessBar rate={sr} /></div> : null}
+                        {sr ? <div className={styles.successBarWrap}><SuccessBar rate={sr} /></div> : null}
                       </div>
                     </div>
                     {/* Last Run */}
-                    <div style={cronTableCellStyle}>
+                    <div className={styles.tableCell}>
                       {job.lastRun ? (
                         <>
-                          <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.65)', margin: 0 }}>{timeAgo(job.lastRun)}</p>
-                          <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', margin: '2px 0 0' }}>{formatDate(job.lastRun)}</p>
+                          <p className={styles.timeCell}>{timeAgo(job.lastRun)}</p>
+                          <p className={styles.timeCellSub}>{formatDate(job.lastRun)}</p>
                         </>
-                      ) : <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)' }}>—</span>}
+                      ) : <span className={styles.timeCellEmpty}>—</span>}
                     </div>
                     {/* Next Run */}
-                    <div style={cronTableCellStyle}>
+                    <div className={styles.tableCell}>
                       {job.nextRun ? (
                         <>
-                          <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.65)', margin: 0 }}>{timeAgo(job.nextRun)}</p>
-                          <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', margin: '2px 0 0' }}>{formatDate(job.nextRun)}</p>
+                          <p className={styles.timeCell}>{timeAgo(job.nextRun)}</p>
+                          <p className={styles.timeCellSub}>{formatDate(job.nextRun)}</p>
                         </>
-                      ) : <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)' }}>—</span>}
+                      ) : <span className={styles.timeCellEmpty}>—</span>}
                     </div>
                     {/* Model */}
-                    <div style={{ ...cronTableCellStyle, display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <div className={`${styles.tableCell} ${styles.modelCell}`}>
                       <Cpu size={12} color='#8e8e93' />
                       {job.payload === 'agentTurn' ? (
                         <select
@@ -1476,19 +1115,9 @@ export default function Cron() {
                           disabled={actionLoading === `model-${job.id}` || job.actions?.model === false}
                           aria-label={`Change model for ${job.name}`}
                           title={`Change model: ${displayCronModel(job.model)}`}
+                          className={styles.modelSelectDesktop}
                           style={{
-                            width: '100%',
-                            minWidth: 0,
-                            background: 'rgba(255,255,255,0.05)',
-                            color: 'rgba(255,255,255,0.85)',
-                            border: '1px solid rgba(255,255,255,0.1)',
-                            borderRadius: 6,
-                            padding: '4px 6px',
-                            fontSize: 12,
                             cursor: (actionLoading === `model-${job.id}` || job.actions?.model === false) ? 'not-allowed' : 'pointer',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
                           }}
                         >
                           {modelOptions.map((option) => (
@@ -1498,42 +1127,22 @@ export default function Cron() {
                           ))}
                         </select>
                       ) : (
-                        <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)' }}>{job.model || 'default'}</span>
+                        <span className={styles.modelTextDesktop}>{job.model || 'default'}</span>
                       )}
                     </div>
                     {/* Actions */}
-                    <div style={{ ...cronTableCellStyle, display: 'flex', justifyContent: 'flex-end', gap: 6 }}>
+                    <div className={`${styles.tableCell} ${styles.actionsCell}`}>
                       <button
                         onClick={() => handleRun(job)}
                         disabled={actionLoading === `run-${job.id}` || job.actions?.run === false}
                         title="Run now"
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          width: 28,
-                          height: 26,
-                          background: 'rgba(255,255,255,0.08)',
-                          border: '1px solid rgba(255,255,255,0.1)',
-                          borderRadius: 6,
-                          color: 'rgba(255,255,255,0.8)',
-                          cursor: (actionLoading === `run-${job.id}` || job.actions?.run === false) ? 'not-allowed' : 'pointer',
-                          transition: 'all 0.15s',
-                          opacity: (actionLoading === `run-${job.id}` || job.actions?.run === false) ? 0.45 : 1
-                        }}
-                        onMouseEnter={(e) => {
-                          if (actionLoading !== `run-${job.id}`) {
-                            e.currentTarget.style.background = 'rgba(255,255,255,0.12)'
-                            e.currentTarget.style.color = 'rgba(255,255,255,0.9)'
-                          }
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.background = 'rgba(255,255,255,0.08)'
-                          e.currentTarget.style.color = 'rgba(255,255,255,0.8)'
-                        }}
+                        className={[
+                          styles.runBtn,
+                          (actionLoading === `run-${job.id}` || job.actions?.run === false) ? styles.btnDisabled : '',
+                        ].join(' ')}
                       >
                         {actionLoading === `run-${job.id}` ? (
-                          <RotateCcw size={14} style={{ animation: 'spin 1s linear infinite' }} />
+                          <RotateCcw size={14} className={styles.spinIcon} />
                         ) : (
                           <Play size={14} />
                         )}
@@ -1542,28 +1151,10 @@ export default function Cron() {
                         onClick={() => handleDelete(job)}
                         disabled={actionLoading === `delete-${job.id}` || job.actions?.delete === false}
                         title="Delete"
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          width: 28,
-                          height: 26,
-                          background: 'rgba(255,69,58,0.1)',
-                          border: '1px solid rgba(255,69,58,0.2)',
-                          borderRadius: 6,
-                          color: '#FF453A',
-                          cursor: (actionLoading === `delete-${job.id}` || job.actions?.delete === false) ? 'not-allowed' : 'pointer',
-                          transition: 'all 0.15s',
-                          opacity: (actionLoading === `delete-${job.id}` || job.actions?.delete === false) ? 0.45 : 1
-                        }}
-                        onMouseEnter={(e) => {
-                          if (actionLoading !== `delete-${job.id}`) {
-                            e.currentTarget.style.background = 'rgba(255,69,58,0.15)'
-                          }
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.background = 'rgba(255,69,58,0.1)'
-                        }}
+                        className={[
+                          styles.deleteBtn,
+                          (actionLoading === `delete-${job.id}` || job.actions?.delete === false) ? styles.btnDisabled : '',
+                        ].join(' ')}
                       >
                         <Trash2 size={14} />
                       </button>

@@ -1,0 +1,45 @@
+.wrap {
+  padding: 64px 48px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.wrapMobile {
+  padding: 48px 24px;
+}
+
+.iconCircle {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* tint driven by --empty-color */
+  background: color-mix(in srgb, var(--empty-color, rgba(191,90,242,1)) 10%, transparent);
+}
+
+.title {
+  font-size: 18px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.92);
+  margin: 0 0 8px;
+}
+
+.titleMobile {
+  font-size: 16px;
+}
+
+.desc {
+  font-size: 15px;
+  color: rgba(255, 255, 255, 0.65);
+  margin: 0;
+  line-height: 1.4;
+}
+
+.descMobile {
+  font-size: 13px;
+}
