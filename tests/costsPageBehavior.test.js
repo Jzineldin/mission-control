@@ -2,7 +2,16 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const source = fs.readFileSync(path.join(__dirname, '..', 'frontend', 'src', 'pages', 'Costs.tsx'), 'utf8');
+// Read Costs.tsx plus its helper modules so guards work regardless of which
+// file the string lives in after the modular refactor.
+const pagesDir = path.join(__dirname, '..', 'frontend', 'src', 'pages');
+const costsDir = path.join(pagesDir, 'costs');
+const filesToCheck = [
+  path.join(pagesDir, 'Costs.tsx'),
+  path.join(costsDir, 'lib.ts'),
+  path.join(costsDir, 'types.ts'),
+].filter(f => fs.existsSync(f));
+const source = filesToCheck.map(f => fs.readFileSync(f, 'utf8')).join('\n');
 
 assert.ok(
   source.includes("tokens?.source === 'sessions.fast_fallback'") && source.includes('tokens?.meta?.refreshing') && source.includes('tokens?.meta?.stale'),
