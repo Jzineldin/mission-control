@@ -70,9 +70,9 @@ export default function Memory() {
         const payload = (await response.json()) as MemoryResponse
         setData(payload)
         setError(null)
-      } catch (err: any) {
-        if (err?.name !== 'AbortError') {
-          setError(err?.message || 'Failed to load memories')
+      } catch (err) {
+        if ((err as { name?: string })?.name !== 'AbortError') {
+          setError(err instanceof Error ? err.message : String(err))
         }
       } finally {
         setLoading(false)
@@ -85,17 +85,16 @@ export default function Memory() {
     }
   }, [query, scope])
 
-  const docs = data?.documents || []
+  const docs = useMemo(() => data?.documents || [], [data])
 
-  useEffect(() => {
-    if (!docs.length) {
-      setSelectedId(null)
-      return
-    }
-    if (!selectedId || !docs.find((d) => d.id === selectedId)) {
-      setSelectedId(docs[0].id)
-    }
-  }, [docs, selectedId])
+  // Derive the effective selectedId from the current docs list without an effect.
+  // React allows calling setState during render when deriving state from other state/props.
+  const computedSelectedId: string | null = !docs.length
+    ? null
+    : (selectedId && docs.some((d) => d.id === selectedId) ? selectedId : docs[0].id)
+  if (computedSelectedId !== selectedId) {
+    setSelectedId(computedSelectedId)
+  }
 
   const selectedDoc = useMemo(() => docs.find((d) => d.id === selectedId) || null, [docs, selectedId])
 
@@ -109,16 +108,20 @@ export default function Memory() {
     return Object.entries(g)
   }, [docs])
 
-  useEffect(() => {
-    if (!grouped.length) return
-    setCollapsedGroups((prev) => {
-      const next = { ...prev }
-      for (const [label] of grouped) {
-        if (next[label] === undefined) next[label] = false
-      }
-      return next
-    })
-  }, [grouped])
+  // Merge new group labels into collapsedGroups during render (default: expanded).
+  // React allows render-phase setState when deriving state from other state/props.
+  const mergedCollapsed = useMemo(() => {
+    if (!grouped.length) return collapsedGroups
+    let changed = false
+    const next = { ...collapsedGroups }
+    for (const [label] of grouped) {
+      if (next[label] === undefined) { next[label] = false; changed = true }
+    }
+    return changed ? next : collapsedGroups
+  }, [grouped, collapsedGroups])
+  if (mergedCollapsed !== collapsedGroups) {
+    setCollapsedGroups(mergedCollapsed)
+  }
 
   const timelineEntries = useMemo(() => {
     if (!selectedDoc) return []

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Cloud, Play, CheckCircle, AlertCircle, ChevronDown, ChevronUp, X, MessageSquare, Image, Music, Video, Box, Brain, Mic, Languages, Search } from 'lucide-react'
+import { Cloud, Play, CheckCircle, AlertCircle, X, MessageSquare, Image, Music, Video, Box, Brain, Search, type LucideIcon } from 'lucide-react'
 import PageTransition from '../components/PageTransition'
 import { useIsMobile } from '../lib/useIsMobile'
 import GlassCard from '../components/GlassCard'
@@ -30,10 +30,22 @@ interface AWSData {
 
 type ModelCategory = 'all' | 'text' | 'image-gen' | 'vision' | 'video' | 'embedding' | 'speech'
 
-const CATEGORY_FILTERS: { id: ModelCategory; label: string; icon: any; match: (m: BedrockModel) => boolean }[] = [
+interface ConfigData {
+  modules?: Record<string, boolean>
+  aws?: { enabled?: boolean; region?: string }
+}
+
+interface AWSCostData {
+  total?: number
+  remaining?: number
+  services?: { name: string; cost: number }[]
+  daily?: { date: string; cost: number }[]
+}
+
+const CATEGORY_FILTERS: { id: ModelCategory; label: string; icon: LucideIcon; match: (m: BedrockModel) => boolean }[] = [
   { id: 'all', label: 'All', icon: Box, match: () => true },
   { id: 'text', label: 'Text / Chat', icon: MessageSquare, match: (m) => {
-    const inp = m.inputModalities || []; const out = m.outputModalities || []
+    const out = m.outputModalities || []
     return out.includes('TEXT') && !out.includes('IMAGE') && !out.includes('VIDEO') && !out.includes('EMBEDDING')
   }},
   { id: 'vision', label: 'Vision', icon: Brain, match: (m) => {
@@ -66,10 +78,10 @@ function getModelAction(m: BedrockModel): { label: string; type: 'agent' | 'imag
 
 export default function AWS() {
   const isMobile = useIsMobile()
-  const { data: configData } = useApi<any>('/api/config', 0)
+  const { data: configData } = useApi<ConfigData>('/api/config', 0)
   const { data: awsData, loading: awsLoading } = useApi<AWSData>('/api/aws/services', 60000)
   const { data: modelsData, loading: modelsLoading } = useApi<BedrockModel[]>('/api/aws/bedrock-models', 120000)
-  const { data: costData } = useApi<any>('/api/aws/costs', 60000)
+  const { data: costData } = useApi<AWSCostData>('/api/aws/costs', 60000)
   const [category, setCategory] = useState<ModelCategory>('all')
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedModel, setSelectedModel] = useState<BedrockModel | null>(null)
@@ -139,6 +151,7 @@ export default function AWS() {
   }
 
   const account = awsData?.account || { id: '...', region: '...' }
+  const dailyCosts = costData?.daily ?? []
   const services = awsData?.services || []
   const credits = awsData?.credits || { total: 0, note: '' }
   const allModels = modelsData || []
@@ -175,9 +188,9 @@ export default function AWS() {
         setActionStatus('error')
         setActionMessage(data.error || 'Failed to switch model')
       }
-    } catch (e: any) {
+    } catch (e) {
       setActionStatus('error')
-      setActionMessage(e.message)
+      setActionMessage(e instanceof Error ? e.message : String(e))
     }
   }
 
@@ -201,9 +214,9 @@ export default function AWS() {
         setActionStatus('error')
         setActionMessage(data.error || 'Image generation failed')
       }
-    } catch (e: any) {
+    } catch (e) {
       setActionStatus('error')
-      setActionMessage(e.message)
+      setActionMessage(e instanceof Error ? e.message : String(e))
     }
   }
 
@@ -214,7 +227,7 @@ export default function AWS() {
       setTestResults(prev => ({ ...prev, [name]: res.ok ? 'success' : 'error' }))
     } catch { setTestResults(prev => ({ ...prev, [name]: 'error' })) }
     setTestingService(null)
-    setTimeout(() => setTestResults(prev => { const { [name]: _, ...rest } = prev; return rest }), 3000)
+    setTimeout(() => setTestResults(prev => { const rest = { ...prev }; delete rest[name]; return rest }), 3000)
   }
 
   return (
@@ -309,7 +322,7 @@ export default function AWS() {
                 {/* Service Breakdown */}
                 <div style={{ padding: 14, borderRadius: 12, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
                   <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', marginBottom: 10, textTransform: 'uppercase', letterSpacing: 1 }}>By Service</p>
-                  {(costData?.services || []).map((svc: any) => (
+                  {(costData?.services || []).map((svc) => (
                     <div key={svc.name} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
                       <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.55)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', paddingRight: 12 }}>{svc.name}</span>
                       <span style={{ fontSize: 12, color: svc.cost > 10 ? '#FF9500' : 'rgba(255,255,255,0.7)', fontWeight: svc.cost > 10 ? 600 : 400, fontVariantNumeric: 'tabular-nums', flexShrink: 0 }}>${svc.cost.toFixed(2)}</span>
@@ -321,14 +334,14 @@ export default function AWS() {
                 </div>
 
                 {/* Daily Spend Mini Chart */}
-                {costData?.daily && costData.daily.length > 1 && (
+                {dailyCosts.length > 1 && (
                   <div style={{ padding: 14, borderRadius: 12, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
                     <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', marginBottom: 10, textTransform: 'uppercase', letterSpacing: 1 }}>Daily Spend</p>
                     <div style={{ display: 'flex', alignItems: 'flex-end', gap: 3, height: 60 }}>
-                      {costData.daily.map((d: any, i: number) => {
-                        const maxCost = Math.max(...costData.daily.map((x: any) => x.cost), 1)
+                      {dailyCosts.map((d, i) => {
+                        const maxCost = Math.max(...dailyCosts.map((x) => x.cost), 1)
                         const height = Math.max((d.cost / maxCost) * 100, 2)
-                        const isToday = i === costData.daily.length - 1
+                        const isToday = i === dailyCosts.length - 1
                         return (
                           <div key={d.date} title={`${d.date}: $${d.cost}`} style={{
                             flex: 1, height: `${height}%`, borderRadius: 3,
@@ -340,8 +353,8 @@ export default function AWS() {
                       })}
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6 }}>
-                      <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.25)' }}>{costData.daily[0]?.date?.slice(5)}</span>
-                      <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.25)' }}>{costData.daily[costData.daily.length-1]?.date?.slice(5)}</span>
+                      <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.25)' }}>{dailyCosts[0]?.date?.slice(5)}</span>
+                      <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.25)' }}>{dailyCosts[dailyCosts.length-1]?.date?.slice(5)}</span>
                     </div>
                   </div>
                 )}

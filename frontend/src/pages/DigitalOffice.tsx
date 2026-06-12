@@ -10,10 +10,8 @@ import {
   Clock3,
   Copy,
   ExternalLink,
-  ShieldAlert,
   Users,
   Wifi,
-  WifiOff,
   X,
 } from 'lucide-react'
 
@@ -476,18 +474,19 @@ export default function DigitalOffice() {
         }
       })
       .sort((left, right) => right.attentionScore - left.attentionScore || right.inProgressTaskCount - left.inProgressTaskCount || right.activeTaskCount - left.activeTaskCount)
-  }, [data?.desks])
+  }, [data])
 
-  useEffect(() => {
-    if (!desks.length) {
-      setSelectedDeskId(null)
-      setMobileDrawerOpen(false)
-      return
-    }
-    if (!selectedDeskId || !desks.some((desk) => desk.id === selectedDeskId)) {
-      setSelectedDeskId(desks[0].id)
-    }
-  }, [desks, selectedDeskId])
+  // Derive selectedDeskId during render (React "storing info from previous renders"
+  // pattern) to avoid setState-in-effect.
+  const computedDeskId: string | null = !desks.length
+    ? null
+    : (selectedDeskId && desks.some((desk) => desk.id === selectedDeskId)
+      ? selectedDeskId
+      : desks[0].id)
+  if (computedDeskId !== selectedDeskId) {
+    setSelectedDeskId(computedDeskId)
+    if (!computedDeskId) setMobileDrawerOpen(false)
+  }
 
   useEffect(() => {
     if (!toast) return undefined

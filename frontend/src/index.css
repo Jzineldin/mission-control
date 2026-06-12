@@ -1,5 +1,3 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-
 @import "tailwindcss";
 
 :root {
@@ -61,6 +59,13 @@ body {
   overflow: hidden;
   background: #0b0f14;
   color: var(--text-primary);
+}
+
+/* Keyboard focus ring — keeps tab navigation visible on the dark theme
+   without affecting mouse interactions. */
+:focus-visible {
+  outline: 2px solid rgba(10, 132, 255, 0.8);
+  outline-offset: 2px;
 }
 
 /* Mission Control desktop: quiet, high-contrast, built for long operator sessions. */

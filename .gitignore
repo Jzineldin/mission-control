@@ -19,3 +19,4 @@ data/
 documents/
 .gstack/
 .gbrain-source
+.playwright-mcp/

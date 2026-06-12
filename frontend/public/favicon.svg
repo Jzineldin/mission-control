@@ -1,0 +1,32 @@
+<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="mcBg" x1="8" y1="6" x2="56" y2="58" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0a84ff" />
+      <stop offset="1" stop-color="#64d2ff" />
+    </linearGradient>
+    <linearGradient id="mcStroke" x1="16" y1="16" x2="48" y2="48" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#ffffff" stop-opacity="0.95" />
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0.7" />
+    </linearGradient>
+    <radialGradient id="mcGlow" cx="0.5" cy="0.4" r="0.65">
+      <stop stop-color="#ffffff" stop-opacity="0.35" />
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0" />
+    </radialGradient>
+  </defs>
+
+  <!-- App tile -->
+  <rect x="4" y="4" width="56" height="56" rx="15" fill="url(#mcBg)" />
+  <rect x="4" y="4" width="56" height="56" rx="15" fill="url(#mcGlow)" />
+  <rect x="4.5" y="4.5" width="55" height="55" rx="14.5" stroke="#ffffff" stroke-opacity="0.18" />
+
+  <!-- Orbital tracking mark -->
+  <g stroke="url(#mcStroke)" stroke-width="2.4" fill="none" stroke-linecap="round">
+    <circle cx="32" cy="32" r="15" stroke-opacity="0.45" />
+    <ellipse cx="32" cy="32" rx="15" ry="6.5" transform="rotate(-30 32 32)" stroke-opacity="0.85" />
+  </g>
+
+  <!-- Core + satellite -->
+  <circle cx="32" cy="32" r="5" fill="#ffffff" />
+  <circle cx="32" cy="32" r="5" fill="url(#mcGlow)" />
+  <circle cx="45.5" cy="24.2" r="3.1" fill="#ffffff" />
+</svg>

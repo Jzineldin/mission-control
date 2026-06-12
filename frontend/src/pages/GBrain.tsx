@@ -1,10 +1,12 @@
 import { useMemo, useState } from 'react'
-import type { CSSProperties } from 'react'
+import type { CSSProperties, ReactNode } from 'react'
 import {
   AlertTriangle,
   Bot,
   Brain,
   CheckCircle2,
+  Clock,
+  Cpu,
   Database,
   Link2,
   Network,
@@ -313,13 +315,13 @@ const fallbackActions: GBrainActionDefinition[] = [
 ]
 
 const nodePositions: Record<string, { x: number; y: number; size: number }> = {
-  'gbrain-core': { x: 50, y: 55, size: 154 },
-  hermes: { x: 18, y: 43, size: 116 },
-  openclaw: { x: 82, y: 43, size: 116 },
-  codex: { x: 18, y: 66, size: 116 },
-  sources: { x: 82, y: 66, size: 116 },
-  queues: { x: 50, y: 82, size: 116 },
-  'google-bridge': { x: 50, y: 32, size: 116 },
+  'gbrain-core': { x: 50, y: 50, size: 150 },
+  hermes: { x: 17, y: 30, size: 112 },
+  openclaw: { x: 83, y: 30, size: 112 },
+  codex: { x: 17, y: 70, size: 112 },
+  sources: { x: 83, y: 70, size: 112 },
+  queues: { x: 50, y: 85, size: 112 },
+  'google-bridge': { x: 50, y: 15, size: 112 },
 }
 
 function statusColor(status: EvidenceStatus) {
@@ -398,6 +400,13 @@ function kindIcon(kind: NodeKind) {
   return <Link2 size={19} />
 }
 
+function kindAccent(kind: NodeKind) {
+  if (kind === 'core') return '#64D2FF'
+  if (kind === 'agent') return '#0A84FF'
+  if (kind === 'source') return '#BF5AF2'
+  return '#5E5CE6'
+}
+
 function nodeRole(node: GBrainNode) {
   if (node.kind === 'core') return 'AI Memory Kernel'
   if (node.kind === 'agent') return 'MCP Server'
@@ -456,15 +465,17 @@ export default function GBrain() {
   const integrationConnectedCount = data?.integrationHealth?.connectedCount ?? 0
   const integrationSystemCount = data?.integrationHealth?.systemCount ?? 0
   const allIntegrationSystemsConnected = Boolean(data?.integrationHealth && integrationConnectedCount === integrationSystemCount)
-  const mapSignals: { label: string; value: string; detail: string; status: EvidenceStatus }[] = [
+  const heroSignals: { label: string; value: string; detail: string; status: EvidenceStatus; icon: ReactNode }[] = [
     {
       label: 'Trust score',
+      icon: <ShieldCheck size={13} />,
       value: data ? `${data.trust.score}/100` : '—',
       detail: data ? `${data.trust.label}; verified ${timeAgo(data.trust.lastVerifiedAt)}` : 'Waiting for live proof',
       status: data?.trust.status || 'inactive',
     },
     {
       label: 'Systems',
+      icon: <Network size={13} />,
       value: data?.integrationHealth ? `${integrationConnectedCount}/${integrationSystemCount}` : `${data?.nodes?.length || 0} nodes`,
       detail: data?.integrationHealth
         ? allIntegrationSystemsConnected
@@ -475,11 +486,24 @@ export default function GBrain() {
     },
     {
       label: 'Think runtime',
+      icon: <Cpu size={13} />,
       value: data?.integrationHealth?.thinkRuntime ? statusLabel(data.integrationHealth.thinkRuntime.status) : 'Read proof',
       detail: data?.integrationHealth?.thinkRuntime?.detail || 'Runtime proof appears in the evidence drawer',
       status: data?.integrationHealth?.thinkRuntime?.status || 'inactive',
     },
+    {
+      label: 'Last verified',
+      icon: <Clock size={13} />,
+      value: data ? timeAgo(data.trust.lastVerifiedAt) : '—',
+      detail: data?.trust.source || 'Waiting for source proof',
+      status: data?.trust.status || 'inactive',
+    },
   ]
+  // These cockpit metrics are already shown in the hero strip; skip them in the rail.
+  const heroCockpitLabels = new Set(['health', 'integration health', 'think runtime'])
+  const cockpitEntries = Object.entries(data?.cockpit || {}).filter(
+    ([, metric]) => !heroCockpitLabels.has(metric.label.toLowerCase()),
+  )
   const mapReady = data?.trust.status === 'healthy' && disconnectedNodeCount === 0
   const mapSummary = mapReady
     ? 'All core systems verified and operational'
@@ -519,7 +543,7 @@ export default function GBrain() {
         <div className={styles.topBar}>
           <div>
             <div className={styles.titleRow}>
-              <Brain size={24} style={{ color: '#32D74B' }} />
+              <span className={styles.titleIcon}><Brain size={20} /></span>
               <h1>{data?.title || 'GBrain'}</h1>
             </div>
             <div className={styles.subtitle}>
@@ -549,6 +573,20 @@ export default function GBrain() {
           <span>{proofScope.detail}</span>
         </div>
 
+        <div className={styles.heroStrip}>
+          {heroSignals.map((signal) => (
+            <div
+              className={styles.heroCard}
+              key={signal.label}
+              style={{ '--status-color': statusColor(signal.status) } as CSSProperties}
+            >
+              <span className={styles.heroLabel}>{signal.icon}{signal.label}</span>
+              <strong className={styles.heroValue}>{signal.value}</strong>
+              <small className={styles.heroDetail}>{signal.detail}</small>
+            </div>
+          ))}
+        </div>
+
         {error ? <GlassCard><div className={styles.error}>{error}</div></GlassCard> : null}
 
         {incidentBanner ? (
@@ -571,17 +609,23 @@ export default function GBrain() {
               <div className={styles.panelTitle}><ShieldCheck size={15} /> Trust Cockpit</div>
               <div className={styles.panelMeta}>{data?.trust.lastVerifiedAt ? timeAgo(data.trust.lastVerifiedAt) : '—'}</div>
             </div>
-            <div className={styles.metricList}>
-              {Object.entries(data?.cockpit || {}).map(([key, metric]) => (
-                <button key={key} className={styles.metricButton} onClick={() => selectProofNode(metric.proofNodeId)}>
-                  <div className={styles.metricTop}>
-                    <span className={styles.metricLabel}>{metric.label}</span>
-                    <span className={styles.statusDot} style={{ '--status-color': statusColor(metric.status) } as CSSProperties} />
-                  </div>
-                  <div className={styles.metricValue}>{metric.value}</div>
-                  <div className={styles.metricDetail}>{metric.detail}</div>
-                </button>
-              ))}
+            <div className={styles.railBody}>
+              <div className={styles.statGrid}>
+                {cockpitEntries.map(([key, metric]) => (
+                  <button
+                    key={key}
+                    className={styles.statCell}
+                    title={metric.detail}
+                    onClick={() => selectProofNode(metric.proofNodeId)}
+                  >
+                    <span className={styles.statTop}>
+                      <span className={styles.statLabel}>{metric.label}</span>
+                      <span className={styles.statusDot} style={{ '--status-color': statusColor(metric.status) } as CSSProperties} />
+                    </span>
+                    <span className={styles.statValue}>{metric.value}</span>
+                  </button>
+                ))}
+              </div>
               {timelineSummary ? (
                 <div className={styles.timelineHealth}>
                   <div className={styles.metricTop}>
@@ -595,53 +639,6 @@ export default function GBrain() {
                   <div className={styles.metricSubDetail}>{timelineSummary.malformedLineCount} malformed · duplicate skips tracked</div>
                 </div>
               ) : null}
-              <div className={styles.actionPanel}>
-                <div className={styles.actionHeader}>
-                  <span>Allowlisted actions</span>
-                  <small>{runningAction ? 'running' : `${actions.length} local`}</small>
-                </div>
-                <div className={styles.actionList}>
-                  {actions.map((action) => {
-                    const timeoutLabel = formatActionTimeout(action.timeoutMs)
-                    return (
-                      <button
-                        key={action.id}
-                        className={styles.actionButton}
-                        type="button"
-                        disabled={!canRunActions || Boolean(runningAction)}
-                        title={`${action.command}${timeoutLabel ? ` · timeout ${timeoutLabel}` : ''}`}
-                        style={{ '--action-color': actionKindColor(action.kind) } as CSSProperties}
-                        onClick={() => runAction(action.id)}
-                      >
-                        {action.kind === 'diagnostic' || action.kind === 'preview' ? <RefreshCw size={13} /> : <Play size={13} />}
-                        <span>
-                          <span className={styles.actionTitleRow}>
-                            <strong>{runningAction === action.id ? `${action.label}...` : action.label}</strong>
-                            <em>{[actionKindLabel(action.kind), timeoutLabel].filter(Boolean).join(' · ')}</em>
-                          </span>
-                          <small className={styles.actionDescription}>{action.description}</small>
-                        </span>
-                      </button>
-                    )
-                  })}
-                </div>
-                {actionResult ? (
-                  <div
-                    className={styles.actionResult}
-                    style={{ '--status-color': statusColor(actionResult.ok ? 'healthy' : 'warning') } as CSSProperties}
-                  >
-                    <strong>
-                      {actionResult.ok
-                        ? `${actionResult.label} complete`
-                        : actionResult.pending
-                          ? `${actionResult.label || actionResult.action} stopping`
-                          : `${actionResult.label || actionResult.action} failed`}
-                    </strong>
-                    <span>{actionResult.error || actionResult.summary}</span>
-                  </div>
-                ) : null}
-                {actionsError ? <div className={styles.actionHint}>{actionsError}</div> : null}
-              </div>
               {!data && !loading ? <div className={styles.metricDetail}>No overview payload loaded.</div> : null}
             </div>
           </GlassCard>
@@ -656,24 +653,6 @@ export default function GBrain() {
                 <div className={styles.mapGlow} aria-hidden="true" />
                 <div className={styles.mapOrbit} aria-hidden="true" />
                 <div className={styles.mapInnerOrbit} aria-hidden="true" />
-                <div className={styles.mapSignalBar}>
-                  {mapSignals.map((signal) => (
-                    <div
-                      className={styles.mapSignal}
-                      key={signal.label}
-                      style={{ '--status-color': statusColor(signal.status) } as CSSProperties}
-                    >
-                      <span>{signal.label}</span>
-                      <strong>{signal.value}</strong>
-                      <small>{signal.detail}</small>
-                    </div>
-                  ))}
-                </div>
-                <div className={styles.mapReportCard}>
-                  <span>Last verified</span>
-                  <strong>{data ? timeAgo(data.trust.lastVerifiedAt) : '—'}</strong>
-                  <small>{data?.trust.source || 'Waiting for source proof'}</small>
-                </div>
                 <svg className={styles.edgeLayer} viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
                   {(data?.edges || []).map((edge) => {
                     const line = lineFor(edge)
@@ -702,22 +681,27 @@ export default function GBrain() {
                 {(data?.nodes || []).map((node) => {
                   const position = nodePositions[node.id] || { x: 50, y: 50, size: 110 }
                   const active = selectedNode?.id === node.id
+                  const healthy = node.status === 'healthy'
                   return (
                     <button
                       key={node.id}
-                      className={`${styles.node} ${node.kind === 'core' ? styles.coreNode : ''} ${active ? styles.nodeActive : ''}`}
+                      className={`${styles.node} ${node.kind === 'core' ? styles.coreNode : ''} ${active ? styles.nodeActive : ''} ${!healthy ? styles.nodeAlert : ''}`}
                       onClick={() => setSelectedId(node.id)}
                       style={{
                         '--node-x': `${position.x}%`,
                         '--node-y': `${position.y}%`,
                         '--node-size': `${position.size}px`,
                         '--status-color': statusColor(node.status),
+                        '--node-accent': kindAccent(node.kind),
                       } as CSSProperties}
                     >
+                      <span className={styles.nodeDot} title={statusLabel(node.status)} />
                       <span className={styles.nodeIcon}>{kindIcon(node.kind)}</span>
                       <span className={styles.nodeLabel}>{node.label}</span>
                       <span className={styles.nodeRole}>{nodeRole(node)}</span>
-                      <span className={styles.nodeStatus}><CheckCircle2 size={11} />{statusLabel(node.status)}</span>
+                      {!healthy ? (
+                        <span className={styles.nodeStatus}><AlertTriangle size={11} />{statusLabel(node.status)}</span>
+                      ) : null}
                     </button>
                   )
                 })}
@@ -740,6 +724,55 @@ export default function GBrain() {
                   {loading ? 'Checking...' : 'Run System Check'}
                 </button>
               </div>
+            </div>
+            <div className={styles.actionsDock}>
+              <div className={styles.actionHeader}>
+                <span>Allowlisted actions</span>
+                <small>{runningAction ? 'running' : `${actions.length} local · probes stay read-only`}</small>
+              </div>
+              <div className={styles.actionGrid}>
+                {actions.map((action) => {
+                  const timeoutLabel = formatActionTimeout(action.timeoutMs)
+                  return (
+                    <button
+                      key={action.id}
+                      className={styles.actionButton}
+                      type="button"
+                      disabled={!canRunActions || Boolean(runningAction)}
+                      title={`${action.command}${timeoutLabel ? ` · timeout ${timeoutLabel}` : ''}`}
+                      style={{ '--action-color': actionKindColor(action.kind) } as CSSProperties}
+                      onClick={() => runAction(action.id)}
+                    >
+                      <span className={styles.actionIconTile}>
+                        {action.kind === 'diagnostic' || action.kind === 'preview' ? <RefreshCw size={13} /> : <Play size={13} />}
+                      </span>
+                      <span>
+                        <span className={styles.actionTitleRow}>
+                          <strong>{runningAction === action.id ? `${action.label}...` : action.label}</strong>
+                          <em>{[actionKindLabel(action.kind), timeoutLabel].filter(Boolean).join(' · ')}</em>
+                        </span>
+                        <small className={styles.actionDescription}>{action.description}</small>
+                      </span>
+                    </button>
+                  )
+                })}
+              </div>
+              {actionResult ? (
+                <div
+                  className={styles.actionResult}
+                  style={{ '--status-color': statusColor(actionResult.ok ? 'healthy' : 'warning') } as CSSProperties}
+                >
+                  <strong>
+                    {actionResult.ok
+                      ? `${actionResult.label} complete`
+                      : actionResult.pending
+                        ? `${actionResult.label || actionResult.action} stopping`
+                        : `${actionResult.label || actionResult.action} failed`}
+                  </strong>
+                  <span>{actionResult.error || actionResult.summary}</span>
+                </div>
+              ) : null}
+              {actionsError ? <div className={styles.actionHint}>{actionsError}</div> : null}
             </div>
             <div className={styles.warningStrip}>
               <AlertTriangle size={15} style={{ color: '#FFD60A', flex: '0 0 auto', marginTop: 1 }} />
@@ -890,7 +923,10 @@ export default function GBrain() {
 
                 <div className={styles.section}>
                   <h3>Next Safe Action</h3>
-                  <div className={styles.nextAction}>{selectedNode.nextSafeAction}</div>
+                  <div className={styles.nextAction}>
+                    <Play size={13} />
+                    <span>{selectedNode.nextSafeAction}</span>
+                  </div>
                 </div>
 
                 <div className={styles.section}>

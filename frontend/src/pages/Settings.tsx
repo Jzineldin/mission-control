@@ -1,6 +1,5 @@
-import { useState, useEffect } from 'react'
-import { motion } from 'framer-motion'
-import { Settings2, ChevronDown, Save, RefreshCw, Shield, Database, Cpu, Globe, Download, Upload, Clock, Zap } from 'lucide-react'
+import { useState } from 'react'
+import { Settings2, Save, RefreshCw, Shield, Database, Globe, Download, Upload, Clock, Zap } from 'lucide-react'
 import PageTransition from '../components/PageTransition'
 import { useIsMobile } from '../lib/useIsMobile'
 import GlassCard from '../components/GlassCard'
@@ -26,67 +25,7 @@ interface OpenClawConfig {
 
 export default function Settings() {
   const isMobile = useIsMobile()
-  const { data: configData, refetch } = useApi<OpenClawConfig>('/api/settings')
-  const [selectedModel, setSelectedModel] = useState<string>('')
-  const [showDropdown, setShowDropdown] = useState(false)
-  const [saving, setSaving] = useState(false)
-  const [saveStatus, setSaveStatus] = useState<'idle' | 'success' | 'error'>('idle')
-
-  const { data: modelsData } = useApi<{ id: string; name: string }[]>('/api/models')
-
-  const availableModels = (modelsData || []).map(m => ({
-    id: m.id,
-    name: m.name,
-    description: m.name.includes('Opus') ? 'Most capable model' : m.name.includes('Sonnet') ? 'Balanced performance' : 'Fast and efficient',
-  }))
-
-  useEffect(() => {
-    if (configData?.model) {
-      setSelectedModel(configData.model)
-    }
-  }, [configData])
-
-  const handleModelSwitch = async () => {
-    if (selectedModel === configData?.model) return
-
-    setSaving(true)
-    setSaveStatus('idle')
-
-    try {
-      const response = await fetch('/api/model', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model: selectedModel })
-      })
-
-      if (response.ok) {
-        setSaveStatus('success')
-        setTimeout(() => setSaveStatus('idle'), 3000)
-        refetch()
-      } else {
-        setSaveStatus('error')
-        setTimeout(() => setSaveStatus('idle'), 3000)
-      }
-    } catch (error) {
-      setSaveStatus('error')
-      setTimeout(() => setSaveStatus('idle'), 3000)
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  const getCurrentModelName = () => {
-    if (!selectedModel) return 'Select Model'
-    const model = availableModels.find(m => m.id === selectedModel)
-    if (model) return model.name
-    // Fallback: extract a readable name from the model ID
-    const cleaned = selectedModel
-      .replace(/^(us\.)?anthropic\./, '')
-      .replace(/-v\d.*$/, '')
-      .replace(/-/g, ' ')
-      .replace(/\b\w/g, c => c.toUpperCase())
-    return cleaned || selectedModel
-  }
+  const { data: configData } = useApi<OpenClawConfig>('/api/settings')
 
   return (
     <PageTransition>
@@ -170,23 +109,30 @@ export default function Settings() {
   )
 }
 
+interface ModelRoutingData {
+  main?: string
+  subagent?: string
+  heartbeat?: string
+}
+
 function ModelRoutingCard({ isMobile }: { isMobile: boolean }) {
   const [routing, setRouting] = useState({ main: '', subagent: '', heartbeat: '' })
   const [saving, setSaving] = useState(false)
   const [saveStatus, setSaveStatus] = useState<'idle' | 'success' | 'error'>('idle')
 
   const { data: modelsData } = useApi<{ id: string; name: string; tags?: string[] }[]>('/api/models')
-  const { data: routingData } = useApi<any>('/api/settings/model-routing')
+  const { data: routingData } = useApi<ModelRoutingData>('/api/settings/model-routing')
 
-  useEffect(() => {
-    if (routingData) {
-      setRouting({
-        main: routingData.main || '',
-        subagent: routingData.subagent || routingData.main || '',
-        heartbeat: routingData.heartbeat || ''
-      })
-    }
-  }, [routingData])
+  // Sync routing form to server data using render-phase update (avoids setState-in-effect).
+  const [lastRoutingData, setLastRoutingData] = useState<ModelRoutingData | null>(null)
+  if (routingData && routingData !== lastRoutingData) {
+    setLastRoutingData(routingData)
+    setRouting({
+      main: routingData.main || '',
+      subagent: routingData.subagent || routingData.main || '',
+      heartbeat: routingData.heartbeat || '',
+    })
+  }
 
   const handleSave = async () => {
     setSaving(true)
@@ -206,7 +152,7 @@ function ModelRoutingCard({ isMobile }: { isMobile: boolean }) {
         setSaveStatus('error')
         setTimeout(() => setSaveStatus('idle'), 3000)
       }
-    } catch (e) {
+    } catch {
       setSaveStatus('error')
       setTimeout(() => setSaveStatus('idle'), 3000)
     } finally {
@@ -216,10 +162,10 @@ function ModelRoutingCard({ isMobile }: { isMobile: boolean }) {
 
   const MODEL_OPTIONS = [
     { value: '', label: 'Inherit from Main (no override)' },
-    ...((modelsData || []).map((m: any) => ({
+    ...((modelsData || []).map((m) => ({
       value: m.id,
-      label: m.name || m.id
-    })))
+      label: m.name || m.id,
+    }))),
   ]
 
   const selectStyle = { 
@@ -342,7 +288,7 @@ function HeartbeatConfigCard({ isMobile }: { isMobile: boolean }) {
         setSaveStatus('error')
         setTimeout(() => setSaveStatus('idle'), 3000)
       }
-    } catch (e) {
+    } catch {
       setSaveStatus('error')
       setTimeout(() => setSaveStatus('idle'), 3000)
     } finally {
@@ -455,7 +401,7 @@ function ExportImportCard({ isMobile }: { isMobile: boolean }) {
         setImportStatus('error')
         setTimeout(() => setImportStatus('idle'), 3000)
       }
-    } catch (e) {
+    } catch {
       setImportStatus('error')
       setTimeout(() => setImportStatus('idle'), 3000)
     } finally {

@@ -27,7 +27,26 @@ const getFreshnessInfo = (foundDate: string) => {
   return null
 }
 
-const getNextScanTime = (cronJobs: any[]) => {
+interface Opportunity {
+  id: string
+  title?: string
+  summary?: string
+  source?: string
+  category?: string
+  status?: string
+  score: number
+  found: string
+  url?: string
+}
+
+interface CronJob {
+  name?: string
+  description?: string
+  nextRun?: string
+  schedule?: string
+}
+
+const getNextScanTime = (cronJobs: CronJob[]) => {
   const scoutJob = cronJobs?.find(job => 
     job.name?.toLowerCase().includes('scout') || 
     job.description?.toLowerCase().includes('scout')
@@ -48,17 +67,17 @@ const getNextScanTime = (cronJobs: any[]) => {
 
 const FILTERS = [
   { id: 'all', label: 'All', icon: Radar },
-  { id: 'openclaw', label: 'OpenClaw', icon: Code, match: (o: any) => o.category?.startsWith('openclaw') },
-  { id: 'bounty', label: 'Bounty', icon: Shield, match: (o: any) => o.category === 'bounty' },
-  { id: 'freelance', label: 'Freelance', icon: Briefcase, match: (o: any) => ['freelance', 'twitter-jobs', 'linkedin-jobs', 'reddit-gigs', 'upwork'].includes(o.category) },
-  { id: 'edtech', label: 'EdTech', icon: GraduationCap, match: (o: any) => o.category === 'edtech' },
-  { id: 'funding', label: 'Grants', icon: DollarSign, match: (o: any) => ['funding', 'swedish-grants'].includes(o.category) },
+  { id: 'openclaw', label: 'OpenClaw', icon: Code, match: (o: Opportunity) => Boolean(o.category?.startsWith('openclaw')) },
+  { id: 'bounty', label: 'Bounty', icon: Shield, match: (o: Opportunity) => o.category === 'bounty' },
+  { id: 'freelance', label: 'Freelance', icon: Briefcase, match: (o: Opportunity) => ['freelance', 'twitter-jobs', 'linkedin-jobs', 'reddit-gigs', 'upwork'].includes(o.category || '') },
+  { id: 'edtech', label: 'EdTech', icon: GraduationCap, match: (o: Opportunity) => o.category === 'edtech' },
+  { id: 'funding', label: 'Grants', icon: DollarSign, match: (o: Opportunity) => ['funding', 'swedish-grants'].includes(o.category || '') },
 ]
 
 export default function Scout() {
   const m = useIsMobile()
-  const { data, loading } = useApi<any>('/api/scout', 60000)
-  const { data: cronData } = useApi<any>('/api/cron', 30000) // Add cron data for next scan time
+  const { data, loading } = useApi<{ opportunities?: Opportunity[]; lastScan?: string }>('/api/scout', 60000)
+  const { data: cronData } = useApi<{ jobs?: CronJob[] }>('/api/cron', 30000) // Add cron data for next scan time
   const [sortBy, setSortBy] = useState<'score' | 'date'>('score')
   const [filter, setFilter] = useState('all')
   const [scanning, setScanning] = useState(false)
@@ -75,7 +94,7 @@ export default function Scout() {
   }
 
   const activeFilter = FILTERS.find(f => f.id === filter)
-  const allOpportunities = [...(data.opportunities || [])].sort((a: any, b: any) => {
+  const allOpportunities = [...(data.opportunities || [])].sort((a, b) => {
     if (sortBy === 'score') return b.score - a.score
     return new Date(b.found).getTime() - new Date(a.found).getTime()
   })
@@ -90,14 +109,14 @@ export default function Scout() {
     try {
       await fetch('/api/scout/deploy', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ opportunityId: oppId }) })
       window.location.reload()
-    } catch {}
+    } catch { /* request failed; list stays as-is */ }
   }
 
   const handleDismiss = async (oppId: string) => {
     try {
       await fetch('/api/scout/dismiss', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ opportunityId: oppId }) })
       window.location.reload()
-    } catch {}
+    } catch { /* request failed; list stays as-is */ }
   }
 
   const handleRunScan = async () => {
@@ -248,9 +267,9 @@ export default function Scout() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: m ? 8 : 16 }}>
           {[
             { label: 'Showing', value: opportunities.length, color: '#fff' },
-            { label: 'High (85+)', value: opportunities.filter((o: any) => o.score >= 85).length, color: '#32D74B' },
-            { label: 'Deployed', value: opportunities.filter((o: any) => o.status === 'deployed').length, color: '#007AFF' },
-            { label: 'Avg Score', value: opportunities.length ? Math.round(opportunities.reduce((a: number, o: any) => a + o.score, 0) / opportunities.length) : 0, color: '#FF9500' },
+            { label: 'High (85+)', value: opportunities.filter((o) => o.score >= 85).length, color: '#32D74B' },
+            { label: 'Deployed', value: opportunities.filter((o) => o.status === 'deployed').length, color: '#007AFF' },
+            { label: 'Avg Score', value: opportunities.length ? Math.round(opportunities.reduce((a, o) => a + o.score, 0) / opportunities.length) : 0, color: '#FF9500' },
           ].map((s, i) => (
             <GlassCard key={s.label} delay={0.05 + i * 0.03} noPad>
               <div style={{ padding: m ? '10px 12px' : '16px 20px' }}>
@@ -333,7 +352,7 @@ export default function Scout() {
               )}
             </div>
           ) : (
-            opportunities.map((opp: any, i: number) => (
+            opportunities.map((opp, i) => (
               <motion.div
                 key={opp.id}
                 initial={{ opacity: 0, y: 6 }}

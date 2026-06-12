@@ -14,7 +14,8 @@
   ],
   "scripts": {
     "start": "node server.js",
-    "build": "cd frontend && npm run build"
+    "build": "cd frontend && npm run build",
+    "test": "node --test tests/*.test.js tests/*.test.mjs"
   },
   "engines": {
     "node": ">=18"

@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Plus, Clock, Zap, CheckCircle, Play, X, AlertCircle, Loader2, ArrowLeft, MessageSquare, ExternalLink } from 'lucide-react'
+import { Plus, Clock, Zap, CheckCircle, Play, X, AlertCircle, Loader2, ArrowLeft, MessageSquare } from 'lucide-react'
 import PageTransition from '../components/PageTransition'
 import { apiQueryOptions, timeAgo } from '../lib/hooks'
 import { useIsMobile } from '../lib/useIsMobile'
@@ -13,7 +13,7 @@ const priorityConfig: Record<string, { color: string; label: string }> = {
   low: { color: '#007AFF', label: 'Low' },
 }
 
-const columnConfig: Record<string, { title: string; color: string; icon: any }> = {
+const columnConfig: Record<string, { title: string; color: string; icon: React.ComponentType<{ size?: number; style?: React.CSSProperties }> }> = {
   queue: { title: 'Queue', color: '#8E8E93', icon: Clock },
   inProgress: { title: 'In Progress', color: '#007AFF', icon: Zap },
   blocked: { title: 'Blocked', color: '#FF453A', icon: AlertCircle },
@@ -39,6 +39,15 @@ interface Task {
   structuredTaskRequired?: boolean
   deliveryMode?: string
   managerDecision?: string
+}
+
+interface TasksPayload {
+  columns: {
+    queue: Task[]
+    inProgress: Task[]
+    blocked: Task[]
+    done: Task[]
+  }
 }
 
 const executionPathConfig: Record<string, { label: string; color: string; bg: string; border: string }> = {
@@ -117,7 +126,7 @@ function BlockedExplanation({ task, compact = false }: { task: Task; compact?: b
 export default function Workshop() {
   const m = useIsMobile()
   const queryClient = useQueryClient()
-  const { data, isLoading: loading } = useQuery(apiQueryOptions<any>('/api/tasks', 5000))
+  const { data, isLoading: loading } = useQuery(apiQueryOptions<TasksPayload>('/api/tasks', 5000))
   const donePageSize = m ? 6 : 10
   const [showAddModal, setShowAddModal] = useState(false)
   const [viewTask, setViewTask] = useState<Task | null>(null)
@@ -152,7 +161,10 @@ export default function Workshop() {
     onSettled: invalidateTasks,
   })
 
-  // Auto-open task from URL param (?task=xxx)
+  // Auto-open task from URL param (?task=xxx). This synchronizes external state
+  // (the URL) into component state and must also clear the param via
+  // setSearchParams, which cannot run during render — so the effect is the
+  // right home for it despite the lint rule.
   useEffect(() => {
     if (!data || viewTask) return
     const taskId = searchParams.get('task')
@@ -161,20 +173,20 @@ export default function Workshop() {
     for (const col of Object.values(columns) as Task[][]) {
       const found = col.find(t => t.id === taskId)
       if (found) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setViewTask(found)
         setSearchParams({}, { replace: true })
         break
       }
     }
-  }, [data, searchParams])
+  }, [data, searchParams, viewTask, setSearchParams])
 
-  useEffect(() => {
-    const totalDone = data?.columns?.done?.length ?? 0
-    setDoneVisibleCount((current) => {
-      if (totalDone === 0) return donePageSize
-      return Math.max(donePageSize, Math.min(current, totalDone))
-    })
-  }, [donePageSize, data?.columns?.done?.length])
+  // Clamp doneVisibleCount to totalDone during render (avoids setState-in-effect).
+  const totalDone = data?.columns?.done?.length ?? 0
+  const clampedDoneCount = totalDone === 0 ? donePageSize : Math.max(donePageSize, Math.min(doneVisibleCount, totalDone))
+  if (clampedDoneCount !== doneVisibleCount) {
+    setDoneVisibleCount(clampedDoneCount)
+  }
 
   if (loading || !data) {
     return (
@@ -199,14 +211,14 @@ export default function Workshop() {
       })
       setShowAddModal(false)
       setAddForm({ title: '', description: '', priority: 'medium', tags: '' })
-    } catch {}
+    } catch { /* mutation failed; modal stays open so user can retry */ }
   }
 
   const handleExecute = async (taskId: string) => {
     setExecuting(prev => ({ ...prev, [taskId]: true }))
     try {
       await executeTaskMutation.mutateAsync(taskId)
-    } catch {}
+    } catch { /* execution request failed; task remains in current column */ }
   }
 
   const discussWithMudur = (task: Task) => {

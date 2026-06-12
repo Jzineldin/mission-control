@@ -40,7 +40,6 @@ interface CalendarPayload {
 const STATUS_OPTIONS = ['scheduled', 'active', 'running', 'done', 'failed', 'disabled', 'cancelled']
 const SOURCE_OPTIONS = ['cron', 'assistant', 'manual']
 const ASSIGNEE_OPTIONS = ['Mudur', 'Yordam']
-const WEEK_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
 const LEGEND_ITEMS = [
   { label: 'Governance / Council', color: 'rgba(124, 58, 237, 0.36)' },
@@ -180,13 +179,19 @@ function EntryModal({
   entry: CalendarEntry | null
 }) {
   const m = useIsMobile()
+  // Track the entry id that was used to last initialise the form so we can
+  // reset it when the modal opens with a different (or no) entry.
+  const [formKey, setFormKey] = useState<string | null | undefined>(undefined)
   const [form, setForm] = useState<Partial<CalendarEntry>>(entry || { status: 'scheduled', source: 'manual', assignee: 'Mudur' })
 
-  useEffect(() => {
-    if (!open) return
-    if (entry) setForm(entry)
-    else setForm({ status: 'scheduled', source: 'manual', assignee: 'Mudur' })
-  }, [open, entry?.id])
+  // Re-initialise the form whenever the modal opens with a new entry.
+  // Using render-phase setState (React docs "storing information from previous
+  // renders" pattern) avoids setState-in-effect.
+  const newKey = open ? (entry?.id ?? null) : undefined
+  if (newKey !== formKey) {
+    setFormKey(newKey)
+    if (open) setForm(entry ?? { status: 'scheduled', source: 'manual', assignee: 'Mudur' })
+  }
 
   if (!open) return null
 
@@ -255,15 +260,24 @@ export default function CalendarPage() {
   const [sourceFilter, setSourceFilter] = useState<string | null>(null)
   const [assigneeFilter, setAssigneeFilter] = useState<string | null>(null)
   const [copiedJobId, setCopiedJobId] = useState<string | null>(null)
+  // Ticking clock for the "next up" list; refreshed on an interval instead of
+  // calling Date.now() during render so renders stay idempotent.
+  const [now, setNow] = useState(() => Date.now())
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 60000)
+    return () => window.clearInterval(timer)
+  }, [])
 
   const entries = useMemo(() => (data?.entries || []), [data])
 
-  useEffect(() => {
-    if (!detailEntry) return
+  // Keep detailEntry in sync with the latest entries data using a render-phase
+  // update so we avoid setState inside an effect.
+  if (detailEntry) {
     const refreshed = entries.find(entry => entry.id === detailEntry.id)
-    if (refreshed) setDetailEntry(refreshed)
-    else setDetailEntry(null)
-  }, [entries, detailEntry?.id])
+    const next = refreshed ?? null
+    if (next !== detailEntry) setDetailEntry(next)
+  }
 
   useEffect(() => {
     if (!copiedJobId) return
@@ -348,14 +362,13 @@ export default function CalendarPage() {
   }, [assigneeFilter, currentWeekDays, entries, hideDisabled, mode, sourceFilter, weekDays])
 
   const nextUp = useMemo(() => {
-    const now = Date.now()
     return entries
       .filter(entry => !!entry.startsAt)
       .map(entry => ({ ...entry, ts: new Date(entry.startsAt as string).getTime() }))
       .filter(entry => Number.isFinite(entry.ts) && entry.ts >= now)
       .sort((a, b) => a.ts - b.ts)
       .slice(0, 8)
-  }, [entries])
+  }, [entries, now])
 
   const detailRecentRuns = useMemo(() => (detailEntry ? buildRecentRuns(detailEntry) : []), [detailEntry])
   const todayKey = toDayKey(new Date())
@@ -377,8 +390,8 @@ export default function CalendarPage() {
         throw new Error(detail || `HTTP ${response.status}`)
       }
       await refetch()
-    } catch (err: any) {
-      alert(`Calendar sync failed: ${err?.message || 'Unknown error'}`)
+    } catch (err) {
+      alert(`Calendar sync failed: ${err instanceof Error ? err.message : 'Unknown error'}`)
     } finally {
       setSyncing(false)
     }
@@ -398,8 +411,8 @@ export default function CalendarPage() {
         throw new Error(detail || `HTTP ${response.status}`)
       }
       await refetch()
-    } catch (err: any) {
-      alert(`Calendar save failed: ${err?.message || 'Unknown error'}`)
+    } catch (err) {
+      alert(`Calendar save failed: ${err instanceof Error ? err.message : 'Unknown error'}`)
       throw err
     }
   }

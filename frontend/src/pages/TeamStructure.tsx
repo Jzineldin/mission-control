@@ -88,21 +88,25 @@ export default function TeamStructure() {
     return null
   }, [openModelPicker, data])
 
+  // `loading` starts true and the UI only gates on `loading && !data`, so the
+  // initial fetch needs no setLoading(true); later refreshes keep stale data visible.
   const load = async () => {
-    setLoading(true)
     try {
       const r = await fetch('/api/team/structure')
       const j = await r.json()
       if (!r.ok) throw new Error(j.error || `HTTP ${r.status}`)
       setData(j)
       setError(null)
-    } catch (e: any) {
-      setError(e?.message || 'failed to load')
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'failed to load')
     } finally {
       setLoading(false)
     }
   }
 
+  // Initial fetch on mount; load() only calls setState after awaiting the
+  // response, but the lint rule traces the shared function and flags it anyway.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { void load() }, [])
   useEffect(() => {
     let cancelled = false
@@ -111,12 +115,14 @@ export default function TeamStructure() {
         const r = await fetch('/api/models')
         const j = await r.json()
         if (!r.ok || !Array.isArray(j) || cancelled) return
-        const next = j.map((m: any) => ({
-          id: String(m?.id || ''),
-          name: String(m?.name || m?.id || ''),
-        })).filter((m: any) => m.id)
+        const next = (j as { id?: unknown; name?: unknown }[])
+          .map((m) => ({
+            id: String(m?.id || ''),
+            name: String(m?.name || m?.id || ''),
+          }))
+          .filter((m) => m.id)
         setModels(next)
-      } catch {}
+      } catch { /* request failed; models list stays empty */ }
     }
     void loadModels()
     return () => { cancelled = true }
@@ -172,8 +178,8 @@ export default function TeamStructure() {
       await load()
       setToast({ type: 'success', text: `${agentId} modeli güncellendi.` })
       setTimeout(() => setToast(null), 3500)
-    } catch (e: any) {
-      setToast({ type: 'error', text: `Model update failed: ${e?.message || e}` })
+    } catch (e) {
+      setToast({ type: 'error', text: `Model update failed: ${e instanceof Error ? e.message : String(e)}` })
       setTimeout(() => setToast(null), 5000)
     } finally {
       setSavingModel((prev) => ({ ...prev, [agentId]: false }))
@@ -197,8 +203,8 @@ export default function TeamStructure() {
       await load()
       setToast({ type: 'success', text: j.message || 'Role suggestions generated. No agents were created.' })
       setTimeout(() => setToast(null), 3500)
-    } catch (e: any) {
-      setToast({ type: 'error', text: `Suggestion generation failed: ${e?.message || e}` })
+    } catch (e) {
+      setToast({ type: 'error', text: `Suggestion generation failed: ${e instanceof Error ? e.message : String(e)}` })
       setTimeout(() => setToast(null), 5000)
     } finally {
       setBootstrapping(false)

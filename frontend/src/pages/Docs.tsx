@@ -2,7 +2,8 @@ import { useState, useRef } from 'react'
 import { motion } from 'framer-motion'
 import {
   FileText, Upload, Search, File, FileCode, FileSpreadsheet,
-  Database, HardDrive, Layers, CheckCircle, AlertCircle
+  Database, HardDrive, Layers, CheckCircle, AlertCircle,
+  type LucideIcon
 } from 'lucide-react'
 import PageTransition from '../components/PageTransition'
 import { useIsMobile } from '../lib/useIsMobile'
@@ -10,12 +11,20 @@ import GlassCard from '../components/GlassCard'
 import AnimatedCounter from '../components/AnimatedCounter'
 import { useApi } from '../lib/hooks'
 
-const typeIcons: Record<string, any> = { md: FileText, csv: FileSpreadsheet, js: FileCode, json: FileCode, txt: FileText, pdf: File, default: File }
+interface DocInfo {
+  id?: string
+  name: string
+  size?: string
+  sizeBytes?: number
+  chunks?: number
+}
+
+const typeIcons: Record<string, LucideIcon> = { md: FileText, csv: FileSpreadsheet, js: FileCode, json: FileCode, txt: FileText, pdf: File, default: File }
 const typeColors: Record<string, string> = { md: '#007AFF', csv: '#32D74B', js: '#FF9500', json: '#FF9500', txt: '#8E8E93', pdf: '#FF453A', default: '#8E8E93' }
 
 export default function Docs() {
   const m = useIsMobile()
-  const { data: docsData, refetch } = useApi<any>('/api/docs', 30000)
+  const { data: docsData, refetch } = useApi<{ documents?: DocInfo[] }>('/api/docs', 30000)
   const [search, setSearch] = useState('')
   const [dragOver, setDragOver] = useState(false)
   const [uploading, setUploading] = useState(false)
@@ -23,11 +32,11 @@ export default function Docs() {
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const docs = docsData?.documents || []
-  const filteredDocs = docs.filter((d: any) =>
+  const filteredDocs = docs.filter((d) =>
     d.name.toLowerCase().includes(search.toLowerCase())
   )
-  const totalChunks = docs.reduce((acc: number, d: any) => acc + (d.chunks || 0), 0)
-  const totalSize = docs.reduce((acc: number, d: any) => acc + (d.sizeBytes || 0), 0)
+  const totalChunks = docs.reduce((acc, d) => acc + (d.chunks || 0), 0)
+  const totalSize = docs.reduce((acc, d) => acc + (d.sizeBytes || 0), 0)
 
   const handleUpload = async (files: FileList | null) => {
     if (!files || files.length === 0) return
@@ -168,7 +177,7 @@ export default function Docs() {
 
         {/* Document Grid */}
         <div style={{ display: 'grid', gridTemplateColumns: m ? '1fr' : 'repeat(auto-fill, minmax(280px, 1fr))', gap: m ? 10 : 16 }}>
-          {filteredDocs.map((doc: any, i: number) => {
+          {filteredDocs.map((doc, i) => {
             const ext = doc.name.split('.').pop() || 'default'
             const Icon = typeIcons[ext] || typeIcons.default
             const color = typeColors[ext] || typeColors.default

@@ -33,9 +33,23 @@
 }
 
 .brandIcon {
+  position: relative;
+  border-radius: 10px;
   background: linear-gradient(135deg, #0a84ff, #64d2ff);
   color: #fff;
-  box-shadow: 0 10px 26px rgba(10, 132, 255, 0.24);
+  box-shadow:
+    0 10px 26px rgba(10, 132, 255, 0.32),
+    inset 0 1px 0 rgba(255, 255, 255, 0.35),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+}
+
+.brandIcon::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(120% 90% at 30% 18%, rgba(255, 255, 255, 0.4), transparent 60%);
+  pointer-events: none;
 }
 
 .brandText,

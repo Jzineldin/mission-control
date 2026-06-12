@@ -8,12 +8,30 @@ import StatusBadge from '../components/StatusBadge'
 import AnimatedCounter from '../components/AnimatedCounter'
 import { useApi, timeAgo } from '../lib/hooks'
 
+interface AgentInfo {
+  id: string
+  name?: string
+  description?: string
+  role?: string
+  status?: string
+  model?: string
+  avatar?: string
+  lastActive?: string
+  sessionCount?: number
+  totalTokens?: number
+}
+
+interface ModelInfo {
+  id: string
+  name: string
+}
+
 export default function Agents() {
   const m = useIsMobile()
-  const { data, loading } = useApi<any>('/api/agents', 30000)
-  const { data: sessionsData } = useApi<any>('/api/sessions', 15000) // Add real sessions data
-  const { data: modelsData } = useApi<any>('/api/models', 0)
-  const { data: skillsData } = useApi<any>('/api/skills', 0)
+  const { data, loading } = useApi<{ agents?: AgentInfo[] }>('/api/agents', 30000)
+  const { data: sessionsData } = useApi<{ sessions?: unknown[] }>('/api/sessions', 15000) // Add real sessions data
+  const { data: modelsData } = useApi<ModelInfo[]>('/api/models', 0)
+  const { data: skillsData } = useApi<{ installed?: { name: string }[] }>('/api/skills', 0)
   const [selectedAgent, setSelectedAgent] = useState<string | null>(null)
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [createForm, setCreateForm] = useState({
@@ -92,22 +110,22 @@ export default function Agents() {
     }))
   }
 
-  const agents = Array.isArray(data?.agents) ? data.agents : []
-  const selected = agents.find((a: any) => a.id === selectedAgent)
+  const agents = useMemo<AgentInfo[]>(() => (Array.isArray(data?.agents) ? data.agents : []), [data])
+  const selected = agents.find((a) => a.id === selectedAgent)
   const liveSessions = Array.isArray(sessionsData?.sessions) ? sessionsData.sessions : []
   const agentMetrics = useMemo(() => {
-    const sortedAgents = [...agents].sort((a: any, b: any) => {
+    const sortedAgents = [...agents].sort((a, b) => {
       const scoreA = Number(a.sessionCount || 0) * 1_000_000 + Number(a.totalTokens || 0)
       const scoreB = Number(b.sessionCount || 0) * 1_000_000 + Number(b.totalTokens || 0)
       return scoreB - scoreA
     })
-    const activeAgents = sortedAgents.filter((agent: any) => agent.status === 'active' || Number(agent.sessionCount || 0) > 0)
-    const idleAgents = sortedAgents.filter((agent: any) => !activeAgents.includes(agent))
+    const activeAgents = sortedAgents.filter((agent) => agent.status === 'active' || Number(agent.sessionCount || 0) > 0)
+    const idleAgents = sortedAgents.filter((agent) => !activeAgents.includes(agent))
     return {
       totalAgents: sortedAgents.length,
       activeAgents,
       idleAgents,
-      totalTokens: sortedAgents.reduce((sum: number, agent: any) => sum + Number(agent.totalTokens || 0), 0),
+      totalTokens: sortedAgents.reduce((sum, agent) => sum + Number(agent.totalTokens || 0), 0),
     }
   }, [agents])
 
@@ -188,7 +206,7 @@ export default function Agents() {
                 Live Agents
               </h3>
               <div style={{ display: 'grid', gridTemplateColumns: m ? '1fr' : 'repeat(auto-fill, minmax(280px, 1fr))', gap: m ? 12 : 16 }}>
-                {agentMetrics.activeAgents.map((agent: any, i: number) => (
+                {agentMetrics.activeAgents.map((agent, i) => (
                   <motion.div
                     key={agent.id}
                     initial={{ opacity: 0, y: 12, scale: 0.98 }}
@@ -226,7 +244,7 @@ export default function Agents() {
                             {agent.name}
                           </h3>
                           <StatusBadge
-                            status={agent.status}
+                            status={agent.status ?? 'off'}
                             pulse={agent.status === 'active'}
                           />
                         </div>
@@ -270,7 +288,7 @@ export default function Agents() {
                   Agent Registry
                 </h3>
                 <div style={{ display: 'grid', gridTemplateColumns: m ? '1fr' : 'repeat(auto-fill, minmax(320px, 1fr))', gap: m ? 12 : 16 }}>
-                  {agentMetrics.idleAgents.map((agent: any, i: number) => (
+                  {agentMetrics.idleAgents.map((agent, i) => (
                     <motion.div
                       key={agent.id}
                       initial={{ opacity: 0, y: 12, scale: 0.98 }}
@@ -292,7 +310,7 @@ export default function Agents() {
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                             <h3 style={{ fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.92)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{agent.name}</h3>
-                            <StatusBadge status={agent.status} pulse={agent.status === 'active'} />
+                            <StatusBadge status={agent.status ?? 'off'} pulse={agent.status === 'active'} />
                           </div>
                           <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 2 }}>{agent.role}</p>
                           <p style={{ fontSize: 10, color: '#BF5AF2', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -355,7 +373,7 @@ export default function Agents() {
                           { label: 'Tokens', value: <><AnimatedCounter end={Math.round((selected.totalTokens || 0) / 1000)} /><span style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)' }}>k</span></> },
                           { label: 'Last Active', value: selected.lastActive ? timeAgo(selected.lastActive) : '—' },
                           { label: 'Model', value: selected.model?.replace('us.anthropic.', '').replace(/claude-opus-(\d+).*/, 'Claude Opus $1').replace(/claude-sonnet-(\d+).*/, 'Claude Sonnet $1').replace(/claude-haiku-(\d+).*/, 'Claude Haiku $1').replace(/-/g, ' ') || 'Unknown' },
-                          { label: 'Status', value: <StatusBadge status={selected.status} size="md" /> },
+                          { label: 'Status', value: <StatusBadge status={selected.status ?? 'off'} size="md" /> },
                         ].map((item, idx) => (
                           <div key={idx} style={{ textAlign: 'center', padding: 12, borderRadius: 12, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}>
                             <p style={{ fontSize: 20, fontWeight: 300, color: 'rgba(255,255,255,0.92)' }}>{item.value}</p>
@@ -619,7 +637,7 @@ export default function Agents() {
                 <div style={{ marginBottom: 32 }}>
                   <h3 style={{ fontSize: 14, fontWeight: 600, color: 'rgba(255,255,255,0.65)', marginBottom: 12 }}>Quick Start Templates</h3>
                   <div style={{ display: 'grid', gridTemplateColumns: m ? '1fr' : 'repeat(3, 1fr)', gap: 12 }}>
-                    {templates.map((template, i) => (
+                    {templates.map((template) => (
                       <motion.div
                         key={template.name}
                         whileHover={{ scale: 1.02 }}
@@ -712,7 +730,7 @@ export default function Agents() {
                         outline: 'none'
                       }}
                     >
-                      {(modelsData || []).map((model: any) => (
+                      {(modelsData || []).map((model) => (
                         <option key={model.id} value={model.id}>{model.name}</option>
                       ))}
                     </select>
@@ -758,7 +776,7 @@ export default function Agents() {
                     }}>
                       {skillsData?.installed?.length ? (
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8 }}>
-                          {skillsData.installed.map((skill: any) => (
+                          {skillsData.installed.map((skill) => (
                             <label
                               key={skill.name}
                               style={{

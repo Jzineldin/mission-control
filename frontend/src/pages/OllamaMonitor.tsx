@@ -1,10 +1,11 @@
 import { useMemo, useState } from 'react'
-import { Server, Activity, Cpu, HardDrive, RefreshCw, CircleAlert, Clock3, Settings2, Save, Wand2, Copy, ChevronDown, ChevronUp } from 'lucide-react'
+import type { CSSProperties, ReactNode } from 'react'
+import { Server, Activity, Boxes, Cpu, Gauge, HardDrive, RefreshCw, CircleAlert, Clock3, Settings2, Save, Wand2, Copy, ChevronDown, ChevronUp } from 'lucide-react'
 import PageTransition from '../components/PageTransition'
 import GlassCard from '../components/GlassCard'
 import StatusBadge from '../components/StatusBadge'
 import { useApi } from '../lib/hooks'
-import { useIsMobile } from '../lib/useIsMobile'
+import styles from './OllamaMonitor.module.css'
 
 type OllamaModel = {
   name: string
@@ -205,6 +206,11 @@ type OllamaTelemetry = {
   gpu?: OllamaGpu
 }
 
+const STATUS_GREEN = '#32D74B'
+const STATUS_AMBER = '#FFD60A'
+const STATUS_RED = '#FF453A'
+const STATUS_GRAY = '#8E8E93'
+
 function formatBytes(bytes?: number | null) {
   if (!Number.isFinite(bytes || NaN) || (bytes || 0) <= 0) return '—'
   const units = ['B', 'KB', 'MB', 'GB', 'TB']
@@ -258,14 +264,22 @@ function formatTime(dateStr?: string | null) {
   return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
 }
 
-function statusColor(status: string) {
-  return status === 'online' ? 'ok' : status === 'degraded' ? 'idle' : 'error'
+function healthColor(score: number) {
+  if (score >= 85) return STATUS_GREEN
+  if (score >= 60) return STATUS_AMBER
+  return STATUS_RED
 }
 
-function healthColor(score: number) {
-  if (score >= 85) return '#34C759'
-  if (score >= 60) return '#FF9F0A'
-  return '#FF453A'
+function percentTone(percent: number) {
+  if (percent >= 92) return STATUS_RED
+  if (percent >= 80) return STATUS_AMBER
+  return STATUS_GREEN
+}
+
+function serverTone(status: string) {
+  if (status === 'online') return STATUS_GREEN
+  if (status === 'degraded') return STATUS_AMBER
+  return STATUS_RED
 }
 
 function formatMetric(value?: number | null, digits = 2) {
@@ -370,14 +384,10 @@ function safeProfile(current: OllamaOptimizationProfile): OllamaOptimizationProf
 
 function renderSparkline(values: number[], color: string, gradientId: string) {
   if (!values.length) {
-    return <div style={{ margin: 0, fontSize: 11, color: 'rgba(255,255,255,0.45)' }}>Henüz metrik yok</div>
+    return <div className={styles.mutedSmall}>No metrics yet</div>
   }
   if (values.length === 1) {
-    return (
-      <p style={{ margin: 0, fontSize: 11, color: 'rgba(255,255,255,0.55)' }}>
-        {`${Math.round(values[0])}%`}
-      </p>
-    )
+    return <p className={styles.mutedSmall}>{`${Math.round(values[0])}%`}</p>
   }
 
   const width = 260
@@ -413,61 +423,47 @@ function renderSparkline(values: number[], color: string, gradientId: string) {
   )
 }
 
-function MetricPill({ label, value, tone }: { label: string; value: string; tone?: 'estimate' | 'ok' }) {
+function MetricPill({ label, value, tone, title }: { label: string; value: string; tone?: 'estimate' | 'ok'; title?: string }) {
   return (
-    <div style={{ border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: '9px 10px', background: 'rgba(255,255,255,0.025)', minWidth: 130 }}>
-      <p style={{ margin: 0, fontSize: 10, color: 'rgba(255,255,255,0.52)' }}>{label}</p>
-      <p style={{ margin: '4px 0 0', fontSize: 13, fontWeight: 700, color: tone === 'estimate' ? '#FFB224' : 'rgba(255,255,255,0.92)' }}>{value}</p>
+    <div className={`${styles.pill} ${tone === 'estimate' ? styles.pillEstimate : ''}`} title={title}>
+      <span>{label}</span>
+      <strong>{value}</strong>
     </div>
   )
 }
 
-function OllamaLoadingState({ isMobile }: { isMobile: boolean }) {
-  const panelStyle = {
-    padding: isMobile ? 14 : 18,
-    minHeight: 118,
-    display: 'flex',
-    flexDirection: 'column' as const,
-    justifyContent: 'space-between',
-    gap: 14,
-  }
-  const shimmer = {
-    borderRadius: 999,
-    background: 'linear-gradient(90deg, rgba(255,255,255,0.08), rgba(255,255,255,0.18), rgba(255,255,255,0.08))',
-    backgroundSize: '220% 100%',
-    animation: 'shimmer 1.4s ease-in-out infinite',
-  }
-
+function OllamaLoadingState() {
   return (
     <PageTransition>
-      <div style={{ maxWidth: 1240, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 16 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16 }}>
+      <div className={styles.page}>
+        <div className={styles.topBar}>
           <div>
-            <h1 className="text-title">Ollama Monitor</h1>
-            <p className="text-body" style={{ marginTop: 4 }}>
-              Loading local model telemetry. Ollama is often a 10-15s check on first paint.
-            </p>
+            <div className={styles.titleRow}>
+              <span className={styles.titleIcon}><Server size={20} /></span>
+              <h1>Ollama Monitor</h1>
+            </div>
+            <p className={styles.subtitle}>Loading local model telemetry. Ollama is often a 10-15s check on first paint.</p>
           </div>
           <StatusBadge status="idle" label="Loading" />
         </div>
 
         <GlassCard delay={0.04} noPad>
-          <div style={{ padding: isMobile ? 16 : 22, display: 'flex', alignItems: 'center', gap: 14 }}>
-            <div style={{ width: 28, height: 28, border: '2px solid #007AFF', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite', flexShrink: 0 }} />
+          <div className={styles.loadingCard}>
+            <div className={styles.loadingSpinner} />
             <div>
-              <p style={{ margin: 0, color: 'rgba(255,255,255,0.9)', fontSize: 14, fontWeight: 700 }}>Checking local inference health</p>
-              <p style={{ margin: '4px 0 0', color: 'rgba(255,255,255,0.56)', fontSize: 12 }}>Server, loaded models, GPU, memory, and optimization policy.</p>
+              <strong>Checking local inference health</strong>
+              <small>Server, loaded models, GPU, memory, and optimization policy.</small>
             </div>
           </div>
         </GlassCard>
 
-        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(4, minmax(0, 1fr))', gap: 12 }}>
+        <div className={styles.loadingGrid}>
           {['Server', 'Models', 'Memory', 'GPU'].map((label) => (
             <GlassCard key={label} delay={0.06} noPad>
-              <div style={panelStyle}>
-                <p style={{ margin: 0, fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.48)' }}>{label}</p>
-                <div style={{ ...shimmer, width: '68%', height: 14 }} />
-                <div style={{ ...shimmer, width: '42%', height: 10, opacity: 0.7 }} />
+              <div className={styles.loadingPanel}>
+                <p>{label}</p>
+                <div className={styles.shimmer} style={{ width: '68%', height: 14 }} />
+                <div className={styles.shimmer} style={{ width: '42%', height: 10, opacity: 0.7 }} />
               </div>
             </GlassCard>
           ))}
@@ -478,7 +474,6 @@ function OllamaLoadingState({ isMobile }: { isMobile: boolean }) {
 }
 
 export default function OllamaMonitor() {
-  const m = useIsMobile()
   const { data, loading, error, refetch } = useApi<OllamaTelemetry>('/api/ollama/telemetry', 2500)
   const { data: historyData } = useApi<OllamaTelemetryHistoryResponse>('/api/ollama/telemetry/history', 5000)
   const { data: modelTelemetryData } = useApi<OllamaModelTelemetryResponse>('/api/ollama/telemetry/models', 5000)
@@ -546,12 +541,12 @@ export default function OllamaMonitor() {
   const hasEstimatedGpuMetrics = hasAnyGpuMetrics && !hasLiveGpuMetrics
   const gpuPlatform = gpu?.platform || 'linux'
   const gpuLabel = !gpuHasDevices
-    ? 'Metrik Yok'
+    ? 'No metrics'
     : hasLiveGpuMetrics && !gpu?.limited
-      ? 'Etkin'
+      ? 'Active'
       : hasEstimatedGpuMetrics
-        ? 'Tahmini'
-        : 'Kısmi'
+        ? 'Estimated'
+        : 'Partial'
   const gpuBadgeStatus = !gpu?.available || !gpuHasDevices ? 'error' : gpu?.limited ? 'idle' : 'ok'
 
   const optimization = data?.optimization
@@ -562,6 +557,18 @@ export default function OllamaMonitor() {
   const activeOptimizationProfile = optimizationDirty ? optimizationProfile : baseOptimizationProfile
   const recommendation = optimization?.recommendation
   const platform = optimization?.platform || 'unknown'
+  const recommendationDiffers = useMemo(() => {
+    if (!recommendation || !baseOptimizationProfile) return false
+    const rec = safeProfile(recommendation)
+    const cur = baseOptimizationProfile
+    return (
+      rec.strategy !== cur.strategy ||
+      rec.keepAlive !== cur.keepAlive ||
+      rec.maxLoadedModels !== cur.maxLoadedModels ||
+      rec.numCtx !== cur.numCtx ||
+      rec.numParallel !== cur.numParallel
+    )
+  }, [recommendation, baseOptimizationProfile])
   const healthScore = Number.isFinite(Number(data?.healthScore)) ? Number(data?.healthScore) : 0
   const alertNotes = useMemo(() => {
     return data?.alerts || []
@@ -599,53 +606,10 @@ export default function OllamaMonitor() {
     )
   }
 
-  const textPrimary = 'rgba(255,255,255,0.92)'
-  const textSecondary = 'rgba(255,255,255,0.6)'
-  const textTertiary = 'rgba(255,255,255,0.45)'
-  const panelBorder = '1px solid rgba(255,255,255,0.08)'
-  const inputStyle = {
-    borderRadius: 10,
-    border: '1px solid rgba(255,255,255,0.16)',
-    background: 'rgba(0,0,0,0.22)',
-    color: textPrimary,
-    padding: '10px 12px',
-    fontSize: 13,
-    outline: 'none',
-    width: '100%',
-  }
-  const fieldLabelStyle = {
-    margin: 0,
-    fontSize: 11,
-    fontWeight: 600,
-    color: textSecondary,
-  }
-  const metricLabelStyle = {
-    margin: 0,
-    fontSize: 11,
-    color: textSecondary,
-  }
-  const metricValueStyle = {
-    margin: '4px 0 0',
-    fontSize: 18,
-    fontWeight: 600,
-    color: textPrimary,
-  }
-  const helperTextStyle = {
-    margin: '4px 0 0',
-    fontSize: 11,
-    color: textTertiary,
-  }
-  const sectionTitleStyle = {
-    margin: 0,
-    fontSize: 14,
-    fontWeight: 600,
-    color: textPrimary,
-  }
-
   const handleCopyCommands = async (commands: string[]) => {
     if (!commands.length) return
     await navigator.clipboard.writeText(commands.join('\n'))
-    setOptimizationMessage('Uygulama komutları panoya kopyalandı.')
+    setOptimizationMessage('Apply commands copied to clipboard.')
     setTimeout(() => setOptimizationMessage(''), 2500)
   }
 
@@ -653,7 +617,7 @@ export default function OllamaMonitor() {
     if (!recommendation) return
     setOptimizationProfile(recommendation)
     setOptimizationDirty(true)
-    setOptimizationMessage('Öneri forma yüklendi. Kaydetmeniz gerekiyor.')
+    setOptimizationMessage('Recommendation loaded into the form. Save to apply.')
     setTimeout(() => setOptimizationMessage(''), 2500)
   }
 
@@ -675,11 +639,11 @@ export default function OllamaMonitor() {
       const changedKeys = Array.isArray(dryRun?.diff?.changed) ? dryRun.diff.changed : []
       const confirmed = window.confirm(
         changedKeys.length
-          ? `Bu değişiklikler uygulanacak: ${changedKeys.join(', ')}. Onaylıyor musun?`
-          : 'Değişiklik farkı bulunamadı. Yine de uygula?'
+          ? `These settings will change: ${changedKeys.join(', ')}. Apply?`
+          : 'No changes detected. Apply anyway?'
       )
       if (!confirmed) {
-        setOptimizationMessage('Uygulama iptal edildi.')
+        setOptimizationMessage('Apply cancelled.')
         return
       }
 
@@ -695,10 +659,10 @@ export default function OllamaMonitor() {
       const applied = await applyResponse.json()
       const verifyOk = applied?.verification?.ok ? 'OK' : 'FAIL'
       setOptimizationDirty(false)
-      setOptimizationMessage(`Ayarlar uygulandı. Post-apply verify: ${verifyOk}${applied?.verification?.latencyMs ? ` (${applied.verification.latencyMs}ms)` : ''}.`)
+      setOptimizationMessage(`Settings applied. Post-apply verify: ${verifyOk}${applied?.verification?.latencyMs ? ` (${applied.verification.latencyMs}ms)` : ''}.`)
       await refetch()
     } catch (err: unknown) {
-      setOptimizationMessage(errorMessage(err, 'Kaydetme başarısız'))
+      setOptimizationMessage(errorMessage(err, 'Save failed'))
     } finally {
       setIsSavingOptimization(false)
       setTimeout(() => setOptimizationMessage(''), 4000)
@@ -709,9 +673,9 @@ export default function OllamaMonitor() {
     setIsRollingBackOptimization(true)
     setOptimizationMessage('')
     try {
-      const confirmed = window.confirm('Son optimization değişikliğini geri alayım mı?')
+      const confirmed = window.confirm('Roll back the last optimization change?')
       if (!confirmed) {
-        setOptimizationMessage('Rollback iptal edildi.')
+        setOptimizationMessage('Rollback cancelled.')
         return
       }
       const response = await fetch('/api/ollama/optimization', {
@@ -725,10 +689,10 @@ export default function OllamaMonitor() {
       }
       const rolled = await response.json()
       setOptimizationDirty(false)
-      setOptimizationMessage(`Rollback tamamlandı. Verify: ${rolled?.verification?.ok ? 'OK' : 'FAIL'}`)
+      setOptimizationMessage(`Rollback complete. Verify: ${rolled?.verification?.ok ? 'OK' : 'FAIL'}`)
       await refetch()
     } catch (err: unknown) {
-      setOptimizationMessage(errorMessage(err, 'Rollback başarısız'))
+      setOptimizationMessage(errorMessage(err, 'Rollback failed'))
     } finally {
       setIsRollingBackOptimization(false)
       setTimeout(() => setOptimizationMessage(''), 4000)
@@ -751,653 +715,413 @@ export default function OllamaMonitor() {
   }, [data?.gpu?.available, healthHistory])
 
   if (loading && !data) {
-    return <OllamaLoadingState isMobile={m} />
+    return <OllamaLoadingState />
   }
 
   if (!data || error) {
     return (
       <PageTransition>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '400px', flexDirection: 'column', gap: 12 }}>
-          <CircleAlert size={48} style={{ color: '#FF453A' }} />
-          <p style={{ color: 'rgba(255,255,255,0.65)' }}>{error || 'Ollama telemetri verisi alınamadı'}</p>
-          <button
-            onClick={() => refetch()}
-            style={{
-              borderRadius: 8,
-              border: '1px solid rgba(255,255,255,0.22)',
-              background: 'rgba(255,255,255,0.1)',
-              color: 'rgba(255,255,255,0.92)',
-              padding: '8px 14px',
-              cursor: 'pointer',
-            }}
-          >
-            Yeniden Dene
+        <div className={styles.errorWrap}>
+          <CircleAlert size={48} />
+          <p>{error || 'Could not load Ollama telemetry'}</p>
+          <button className={styles.retryButton} onClick={() => refetch()}>
+            Retry
           </button>
         </div>
       </PageTransition>
     )
   }
 
+  const firstGpuDevice = gpu?.devices?.[0]
+  const gpuLoadNow = finiteNumber(firstGpuDevice?.utilGpu)
+  const cpuPercent = data.system.cpu.usagePercent
+  const memPercent = data.system.memory.usedPercent
+  const periodLabel = usagePeriod === 'day' ? 'Today' : usagePeriod === '7d' ? 'Last 7 days' : 'This month'
+
+  const heroCards: { label: string; icon: ReactNode; value: string; detail: string; color: string; spark?: number[] }[] = [
+    {
+      label: 'Health score',
+      icon: <Gauge size={13} />,
+      value: String(healthScore),
+      detail: 'Overall health, scored 0-100',
+      color: healthColor(healthScore),
+      spark: healthTrend,
+    },
+    {
+      label: 'Server',
+      icon: <Server size={13} />,
+      value: data.server.status.charAt(0).toUpperCase() + data.server.status.slice(1),
+      detail: `${data.server.baseUrl}${data.server.version ? ` · v${data.server.version}` : ''}`,
+      color: serverTone(data.server.status),
+    },
+    {
+      label: 'Models loaded',
+      icon: <Boxes size={13} />,
+      value: `${data.runtime.runningModels}/${data.runtime.totalModels}`,
+      detail: runningModelNames.length
+        ? `${visibleRunningModelNames.join(', ')}${hiddenRunningModelCount ? ` +${hiddenRunningModelCount} more` : ''}`
+        : `No model loaded · last load ${latestModelAt}`,
+      color: data.runtime.runningModels > 0 ? STATUS_GREEN : STATUS_GRAY,
+    },
+    {
+      label: 'CPU',
+      icon: <Cpu size={13} />,
+      value: `${cpuPercent}%`,
+      detail: `Load ${data.system.cpu.load1} / ${data.system.cpu.load5} / ${data.system.cpu.load15}`,
+      color: percentTone(cpuPercent),
+    },
+    {
+      label: 'Memory',
+      icon: <HardDrive size={13} />,
+      value: `${memPercent}%`,
+      detail: `${formatBytes(data.system.memory.usedBytes)} / ${formatBytes(data.system.memory.totalBytes)}`,
+      color: percentTone(memPercent),
+    },
+    {
+      label: 'GPU load',
+      icon: <Activity size={13} />,
+      value: gpuLoadNow !== null ? `${Math.round(gpuLoadNow)}%` : '—',
+      detail: firstGpuDevice?.name || 'No GPU metrics',
+      color: gpuLoadNow !== null ? percentTone(gpuLoadNow) : STATUS_GRAY,
+    },
+  ]
+
   return (
     <PageTransition>
-      <div style={{ maxWidth: 1240, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 16 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div className={styles.page}>
+        <div className={styles.topBar}>
           <div>
-            <h1 className="text-title">Ollama Monitor</h1>
-            <p className="text-body" style={{ marginTop: 4 }}>Local inference health, loaded models, and hardware headroom in one operational surface.</p>
+            <div className={styles.titleRow}>
+              <span className={styles.titleIcon}><Server size={20} /></span>
+              <h1>Ollama Monitor</h1>
+            </div>
+            <p className={styles.subtitle}>Local inference health, loaded models, and hardware headroom in one operational surface.</p>
           </div>
-          <button
-            onClick={() => refetch()}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-              borderRadius: 8,
-              border: '1px solid rgba(0,122,255,0.35)',
-              background: 'rgba(0,122,255,0.1)',
-              color: 'rgba(255,255,255,0.9)',
-              padding: m ? '8px 10px' : '10px 12px',
-              cursor: 'pointer',
-            }}
-          >
+          <button className={styles.refreshButton} onClick={() => refetch()}>
             <RefreshCw size={14} />
-            Yenile
+            Refresh
           </button>
         </div>
 
-        <GlassCard delay={0.08} noPad>
-          <div style={{ padding: m ? 14 : 18 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-              <Activity size={16} />
-              <h3 style={{ margin: 0, fontSize: 14, fontWeight: 600, color: 'rgba(255,255,255,0.92)' }}>GPU</h3>
+        {alertNotes.length > 0 ? (
+          <div
+            className={styles.alertBanner}
+            style={{ '--status-color': alertNotes.some((alert) => alert.severity === 'critical') ? STATUS_RED : STATUS_AMBER } as CSSProperties}
+            role="status"
+          >
+            <CircleAlert size={16} />
+            <div>
+              <strong>{alertNotes.length} active alert{alertNotes.length === 1 ? '' : 's'}</strong>
+              {alertNotes.slice(0, 3).map((alert) => (
+                <span key={`${alert.code}-${alert.triggeredAt}`}>
+                  {alert.message}
+                  {alert.suppressed ? ' (cooldown)' : ''}
+                </span>
+              ))}
             </div>
+          </div>
+        ) : null}
+
+        {data.server.error ? (
+          <div className={styles.alertBanner} style={{ '--status-color': STATUS_AMBER } as CSSProperties} role="status">
+            <CircleAlert size={16} />
+            <div>
+              <strong>Server warning</strong>
+              <span>{data.server.error}</span>
+            </div>
+          </div>
+        ) : null}
+
+        <div className={styles.heroStrip}>
+          {heroCards.map((card) => (
+            <div className={styles.heroCard} key={card.label} style={{ '--status-color': card.color } as CSSProperties}>
+              <span className={styles.heroLabel}>{card.icon}{card.label}</span>
+              <strong className={styles.heroValue}>{card.value}</strong>
+              <small className={styles.heroDetail}>{card.detail}</small>
+              {card.spark && card.spark.length > 1 ? (
+                <div className={styles.heroSpark}>{renderSparkline(card.spark, card.color, `hero-${card.label.replace(/\s+/g, '-')}`)}</div>
+              ) : null}
+            </div>
+          ))}
+        </div>
+
+        <div className={styles.mainGrid}>
+          <GlassCard delay={0.08} noPad>
+            <div className={styles.panelHeader}>
+              <div className={styles.panelTitle}><Activity size={15} /> GPU</div>
               <StatusBadge
                 status={gpuBadgeStatus}
-                label={gpuLabel === 'Metrik Yok' ? 'Metrik Yok' : `${gpuLabel}${data.gpu?.devices?.length ? ` (${data.gpu.devices.length})` : ''}`}
+                label={gpuLabel === 'No metrics' ? gpuLabel : `${gpuLabel}${gpu?.devices?.length ? ` (${gpu.devices.length})` : ''}`}
               />
-              {(!data.gpu?.available || !data.gpu?.devices?.length) && (
-                <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  <p style={{ fontSize: 12, margin: 0, color: 'rgba(255,255,255,0.62)' }}>
-                    {data.gpu?.error ? `GPU metriği alınamadı: ${data.gpu.error}` : 'GPU metriği görünmüyor.'}
-                  </p>
-                  {!!data.gpu?.limitation && (
-                    <p style={{ fontSize: 11, margin: 0, color: 'rgba(255,255,255,0.55)' }}>
-                      Not: {data.gpu.limitation}
-                    </p>
-                  )}
-                  {!!data.gpu?.tried?.length && (
-                    <p style={{ fontSize: 11, margin: 0, color: 'rgba(255,255,255,0.45)' }}>
-                      Denenen komutlar: {data.gpu.tried.join(', ')}
-                    </p>
-                  )}
-                </div>
-              )}
-              {data.gpu?.available && data.gpu?.devices?.length && hasEstimatedGpuMetrics && !hasLiveGpuMetrics && (
-                <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  <p style={{ fontSize: 12, margin: 0, color: 'rgba(255,255,255,0.62)' }}>
-                    GPU cihazları bulundu, canlı metrikler alınamadığı için VRAM değeri mevcut model yükünden tahmin edilir.
-                  </p>
-                </div>
-              )}
-              {data.gpu?.available && data.gpu?.devices?.length && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 10 }}>
-                  {(gpuPlatform === 'darwin' || data.gpu?.limited) && data.gpu?.limitation && (
-                    <p style={{ margin: 0, fontSize: 11, color: 'rgba(255,255,255,0.75)' }}>
-                      {data.gpu.limitation}
-                    </p>
-                  )}
-                  {data.gpu.devices.map((device) => {
-                      const utilGpu = finiteNumber(device.utilGpu)
-                      const utilMemory = finiteNumber(device.utilMemory)
-                      const memUsed = finiteNumber(device.memUsedMiB)
-                      const memTotal = finiteNumber(device.memTotalMiB)
-                      const memFree = finiteNumber(device.memFreeMiB)
-                      const tempC = finiteNumber(device.tempC)
-                      const powerDraw = finiteNumber(device.powerDraw)
-                      const powerLimit = finiteNumber(device.powerLimit)
-                      const memoryLabel = device.memUsedEstimate
-                        ? 'Memory estimate'
-                        : gpuPlatform === 'darwin'
-                          ? 'GPU memory observed'
-                          : 'VRAM used'
-                      const metricPills = [
-                        utilGpu !== null ? { label: 'GPU load', value: `${Math.round(utilGpu)}%` } : null,
-                        utilMemory !== null ? { label: 'Memory pressure', value: `${Math.round(utilMemory)}%` } : null,
-                        memUsed !== null || memTotal !== null ? {
-                          label: memoryLabel,
-                          value: [memUsed !== null ? formatMiB(memUsed) : null, memTotal !== null ? formatMiB(memTotal) : null].filter(Boolean).join(' / '),
-                          tone: device.memUsedEstimate ? 'estimate' as const : 'ok' as const,
-                        } : null,
-                        memFree !== null ? { label: gpuPlatform === 'darwin' ? 'Memory free observed' : 'VRAM free', value: formatMiB(memFree) } : null,
-                        tempC !== null ? { label: 'Temperature', value: `${Math.round(tempC)} °C` } : null,
-                        powerDraw !== null || powerLimit !== null ? {
-                          label: 'Power',
-                          value: [powerDraw !== null ? `${Math.round(powerDraw)} W` : null, powerLimit !== null ? `${Math.round(powerLimit)} W limit` : null].filter(Boolean).join(' / '),
-                        } : null,
-                      ].filter(Boolean) as { label: string; value: string; tone?: 'estimate' | 'ok' }[]
-                      const subtitle = [device.vendor, device.cores ? `${device.cores} cores` : null].map(presentText).filter(Boolean).join(' · ')
-
-                      return (
-                        <div
-                          key={device.index}
-                          style={{
-                            border: '1px solid rgba(255,255,255,0.08)',
-                            borderRadius: 12,
-                            padding: 12,
-                            display: 'flex',
-                            flexDirection: 'column',
-                            gap: 12,
-                          }}
-                        >
-                          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-                            <div style={{ minWidth: 220 }}>
-                              <p style={{ margin: 0, fontSize: 13, color: 'rgba(255,255,255,0.9)', fontWeight: 700 }}>{device.name}</p>
-                              <p style={{ margin: '3px 0 0', fontSize: 11, color: 'rgba(255,255,255,0.55)' }}>
-                                GPU {device.index}{subtitle ? ` · ${subtitle}` : ''}
-                              </p>
-                            </div>
-                            {device.memUsedEstimate ? (
-                              <p style={{ margin: 0, maxWidth: 360, fontSize: 11, lineHeight: 1.5, color: 'rgba(255,178,24,0.86)' }}>
-                                macOS does not expose per-process VRAM here; memory is estimated from loaded model size.
-                              </p>
-                            ) : null}
-                            {!device.memUsedEstimate && device.memorySource === 'apple-ioreg-unified-memory' ? (
-                              <p style={{ margin: 0, maxWidth: 360, fontSize: 11, lineHeight: 1.5, color: 'rgba(255,255,255,0.62)' }}>
-                                Memory is observed from Apple unified-memory counters, not discrete VRAM.
-                              </p>
-                            ) : null}
-                          </div>
-
-                          {metricPills.length > 0 ? (
-                            <div style={{ display: 'grid', gridTemplateColumns: m ? 'repeat(2, minmax(0, 1fr))' : 'repeat(auto-fit, minmax(130px, 1fr))', gap: 10 }}>
-                              {metricPills.map((metric) => (
-                                <MetricPill key={metric.label} label={metric.label} value={metric.value} tone={metric.tone} />
-                              ))}
-                            </div>
-                          ) : (
-                            <p style={{ margin: 0, fontSize: 12, color: 'rgba(255,255,255,0.56)' }}>
-                              No live GPU counters are available from this machine right now.
-                            </p>
-                          )}
-                      {device.index === data.gpu?.devices?.[0]?.index && (
-                        <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 8, marginTop: 8 }}>
-                          {visibleGpuUtilHistory.length > 0 && (
-                            <>
-                              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center' }}>
-                                <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.72)' }}>GPU load trend</div>
-                                <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.62)' }}>{summarizePercentTrend(visibleGpuUtilHistory)}</div>
-                              </div>
-                              {renderSparkline(visibleGpuUtilHistory, '#5E5CE6', 'gpu-util-gradient')}
-                            </>
-                          )}
-                          {visibleGpuMemHistory.length > 0 && (
-                            <>
-                              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center' }}>
-                                <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.72)' }}>
-                                  {gpuPlatform === 'darwin' ? 'GPU memory trend' : 'VRAM trend'}
-                                </div>
-                                <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.62)' }}>{summarizePercentTrend(visibleGpuMemHistory)}</div>
-                              </div>
-                              {renderSparkline(visibleGpuMemHistory, '#34C759', 'gpu-mem-gradient')}
-                            </>
-                          )}
-                          {!hasLiveGpuMetrics && (
-                            <p style={{ margin: 0, fontSize: 11, color: 'rgba(255,255,255,0.62)' }}>
-                              Live GPU counters are not exposed, so unavailable charts and fields are hidden.
-                            </p>
-                          )}
-                        </div>
-                      )}
-                        </div>
-                      )
-                  })}
-                </div>
-              )}
-          </div>
-        </GlassCard>
-
-        <GlassCard delay={0.12} noPad>
-          <div style={{ padding: m ? 14 : 18 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-              <Settings2 size={16} />
-              <h3 style={sectionTitleStyle}>Ollama Optimizasyon</h3>
             </div>
-            {!optimization ? (
-              <p style={{ margin: 0, fontSize: 12, color: textSecondary }}>Optimizasyon bilgisi alınmadı.</p>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                <div style={{ display: 'grid', gridTemplateColumns: m ? '1fr' : 'minmax(0, 0.9fr) minmax(0, 1.1fr)', gap: 12 }}>
-                  <div
-                    style={{
-                      border: panelBorder,
-                      borderRadius: 14,
-                      padding: 14,
-                      background: 'rgba(255,255,255,0.03)',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: 12,
-                    }}
-                  >
-                    <div>
-                      <p style={{ margin: 0, fontSize: 12, fontWeight: 600, color: textPrimary }}>General</p>
-                      <p style={{ ...helperTextStyle, marginTop: 2 }}>Açık/kapalı durumu ve tuning stratejisi.</p>
-                    </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: m ? '1fr' : 'repeat(2, minmax(0, 1fr))', gap: 12 }}>
-                      <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                        <span style={fieldLabelStyle}>Enabled</span>
-                        <span
-                          style={{
-                            ...inputStyle,
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: 10,
-                            cursor: 'pointer',
-                          }}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={!!activeOptimizationProfile?.enabled}
-                            onChange={(event) => updateOptimizationProfile({ enabled: event.target.checked })}
-                          />
-                          <span style={{ fontSize: 13, color: textPrimary }}>{activeOptimizationProfile?.enabled ? 'Aktif' : 'Pasif'}</span>
-                        </span>
-                      </label>
+            <div className={styles.panelBody}>
+              {(!gpu?.available || !gpu?.devices?.length) ? (
+                <>
+                  <p className={styles.muted}>
+                    {gpu?.error ? `GPU metrics unavailable: ${gpu.error}` : 'No GPU metrics are visible.'}
+                  </p>
+                  {!!gpu?.limitation && <p className={styles.mutedSmall}>Note: {gpu.limitation}</p>}
+                  {!!gpu?.tried?.length && <p className={styles.mutedSmall}>Commands tried: {gpu.tried.join(', ')}</p>}
+                </>
+              ) : (
+                <>
+                  {hasEstimatedGpuMetrics && !hasLiveGpuMetrics ? (
+                    <p className={styles.muted}>
+                      GPU devices found; live counters are unavailable, so VRAM is estimated from the loaded model footprint.
+                    </p>
+                  ) : null}
+                  {(gpuPlatform === 'darwin' || gpu?.limited) && gpu?.limitation ? (
+                    <p className={styles.mutedSmall}>{gpu.limitation}</p>
+                  ) : null}
+                  {gpu.devices?.map((device) => {
+                    const utilGpu = finiteNumber(device.utilGpu)
+                    const utilMemory = finiteNumber(device.utilMemory)
+                    const memUsed = finiteNumber(device.memUsedMiB)
+                    const memTotal = finiteNumber(device.memTotalMiB)
+                    const memFree = finiteNumber(device.memFreeMiB)
+                    const tempC = finiteNumber(device.tempC)
+                    const powerDraw = finiteNumber(device.powerDraw)
+                    const powerLimit = finiteNumber(device.powerLimit)
+                    const memoryLabel = device.memUsedEstimate
+                      ? 'Memory estimate'
+                      : gpuPlatform === 'darwin'
+                        ? 'GPU memory observed'
+                        : 'VRAM used'
+                    const metricPills = [
+                      utilGpu !== null ? { label: 'GPU load', value: `${Math.round(utilGpu)}%` } : null,
+                      utilMemory !== null ? { label: 'Memory pressure', value: `${Math.round(utilMemory)}%` } : null,
+                      memUsed !== null || memTotal !== null ? {
+                        label: memoryLabel,
+                        value: [memUsed !== null ? formatMiB(memUsed) : null, memTotal !== null ? formatMiB(memTotal) : null].filter(Boolean).join(' / '),
+                        tone: device.memUsedEstimate ? 'estimate' as const : 'ok' as const,
+                      } : null,
+                      memFree !== null ? { label: gpuPlatform === 'darwin' ? 'Memory free observed' : 'VRAM free', value: formatMiB(memFree) } : null,
+                      tempC !== null ? { label: 'Temperature', value: `${Math.round(tempC)} °C` } : null,
+                      powerDraw !== null || powerLimit !== null ? {
+                        label: 'Power',
+                        value: [powerDraw !== null ? `${Math.round(powerDraw)} W` : null, powerLimit !== null ? `${Math.round(powerLimit)} W limit` : null].filter(Boolean).join(' / '),
+                      } : null,
+                    ].filter(Boolean) as { label: string; value: string; tone?: 'estimate' | 'ok' }[]
+                    const subtitle = [device.vendor, device.cores ? `${device.cores} cores` : null].map(presentText).filter(Boolean).join(' · ')
 
-                      <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                        <span style={fieldLabelStyle}>Strategy</span>
-                        <select
-                          value={activeOptimizationProfile?.strategy || 'balanced'}
-                          onChange={(event) =>
-                            updateOptimizationProfile({
-                              strategy: (event.target.value === 'performance' || event.target.value === 'conservative'
-                                ? event.target.value
-                                : 'balanced') as OllamaOptimizationProfile['strategy'],
-                            })
-                          }
-                          style={inputStyle}
-                        >
-                          <option value="conservative">Conservative</option>
-                          <option value="balanced">Balanced</option>
-                          <option value="performance">Performance</option>
-                        </select>
-                      </label>
-                    </div>
+                    return (
+                      <div key={device.index} className={styles.gpuDevice}>
+                        <div className={styles.gpuDeviceHead}>
+                          <div>
+                            <p className={styles.gpuDeviceName}>{device.name}</p>
+                            <p className={styles.gpuDeviceMeta}>
+                              GPU {device.index}{subtitle ? ` · ${subtitle}` : ''}
+                            </p>
+                          </div>
+                          {device.memUsedEstimate ? (
+                            <p className={`${styles.gpuDeviceNote} ${styles.gpuDeviceNoteWarn}`}>
+                              macOS does not expose per-process VRAM here; memory is estimated from loaded model size.
+                            </p>
+                          ) : device.memorySource === 'apple-ioreg-unified-memory' ? (
+                            <p className={styles.gpuDeviceNote}>
+                              Memory is observed from Apple unified-memory counters, not discrete VRAM.
+                            </p>
+                          ) : null}
+                        </div>
+
+                        {metricPills.length > 0 ? (
+                          <div className={styles.pillGrid}>
+                            {metricPills.map((metric) => (
+                              <MetricPill key={metric.label} label={metric.label} value={metric.value} tone={metric.tone} />
+                            ))}
+                          </div>
+                        ) : (
+                          <p className={styles.muted}>No live GPU counters are available from this machine right now.</p>
+                        )}
+
+                        {device.index === gpu?.devices?.[0]?.index ? (
+                          <>
+                            {visibleGpuUtilHistory.length > 0 ? (
+                              <div className={styles.trendBlock}>
+                                <div className={styles.trendHead}>
+                                  <span className={styles.trendLabel}>GPU load trend</span>
+                                  <span className={styles.trendStats}>{summarizePercentTrend(visibleGpuUtilHistory)}</span>
+                                </div>
+                                {renderSparkline(visibleGpuUtilHistory, '#5E5CE6', 'gpu-util-gradient')}
+                              </div>
+                            ) : null}
+                            {visibleGpuMemHistory.length > 0 ? (
+                              <div className={styles.trendBlock}>
+                                <div className={styles.trendHead}>
+                                  <span className={styles.trendLabel}>{gpuPlatform === 'darwin' ? 'GPU memory trend' : 'VRAM trend'}</span>
+                                  <span className={styles.trendStats}>{summarizePercentTrend(visibleGpuMemHistory)}</span>
+                                </div>
+                                {renderSparkline(visibleGpuMemHistory, '#64D2FF', 'gpu-mem-gradient')}
+                              </div>
+                            ) : null}
+                            {!hasLiveGpuMetrics ? (
+                              <p className={styles.mutedSmall}>
+                                Live GPU counters are not exposed, so unavailable charts and fields are hidden.
+                              </p>
+                            ) : null}
+                          </>
+                        ) : null}
+                      </div>
+                    )
+                  })}
+                </>
+              )}
+            </div>
+          </GlassCard>
+
+          <GlassCard delay={0.12} noPad>
+            <div className={styles.panelHeader}>
+              <div className={styles.panelTitle}><Settings2 size={15} /> Optimization</div>
+              <div className={styles.panelMeta}>{platform}{optimizationDirty ? ' · unsaved changes' : ''}</div>
+            </div>
+            <div className={styles.panelBody}>
+              {!optimization ? (
+                <p className={styles.muted}>No optimization data available.</p>
+              ) : (
+                <>
+                  <div className={styles.formGrid}>
+                    <label className={styles.field}>
+                      <span>Enabled</span>
+                      <span className={styles.checkboxBox}>
+                        <input
+                          type="checkbox"
+                          checked={!!activeOptimizationProfile?.enabled}
+                          onChange={(event) => updateOptimizationProfile({ enabled: event.target.checked })}
+                        />
+                        <span>{activeOptimizationProfile?.enabled ? 'Enabled' : 'Disabled'}</span>
+                      </span>
+                    </label>
+                    <label className={styles.field}>
+                      <span>Strategy</span>
+                      <select
+                        value={activeOptimizationProfile?.strategy || 'balanced'}
+                        onChange={(event) =>
+                          updateOptimizationProfile({
+                            strategy: (event.target.value === 'performance' || event.target.value === 'conservative'
+                              ? event.target.value
+                              : 'balanced') as OllamaOptimizationProfile['strategy'],
+                          })
+                        }
+                      >
+                        <option value="conservative">Conservative</option>
+                        <option value="balanced">Balanced</option>
+                        <option value="performance">Performance</option>
+                      </select>
+                    </label>
+                    <label className={styles.field}>
+                      <span>Keep-alive</span>
+                      <input
+                        value={activeOptimizationProfile?.keepAlive || ''}
+                        onChange={(event) => updateOptimizationProfile({ keepAlive: event.target.value })}
+                      />
+                    </label>
+                    <label className={styles.field}>
+                      <span>Max loaded models</span>
+                      <input
+                        type="number"
+                        min={1}
+                        max={16}
+                        value={activeOptimizationProfile?.maxLoadedModels ?? ''}
+                        onChange={(event) => updateOptimizationProfile({ maxLoadedModels: Number(event.target.value) })}
+                      />
+                    </label>
+                    <label className={styles.field}>
+                      <span>num_ctx</span>
+                      <input
+                        type="number"
+                        min={256}
+                        max={65536}
+                        step={256}
+                        value={activeOptimizationProfile?.numCtx ?? ''}
+                        onChange={(event) => updateOptimizationProfile({ numCtx: Number(event.target.value) })}
+                      />
+                    </label>
+                    <label className={styles.field}>
+                      <span>num_parallel</span>
+                      <input
+                        type="number"
+                        min={1}
+                        max={16}
+                        value={activeOptimizationProfile?.numParallel ?? ''}
+                        onChange={(event) => updateOptimizationProfile({ numParallel: Number(event.target.value) })}
+                      />
+                    </label>
                   </div>
 
-                  <div
-                    style={{
-                      border: panelBorder,
-                      borderRadius: 14,
-                      padding: 14,
-                      background: 'rgba(255,255,255,0.03)',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: 12,
-                    }}
-                  >
-                    <div>
-                      <p style={{ margin: 0, fontSize: 12, fontWeight: 600, color: textPrimary }}>Resources</p>
-                      <p style={{ ...helperTextStyle, marginTop: 2 }}>Bellek ve concurrency limitleri.</p>
+                  {recommendation && recommendationDiffers ? (
+                    <div
+                      className={styles.recommendStrip}
+                      title={recommendation.reasons?.length ? recommendation.reasons.join('\n') : undefined}
+                    >
+                      <Wand2 size={13} />
+                      <span>
+                        Recommended: {recommendation.strategy} · keep-alive {recommendation.keepAlive} · {recommendation.maxLoadedModels} models · ctx {recommendation.numCtx} · parallel {recommendation.numParallel}
+                      </span>
+                      <button type="button" onClick={applyRecommendationToForm}>Use</button>
                     </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: m ? '1fr' : 'repeat(2, minmax(0, 1fr))', gap: 12 }}>
-                      <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                        <span style={fieldLabelStyle}>Keep-Alive</span>
-                        <input
-                          value={activeOptimizationProfile?.keepAlive || ''}
-                          onChange={(event) => updateOptimizationProfile({ keepAlive: event.target.value })}
-                          style={inputStyle}
-                        />
-                      </label>
-                      <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                        <span style={fieldLabelStyle}>Maks. Yüklü Model</span>
-                        <input
-                          type="number"
-                          min={1}
-                          max={16}
-                          value={activeOptimizationProfile?.maxLoadedModels ?? ''}
-                          onChange={(event) => updateOptimizationProfile({ maxLoadedModels: Number(event.target.value) })}
-                          style={inputStyle}
-                        />
-                      </label>
-                      <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                        <span style={fieldLabelStyle}>num_ctx</span>
-                        <input
-                          type="number"
-                          min={256}
-                          max={65536}
-                          step={256}
-                          value={activeOptimizationProfile?.numCtx ?? ''}
-                          onChange={(event) => updateOptimizationProfile({ numCtx: Number(event.target.value) })}
-                          style={inputStyle}
-                        />
-                      </label>
-                      <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                        <span style={fieldLabelStyle}>num_parallel</span>
-                        <input
-                          type="number"
-                          min={1}
-                          max={16}
-                          value={activeOptimizationProfile?.numParallel ?? ''}
-                          onChange={(event) => updateOptimizationProfile({ numParallel: Number(event.target.value) })}
-                          style={inputStyle}
-                        />
-                      </label>
-                    </div>
-                  </div>
-                </div>
+                  ) : null}
 
-                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', justifyContent: 'flex-end' }}>
-                  <button
-                    onClick={applyRecommendationToForm}
-                    disabled={!recommendation}
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: 8,
-                      borderRadius: 10,
-                      border: '1px solid rgba(255,255,255,0.22)',
-                      background: 'rgba(255,205,112,0.12)',
-                      color: 'rgba(255,255,255,0.95)',
-                      padding: '9px 12px',
-                      cursor: recommendation ? 'pointer' : 'not-allowed',
-                    }}
-                  >
-                    <Wand2 size={15} />
-                    Öneriyi Uygula
-                  </button>
-                  <button
-                    onClick={handleSaveOptimization}
-                    disabled={isSavingOptimization || !optimizationDirty}
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: 8,
-                      borderRadius: 10,
-                      border: '1px solid rgba(0,122,255,0.45)',
-                      background: 'rgba(0,122,255,0.15)',
-                      color: 'rgba(255,255,255,0.96)',
-                      padding: '9px 12px',
-                      cursor: optimizationDirty ? 'pointer' : 'not-allowed',
-                    }}
-                  >
-                    <Save size={15} />
-                    {isSavingOptimization ? 'Kaydediliyor...' : 'Kaydet'}
-                  </button>
-                  <button
-                    onClick={handleRollbackOptimization}
-                    disabled={isRollingBackOptimization}
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: 8,
-                      borderRadius: 10,
-                      border: '1px solid rgba(255,69,58,0.45)',
-                      background: 'rgba(255,69,58,0.14)',
-                      color: 'rgba(255,255,255,0.96)',
-                      padding: '9px 12px',
-                      cursor: isRollingBackOptimization ? 'progress' : 'pointer',
-                    }}
-                  >
-                    {isRollingBackOptimization ? 'Rollback...' : 'Rollback'}
-                  </button>
-                  <button
-                    onClick={() => handleCopyCommands(optimization?.applyCommands || [])}
-                    disabled={!optimization?.applyCommands?.length}
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: 8,
-                      borderRadius: 10,
-                      border: '1px solid rgba(0,255,255,0.3)',
-                      background: 'rgba(0,255,255,0.08)',
-                      color: 'rgba(255,255,255,0.95)',
-                      padding: '9px 12px',
-                      cursor: optimization?.applyCommands?.length ? 'pointer' : 'not-allowed',
-                    }}
-                  >
-                    <Copy size={15} />
-                    Komutları Kopyala
-                  </button>
-                </div>
-                {!!optimizationMessage && <p style={{ margin: 0, fontSize: 12, color: textPrimary }}>{optimizationMessage}</p>}
-                <div style={{ border: panelBorder, borderRadius: 12, padding: 12 }}>
-                  <p style={{ margin: 0, marginBottom: 6, fontSize: 12, color: textSecondary }}>Durum Özeti</p>
-                  <p style={{ margin: 0, fontSize: 12, color: textPrimary }}>
-                    Mevcut: {optimization.current.strategy} / keepAlive={optimization.current.keepAlive} / maxLoadedModels={optimization.current.maxLoadedModels} / num_ctx={optimization.current.numCtx} / num_parallel={optimization.current.numParallel}
-                  </p>
-                  <p style={{ margin: '6px 0 0', fontSize: 11, color: textSecondary }}>
-                    Önerilen profil: {recommendation?.strategy || '-'} / {recommendation?.keepAlive || '-'} / {recommendation?.maxLoadedModels || '-'} / {recommendation?.numCtx || '-'} / {recommendation?.numParallel || '-'}
-                  </p>
-                  <p style={{ margin: '6px 0 0', fontSize: 11, color: textSecondary }}>Platform: {platform}</p>
-                  {!!recommendation?.reasons?.length && (
-                    <div style={{ marginTop: 8 }}>
-                      <p style={{ margin: '0 0 4px', fontSize: 11, color: textSecondary }}>Nedenler</p>
-                      {recommendation.reasons.map((reason, index) => (
-                        <p key={`${reason}-${index}`} style={{ margin: '0 0 4px', fontSize: 11, color: textTertiary }}>
-                          • {reason}
-                        </p>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-        </GlassCard>
+                  <div className={styles.buttonRow}>
+                    <button
+                      className={`${styles.btn} ${styles.btnGhost}`}
+                      onClick={() => handleCopyCommands(optimization?.applyCommands || [])}
+                      disabled={!optimization?.applyCommands?.length}
+                    >
+                      <Copy size={14} />
+                      Copy commands
+                    </button>
+                    <button
+                      className={`${styles.btn} ${styles.btnGhost} ${styles.btnDanger}`}
+                      onClick={handleRollbackOptimization}
+                      disabled={isRollingBackOptimization}
+                    >
+                      {isRollingBackOptimization ? 'Rolling back…' : 'Rollback'}
+                    </button>
+                    <button
+                      className={`${styles.btn} ${styles.btnPrimary}`}
+                      onClick={handleSaveOptimization}
+                      disabled={isSavingOptimization || !optimizationDirty}
+                    >
+                      <Save size={14} />
+                      {isSavingOptimization ? 'Saving…' : 'Save'}
+                    </button>
+                  </div>
+                  {!!optimizationMessage && <p className={styles.formMessage}>{optimizationMessage}</p>}
+                </>
+              )}
+            </div>
+          </GlassCard>
+        </div>
 
         <GlassCard delay={0.16} noPad>
-          <div style={{ padding: m ? 14 : 18 }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 12 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <StatusBadge status={statusColor(data.server.status)} label={data.server.status} pulse={data.server.status === 'online'} />
-                <div>
-                  <p style={{ margin: 0, fontSize: 12, color: textSecondary }}>Sunucu</p>
-                  <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: textPrimary }}>{data.server.baseUrl}</p>
-                </div>
-              </div>
-              <div style={{ textAlign: 'right' }}>
-                <p style={{ margin: 0, fontSize: 12, color: textSecondary }}>Version</p>
-                <p style={{ margin: 0, fontSize: 13, color: textPrimary }}>{data.server.version || '—'}</p>
-              </div>
+          <div className={styles.panelHeader}>
+            <div className={styles.panelTitle}>
+              <Server size={15} /> Models
+              {modelTelemetryIsEstimated ? <span className={styles.modelBadge}>estimated telemetry</span> : null}
+              {tokenUsageData?.meta?.refreshing ? <span className={`${styles.modelBadge} ${styles.modelBadgeInfo}`}>token usage refreshing</span> : null}
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <div style={{ display: 'grid', gridTemplateColumns: m ? '1fr' : '1.35fr 0.85fr', gap: 12 }}>
-                <div
-                  style={{
-                    border: panelBorder,
-                    borderRadius: 16,
-                    padding: m ? 14 : 16,
-                    background: `radial-gradient(circle at top left, ${healthColor(healthScore)}22, transparent 34%), linear-gradient(180deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.02) 100%)`,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: 14,
-                  }}
-                >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: m ? 'flex-start' : 'center', flexDirection: m ? 'column' : 'row' }}>
-                    <div style={{ minWidth: 0 }}>
-                      <p style={{ margin: 0, fontSize: 12, fontWeight: 600, color: textSecondary }}>Health Score</p>
-                      <p style={{ margin: '6px 0 0', fontSize: m ? 38 : 48, lineHeight: 1, fontWeight: 800, color: healthColor(healthScore) }}>{healthScore}</p>
-                      <p style={{ ...helperTextStyle, marginTop: 6 }}>0-100 ölçekli genel sağlık</p>
-                    </div>
-                    <div style={{ flex: 1, width: '100%', minWidth: m ? '100%' : 240 }}>
-                      {renderSparkline(healthTrend, healthColor(healthScore), 'ollama-health-sparkline')}
-                    </div>
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center' }}>
-                      <span style={{ fontSize: 11, color: textSecondary }}>Overall progress</span>
-                      <span style={{ fontSize: 11, color: textPrimary, fontWeight: 600 }}>{healthScore}%</span>
-                    </div>
-                    <div style={{ height: 16, borderRadius: 999, background: 'rgba(255,255,255,0.08)', overflow: 'hidden' }}>
-                      <div
-                        style={{
-                          width: `${Math.max(0, Math.min(100, healthScore))}%`,
-                          height: '100%',
-                          borderRadius: 999,
-                          background: `linear-gradient(90deg, ${healthColor(healthScore)} 0%, ${healthColor(healthScore)}CC 100%)`,
-                          boxShadow: `0 0 20px ${healthColor(healthScore)}55`,
-                        }}
-                      />
-                    </div>
-                  </div>
-                </div>
-                <div style={{ border: panelBorder, borderRadius: 12, padding: 12 }}>
-                  <p style={{ margin: 0, fontSize: 12, color: textSecondary }}>Uyarılar</p>
-                  {alertNotes.length ? (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 8 }}>
-                      {alertNotes.slice(0, 4).map((alert) => (
-                        <p key={`${alert.code}-${alert.triggeredAt}`} style={{ margin: 0, fontSize: 11, color: textPrimary }}>
-                          • {alert.message}
-                          {alert.suppressed ? ' (bekleme süresi)' : ''}
-                        </p>
-                      ))}
-                    </div>
-                  ) : (
-                    <p style={{ margin: '8px 0 0', fontSize: 11, color: textTertiary }}>Aktif uyarı yok.</p>
-                  )}
-                </div>
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: m ? '1fr' : 'repeat(3, minmax(0, 1fr))', gap: 12 }}>
-                <div style={{ border: panelBorder, borderRadius: 12, padding: 12 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-                    <Cpu size={14} />
-                    <span style={{ fontSize: 12, color: textSecondary }}>CPU</span>
-                  </div>
-                  <p style={metricLabelStyle}>Yük</p>
-                  <p style={metricValueStyle}>{data.system.cpu.usagePercent}%</p>
-                  <p style={helperTextStyle}>
-                    Load: {data.system.cpu.load1} / {data.system.cpu.load5} / {data.system.cpu.load15}
-                  </p>
-                </div>
-                <div style={{ border: panelBorder, borderRadius: 12, padding: 12 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-                    <HardDrive size={14} />
-                    <span style={{ fontSize: 12, color: textSecondary }}>Bellek</span>
-                  </div>
-                  <p style={metricLabelStyle}>Kullanım</p>
-                  <p style={metricValueStyle}>{data.system.memory.usedPercent}%</p>
-                  <p style={helperTextStyle}>
-                    {formatBytes(data.system.memory.usedBytes)} / {formatBytes(data.system.memory.totalBytes)}
-                  </p>
-                </div>
-                <div style={{ border: panelBorder, borderRadius: 12, padding: 12 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-                    <Clock3 size={14} />
-                    <span style={{ fontSize: 12, color: textSecondary }}>Runtime</span>
-                  </div>
-                  <p style={metricLabelStyle}>Çalışan modeller</p>
-                  <p style={metricValueStyle}>{data.runtime.runningModels}</p>
-                  {runningModelNames.length > 0 ? (
-                    <div
-                      title={runningModelNames.join('\n')}
-                      style={{
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: 4,
-                        marginTop: 6,
-                        minWidth: 0,
-                      }}
-                    >
-                      {visibleRunningModelNames.map((name) => (
-                        <span
-                          key={name}
-                          style={{
-                            borderRadius: 999,
-                            border: '1px solid rgba(52,199,89,0.26)',
-                            background: 'rgba(52,199,89,0.10)',
-                            color: textPrimary,
-                            fontSize: 11,
-                            fontWeight: 600,
-                            lineHeight: 1.25,
-                            padding: '4px 8px',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
-                            maxWidth: '100%',
-                          }}
-                        >
-                          {name}
-                        </span>
-                      ))}
-                      {hiddenRunningModelCount > 0 && (
-                        <span style={{ ...helperTextStyle, marginTop: 0 }}>+{hiddenRunningModelCount} model daha</span>
-                      )}
-                    </div>
-                  ) : (
-                    <p style={{ ...helperTextStyle, marginTop: 6 }}>Aktif model yok</p>
-                  )}
-                  <p style={{ ...helperTextStyle, marginTop: 6 }}>Toplam: {data.runtime.totalModels}</p>
-                  <p style={{ ...helperTextStyle, marginTop: 3 }}>Son yükleme: {latestModelAt}</p>
-                </div>
-              </div>
-            </div>
-            {data.server.error && (
-              <p style={{ margin: '12px 0 0', fontSize: 11, color: '#FF9F0A' }}>
-                {data.server.error}
-              </p>
-            )}
-          </div>
-        </GlassCard>
-
-        <GlassCard delay={0.2} noPad>
-          <div style={{ padding: m ? 14 : 18 }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 12, flexWrap: 'wrap' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                <Server size={16} />
-                <h3 style={sectionTitleStyle}>Model Durumu</h3>
-                {modelTelemetryData?.estimated ? (
-                  <span style={{ fontSize: 10, color: '#FFB224', background: 'rgba(255,178,36,0.12)', border: '1px solid rgba(255,178,36,0.22)', borderRadius: 999, padding: '3px 8px' }}>
-                    estimated telemetry
-                  </span>
-                ) : null}
-                {tokenUsageData?.meta?.refreshing ? (
-                  <span style={{ fontSize: 10, color: '#64D2FF', background: 'rgba(100,210,255,0.10)', border: '1px solid rgba(100,210,255,0.20)', borderRadius: 999, padding: '3px 8px' }}>
-                    token usage refreshing
-                  </span>
-                ) : null}
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', justifyContent: m ? 'flex-start' : 'flex-end' }}>
-                <select
-                  value={usagePeriod}
-                  onChange={(event) => setUsagePeriod(event.target.value as 'day' | '7d' | 'month')}
-                  style={{
-                    borderRadius: 10,
-                    border: panelBorder,
-                    background: 'rgba(255,255,255,0.05)',
-                    color: textPrimary,
-                    padding: '8px 10px',
-                    fontSize: 12,
-                    outline: 'none',
-                  }}
-                  title="Token usage period"
-                >
-                  <option value="day">Bugün</option>
-                  <option value="7d">Son 7 gün</option>
-                  <option value="month">Bu ay</option>
-                </select>
-              {models.length > 0 && (
-                <button
-                  onClick={() => setAllModelsExpanded(!allModelsExpanded)}
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: 8,
-                    borderRadius: 10,
-                    border: panelBorder,
-                    background: 'rgba(255,255,255,0.05)',
-                    color: textPrimary,
-                    padding: '8px 12px',
-                    cursor: 'pointer',
-                  }}
-                >
+            <div className={styles.modelControls}>
+              <select
+                className={styles.controlSelect}
+                value={usagePeriod}
+                onChange={(event) => setUsagePeriod(event.target.value as 'day' | '7d' | 'month')}
+                title="Token usage period"
+              >
+                <option value="day">Today</option>
+                <option value="7d">Last 7 days</option>
+                <option value="month">This month</option>
+              </select>
+              {models.length > 0 ? (
+                <button className={styles.controlButton} onClick={() => setAllModelsExpanded(!allModelsExpanded)}>
                   {allModelsExpanded ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
-                  {allModelsExpanded ? 'Collapse All' : 'Expand All'}
+                  {allModelsExpanded ? 'Collapse all' : 'Expand all'}
                 </button>
-              )}
-              </div>
+              ) : null}
             </div>
-            {(models.length > 0 || modelMetrics.length > 0) && (
-              <div style={{ display: 'grid', gridTemplateColumns: m ? '1fr 1fr' : 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10, marginBottom: 14 }}>
+          </div>
+          <div className={styles.panelBody}>
+            {(models.length > 0 || modelMetrics.length > 0) ? (
+              <div className={styles.statRow}>
                 <MetricPill label="Models available" value={String(modelSummary.totalModels)} />
                 <MetricPill label="Loaded now" value={String(modelSummary.runningCount)} />
                 {tokenUsageData ? <MetricPill label="Period tokens" value={formatTokens(tokenUsageSummary.matchedTokens || tokenUsageSummary.totalTokens)} tone="ok" /> : null}
@@ -1405,52 +1129,36 @@ export default function OllamaMonitor() {
                 {modelMetrics.length > 0 ? <MetricPill label={modelLabels.error} value={formatErrorRate(modelSummary.avgErrorRate)} tone={modelTelemetryIsEstimated ? 'estimate' : 'ok'} /> : null}
                 {modelMetrics.length > 0 ? <MetricPill label={modelLabels.volume} value={String(modelSummary.totalRequests)} tone={modelTelemetryIsEstimated ? 'estimate' : 'ok'} /> : null}
               </div>
-            )}
-            {modelMetrics.length > 0 && (
+            ) : null}
+
+            {modelMetrics.length > 0 ? (
               <div
-                style={{
-                  border: modelTelemetryIsEstimated ? '1px solid rgba(255,178,36,0.20)' : panelBorder,
-                  borderRadius: 10,
-                  background: modelTelemetryIsEstimated ? 'rgba(255,178,36,0.08)' : 'rgba(255,255,255,0.03)',
-                  padding: '9px 10px',
-                  marginBottom: 12,
-                }}
+                className={`${styles.infoStrip} ${modelTelemetryIsEstimated ? styles.infoStripWarn : ''}`}
+                title={[
+                  modelLabels.note,
+                  modelTelemetryData?.limitations?.length ? `Limits: ${modelTelemetryData.limitations.join('; ')}` : '',
+                ].filter(Boolean).join('\n')}
               >
-                <p style={{ margin: 0, fontSize: 11, fontWeight: 700, color: modelTelemetryIsEstimated ? '#FFB224' : textSecondary }}>
-                  {modelLabels.source}
-                </p>
-                <p style={{ margin: '4px 0 0', fontSize: 11, color: textSecondary }}>
-                  {modelLabels.note} Source: {modelTelemetryData?.telemetrySource || 'unknown'} · Window: {Math.round((modelTelemetryData?.windowMs || 0) / 60000)}m · Updated: {formatTime(modelTelemetryData?.generatedAt)}
-                </p>
-                {!!modelTelemetryData?.limitations?.length && (
-                  <p style={{ margin: '4px 0 0', fontSize: 11, color: textTertiary }}>
-                    Limits: {modelTelemetryData.limitations.join('; ')}
-                  </p>
-                )}
+                <CircleAlert size={13} />
+                <span>
+                  <strong>{modelLabels.source}</strong> · {modelTelemetryData?.telemetrySource || 'unknown'} · window {Math.round((modelTelemetryData?.windowMs || 0) / 60000)}m · updated {formatTime(modelTelemetryData?.generatedAt)}
+                </span>
               </div>
-            )}
-            {tokenUsageData && (
-              <div
-                style={{
-                  border: tokenUsageData.meta?.stale ? '1px solid rgba(255,178,36,0.20)' : panelBorder,
-                  borderRadius: 10,
-                  background: tokenUsageData.meta?.stale ? 'rgba(255,178,36,0.06)' : 'rgba(255,255,255,0.03)',
-                  padding: '9px 10px',
-                  marginBottom: 12,
-                }}
-              >
-                <p style={{ margin: 0, fontSize: 11, fontWeight: 700, color: tokenUsageData.meta?.stale ? '#FFB224' : textSecondary }}>
-                  Token usage · {usagePeriod === 'day' ? 'Bugün' : usagePeriod === '7d' ? 'Son 7 gün' : 'Bu ay'}
-                </p>
-                <p style={{ margin: '4px 0 0', fontSize: 11, color: textSecondary }}>
-                  Source: {tokenUsageData.source || 'unknown'} · Updated: {formatTime(tokenUsageData.meta?.updatedAt)}{tokenUsageData.meta?.stale ? ' · stale cache' : ''}
-                </p>
+            ) : null}
+
+            {tokenUsageData ? (
+              <div className={`${styles.infoStrip} ${tokenUsageData.meta?.stale ? styles.infoStripWarn : ''}`}>
+                <Clock3 size={13} />
+                <span>
+                  <strong>Token usage · {periodLabel}</strong> · {tokenUsageData.source || 'unknown'} · updated {formatTime(tokenUsageData.meta?.updatedAt)}{tokenUsageData.meta?.stale ? ' · stale cache' : ''}
+                </span>
               </div>
-            )}
+            ) : null}
+
             {models.length === 0 ? (
-              <p style={{ fontSize: 12, color: textSecondary }}>Model listesi boş.</p>
+              <p className={styles.muted}>No models found.</p>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div className={styles.modelList}>
                 {models.map((model) => {
                   const metric = modelMetricMap.get(model.name)
                   const isExpanded = !!expandedModels[model.name]
@@ -1464,107 +1172,49 @@ export default function OllamaMonitor() {
                     : 'No token usage recorded in selected period'
 
                   return (
-                    <div
-                      key={model.name}
-                      style={{
-                        border: panelBorder,
-                        borderRadius: 14,
-                        background: 'rgba(255,255,255,0.03)',
-                        overflow: 'hidden',
-                      }}
-                    >
-                      <button
-                        onClick={() => toggleModelExpanded(model.name)}
-                        style={{
-                          width: '100%',
-                          border: 'none',
-                          background: 'transparent',
-                          color: textPrimary,
-                          padding: 14,
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          gap: 12,
-                          cursor: 'pointer',
-                          textAlign: 'left',
-                        }}
-                      >
-                        <div style={{ minWidth: 0, flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flexWrap: 'wrap' }}>
-                            <p
-                              style={{
-                                margin: 0,
-                                fontSize: 14,
-                                fontWeight: 600,
-                                color: textPrimary,
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                                whiteSpace: 'nowrap',
-                                minWidth: 0,
-                              }}
-                            >
-                              {model.name}
-                            </p>
-                            <StatusBadge status={model.status === 'running' ? 'active' : 'ok'} label={model.status} />
+                    <div key={model.name} className={styles.modelCard}>
+                      <button className={styles.modelToggle} onClick={() => toggleModelExpanded(model.name)}>
+                        <div className={styles.modelNameCell}>
+                          <div className={styles.modelNameRow}>
+                            <p className={styles.modelName}>{model.name}</p>
+                            {model.status === 'running' ? <StatusBadge status="active" label="running" pulse /> : null}
                           </div>
-                          <div style={{ display: 'grid', gridTemplateColumns: m ? 'repeat(2, minmax(0, 1fr))' : 'minmax(0, 0.9fr) repeat(3, minmax(100px, 0.55fr))', gap: 10, alignItems: 'center' }}>
-                            {metaParts.length > 0 ? (
-                              <p style={{ margin: 0, fontSize: 11, color: textTertiary }}>
-                                {metaParts.join(' · ')}
-                              </p>
-                            ) : <span />}
-                            <div title={tokenUsageTitle}>
-                              <p style={metricLabelStyle}>Tokens</p>
-                              <p style={{ margin: '3px 0 0', fontSize: 13, fontWeight: 600, color: hasTokenUsage ? textPrimary : textTertiary }}>{hasTokenUsage ? formatTokens(tokenUsage.tokens) : '—'}</p>
-                            </div>
-                            {requestsPerMinute !== null ? (
-                              <div>
-                                <p style={metricLabelStyle}>{modelLabels.rate}</p>
-                                <p style={{ margin: '3px 0 0', fontSize: 13, fontWeight: 600, color: textPrimary }}>{formatMetric(requestsPerMinute, 2)}</p>
-                              </div>
-                            ) : <span />}
-                            {hasErrorRate ? (
-                              <div>
-                                <p style={metricLabelStyle}>{modelLabels.errorShort}</p>
-                                <p style={{ margin: '3px 0 0', fontSize: 13, fontWeight: 600, color: textPrimary }}>{formatErrorRate(metric.errorRate)}</p>
-                              </div>
-                            ) : <span />}
-                          </div>
+                          {metaParts.length > 0 ? <p className={styles.modelMeta}>{metaParts.join(' · ')}</p> : null}
                         </div>
-                        {isExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+                        <div className={`${styles.modelCell} ${hasTokenUsage ? '' : styles.modelCellMuted}`} title={tokenUsageTitle}>
+                          <span>Tokens</span>
+                          <strong>{hasTokenUsage ? formatTokens(tokenUsage.tokens) : '—'}</strong>
+                        </div>
+                        <div className={`${styles.modelCell} ${requestsPerMinute !== null ? '' : styles.modelCellMuted}`}>
+                          <span>{modelLabels.rate}</span>
+                          <strong>{requestsPerMinute !== null ? formatMetric(requestsPerMinute, 2) : '—'}</strong>
+                        </div>
+                        <div className={`${styles.modelCell} ${hasErrorRate ? '' : styles.modelCellMuted}`}>
+                          <span>{modelLabels.errorShort}</span>
+                          <strong>{hasErrorRate ? formatErrorRate(metric!.errorRate) : '—'}</strong>
+                        </div>
+                        {isExpanded ? <ChevronUp size={17} /> : <ChevronDown size={17} />}
                       </button>
 
-                      {isExpanded && (
-                        <div style={{ borderTop: panelBorder, padding: 14, display: 'flex', flexDirection: 'column', gap: 12 }}>
-                          {metric && (
-                            <div style={{ display: 'grid', gridTemplateColumns: m ? '1fr 1fr' : 'repeat(5, minmax(0, 1fr))', gap: 10 }}>
-                              <div style={{ border: panelBorder, borderRadius: 12, padding: 10 }} title={tokenUsageTitle}>
-                                <p style={metricLabelStyle}>Period tokens</p>
-                                <p style={{ ...metricValueStyle, fontSize: 16 }}>{hasTokenUsage ? formatTokens(tokenUsage.tokens) : '—'}</p>
-                                {hasTokenUsage ? <p style={{ ...helperTextStyle, marginTop: 3 }}>{tokenUsage.sessions || 0} sessions</p> : null}
-                              </div>
-                              <div style={{ border: panelBorder, borderRadius: 12, padding: 10 }}>
-                                <p style={metricLabelStyle}>{modelLabels.rate}</p>
-                                <p style={{ ...metricValueStyle, fontSize: 16 }}>{formatMetric(metric.requestsPerMinute, 2)}</p>
-                              </div>
+                      {isExpanded ? (
+                        <div className={styles.modelExpand}>
+                          {metric ? (
+                            <div className={styles.detailGrid}>
+                              <MetricPill
+                                label="Period tokens"
+                                value={hasTokenUsage ? formatTokens(tokenUsage.tokens) : '—'}
+                                title={tokenUsageTitle}
+                              />
+                              <MetricPill label={modelLabels.rate} value={formatMetric(metric.requestsPerMinute, 2)} />
                               {finiteNumber(metric.p95LatencyMs) !== null ? (
-                                <div style={{ border: panelBorder, borderRadius: 12, padding: 10 }}>
-                                  <p style={metricLabelStyle}>{modelLabels.latency}</p>
-                                  <p style={{ ...metricValueStyle, fontSize: 16 }}>{formatMetric(metric.p95LatencyMs, 0)} ms</p>
-                                </div>
+                                <MetricPill label={modelLabels.latency} value={`${formatMetric(metric.p95LatencyMs, 0)} ms`} />
                               ) : null}
-                              <div style={{ border: panelBorder, borderRadius: 12, padding: 10 }}>
-                                <p style={metricLabelStyle}>{modelLabels.errorShort}</p>
-                                <p style={{ ...metricValueStyle, fontSize: 16 }}>{formatErrorRate(metric.errorRate)}</p>
-                              </div>
-                              <div style={{ border: panelBorder, borderRadius: 12, padding: 10 }}>
-                                <p style={metricLabelStyle}>{modelLabels.volumeShort}</p>
-                                <p style={{ ...metricValueStyle, fontSize: 16 }}>{metric.requestCount}</p>
-                              </div>
+                              <MetricPill label={modelLabels.errorShort} value={formatErrorRate(metric.errorRate)} />
+                              <MetricPill label={modelLabels.volumeShort} value={String(metric.requestCount)} />
                             </div>
-                          )}
+                          ) : null}
 
-                          <div style={{ display: 'grid', gridTemplateColumns: m ? '1fr 1fr' : 'repeat(4, minmax(0, 1fr))', gap: 10 }}>
+                          <div className={styles.detailGrid}>
                             {presentText(model.sizeLabel) ? <MetricPill label="Size" value={model.sizeLabel!} /> : null}
                             {presentText(model.family) ? <MetricPill label="Family" value={model.family!} /> : null}
                             {presentText(model.keepAlive) ? <MetricPill label="Keep-alive" value={model.keepAlive!} /> : null}
@@ -1572,24 +1222,22 @@ export default function OllamaMonitor() {
                             {formatTime(model.expiresAt) !== '—' ? <MetricPill label="Expires" value={formatTime(model.expiresAt)} /> : null}
                           </div>
 
-                          <div style={{ display: 'grid', gridTemplateColumns: m ? '1fr' : 'repeat(2, minmax(0, 1fr))', gap: 10 }}>
+                          <div className={styles.digestGrid}>
                             {presentText(model.digest) ? (
                               <div>
-                                <p style={metricLabelStyle}>Digest</p>
-                                <p style={{ margin: '4px 0 0', fontSize: 11, color: textTertiary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                  {model.digest}
-                                </p>
+                                <p className={styles.label}>Digest</p>
+                                <p className={styles.value}>{model.digest}</p>
                               </div>
                             ) : null}
                             <div>
-                              <p style={metricLabelStyle}>Telemetry</p>
-                              <p style={{ margin: '4px 0 0', fontSize: 11, color: textTertiary }}>
+                              <p className={styles.label}>Telemetry</p>
+                              <p className={styles.value}>
                                 {metric ? `${metric.status}${metric.estimated ? ' · snapshot-estimated, not request logs' : ''}` : 'Telemetry unavailable'}
                               </p>
                             </div>
                           </div>
                         </div>
-                      )}
+                      ) : null}
                     </div>
                   )
                 })}

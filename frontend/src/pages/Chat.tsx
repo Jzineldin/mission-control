@@ -24,7 +24,24 @@ import { useIsMobile } from '../lib/useIsMobile'
 import { markdownToHtml, sanitizeHtml } from '../utils/sanitize'
 import styles from './Chat.module.css'
 
-function sessionName(session: any): string {
+interface SessionInfo {
+  key?: string
+  displayName?: string
+  label?: string
+  type?: string
+  model?: string
+  isActive?: boolean
+  updatedAt?: string | number
+  totalTokens?: number
+}
+
+interface HistoryMessage {
+  role?: string
+  content?: string
+  ts?: number
+}
+
+function sessionName(session: SessionInfo): string {
   const key = session.key || ''
   const displayName = session.displayName || key
 
@@ -41,7 +58,7 @@ function sessionName(session: any): string {
   return key.split(':').pop()?.substring(0, 12) || displayName.substring(0, 30)
 }
 
-function sessionIcon(session: any) {
+function sessionIcon(session: SessionInfo) {
   switch (session.type || 'other') {
     case 'discord':
       return '💬'
@@ -56,7 +73,7 @@ function sessionIcon(session: any) {
   }
 }
 
-function sessionTypeLabel(session: any): string {
+function sessionTypeLabel(session: SessionInfo): string {
   switch (session.type || 'other') {
     case 'discord':
       return 'Discord Channel'
@@ -71,7 +88,7 @@ function sessionTypeLabel(session: any): string {
   }
 }
 
-function modelShort(model: string): string {
+function modelShort(model?: string): string {
   return model
     ?.replace('claude-', '')
     .replace(/-\d{8}.*/, '')
@@ -91,7 +108,7 @@ export default function Chat() {
   const [sessionInput, setSessionInput] = useState('')
   const historyEndRef = useRef<HTMLDivElement>(null)
 
-  const { data: sessionsData } = useQuery(apiQueryOptions<any>('/api/sessions', 15000))
+  const { data: sessionsData } = useQuery(apiQueryOptions<{ sessions?: SessionInfo[] }>('/api/sessions', 15000))
   const {
     abortStream,
     clearChat,
@@ -114,14 +131,17 @@ export default function Chat() {
   const historyQuery = useQuery({
     queryKey: historyKey,
     queryFn: () =>
-      fetchJson<{ messages: any[] }>(
+      fetchJson<{ messages: HistoryMessage[] }>(
         `/api/sessions/${encodeURIComponent(activeSession || '')}/history`,
       ),
     enabled: Boolean(activeSession && activeSession !== 'main-chat'),
     refetchOnWindowFocus: false,
   })
 
-  const historyMessages = historyQuery.data?.messages || []
+  const historyMessages = useMemo(
+    () => historyQuery.data?.messages || [],
+    [historyQuery.data],
+  )
 
   useEffect(() => {
     historyEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -150,8 +170,8 @@ export default function Chat() {
     clearChat()
   }
 
-  const openSession = (session: any) => {
-    setActiveSession(session.key)
+  const openSession = (session: SessionInfo) => {
+    setActiveSession(session.key ?? null)
     setActiveSessionName(sessionName(session))
   }
 
@@ -160,7 +180,7 @@ export default function Chat() {
     if (!text || !activeSession || activeSession === 'main-chat') return
 
     const optimisticEntry = { role: 'user', content: text, ts: Date.now() }
-    queryClient.setQueryData<{ messages: any[] }>(historyKey, (previous) => ({
+    queryClient.setQueryData<{ messages: HistoryMessage[] }>(historyKey, (previous) => ({
       messages: [...(previous?.messages || []), optimisticEntry],
     }))
     setSessionInput('')
@@ -173,18 +193,19 @@ export default function Chat() {
       })
       const data = await response.json()
       if (data.result) {
-        queryClient.setQueryData<{ messages: any[] }>(historyKey, (previous) => ({
+        queryClient.setQueryData<{ messages: HistoryMessage[] }>(historyKey, (previous) => ({
           messages: [
             ...(previous?.messages || []),
             { role: 'assistant', content: data.result, ts: Date.now() },
           ],
         }))
       }
-    } catch (error: any) {
-      queryClient.setQueryData<{ messages: any[] }>(historyKey, (previous) => ({
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      queryClient.setQueryData<{ messages: HistoryMessage[] }>(historyKey, (previous) => ({
         messages: [
           ...(previous?.messages || []),
-          { role: 'assistant', content: `⚠️ ${error.message}`, ts: Date.now() },
+          { role: 'assistant', content: `⚠️ ${message}`, ts: Date.now() },
         ],
       }))
     }
@@ -192,8 +213,8 @@ export default function Chat() {
 
   const allSessions = sessionsData?.sessions || []
   const sessions = allSessions
-    .filter((session: any) => (filter === 'active' ? session.isActive : true))
-    .filter((session: any) => {
+    .filter((session) => (filter === 'active' ? session.isActive : true))
+    .filter((session) => {
       if (!searchQuery) return true
       const searchTerm = searchQuery.toLowerCase()
       return (
@@ -202,12 +223,12 @@ export default function Chat() {
       )
     })
     .sort(
-      (a: any, b: any) =>
+      (a, b) =>
         new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime(),
     )
 
   const filters = [
-    { id: 'active', label: 'Active', count: allSessions.filter((s: any) => s.isActive).length },
+    { id: 'active', label: 'Active', count: allSessions.filter((s) => s.isActive).length },
     { id: 'all', label: 'All', count: allSessions.length },
   ]
 
@@ -242,7 +263,7 @@ export default function Chat() {
                 </div>
               ) : (
                 <div className={styles.messageList}>
-                  {historyMessages.map((msg: any, index: number) => (
+                  {historyMessages.map((msg, index) => (
                     <div key={`${msg.ts || index}-${index}`} className={styles.messageRow}>
                       <div
                         className={`${styles.avatar} ${
@@ -507,7 +528,7 @@ export default function Chat() {
         </div>
 
         <div className={`${styles.sessionList} ${m ? styles.sessionListMobile : ''}`}>
-          {sessions.map((session: any, index: number) => (
+          {sessions.map((session, index) => (
             <motion.div
               key={session.key}
               initial={{ opacity: 0, y: 6 }}
@@ -535,13 +556,14 @@ export default function Chat() {
               <div className={styles.sessionAside}>
                 <div className={styles.sessionTime}>
                   <Clock size={10} style={{ color: 'rgba(255,255,255,0.3)' }} />
-                  <span>{session.updatedAt ? timeAgo(session.updatedAt) : '—'}</span>
+                  <span>{session.updatedAt ? timeAgo(new Date(session.updatedAt).toISOString()) : '—'}</span>
                 </div>
                 <span className={styles.sessionModel}>{modelShort(session.model)}</span>
               </div>
               <button
                 onClick={(event) => {
                   event.stopPropagation()
+                  if (!session.key) return
                   if (!confirm('Close this session?')) return
                   closeSessionMutation.mutate(session.key)
                 }}
